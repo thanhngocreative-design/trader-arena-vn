@@ -1,0 +1,11 @@
+FROM python:3.11-slim
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+WORKDIR /app
+COPY requirements-live.txt requirements.txt ./
+RUN pip install --no-cache-dir -r requirements-live.txt
+COPY engine.py execution.py ./
+COPY live/ live/
+RUN useradd -m appuser && mkdir -p /data && chown -R appuser:appuser /data
+USER appuser
+EXPOSE 10000
+CMD ["sh","-c","exec uvicorn live.service:app --host 0.0.0.0 --port ${PORT:-10000} --workers 1"]
