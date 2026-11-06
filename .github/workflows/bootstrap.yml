@@ -1,0 +1,24 @@
+name: Install Trader Arena VN source
+on:
+  push:
+    branches: [main]
+    paths: [source.tar.gz.b64, .github/workflows/bootstrap.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  extract-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Expand project files
+        run: |
+          base64 -d source.tar.gz.b64 | tar -xzvf -
+          rm -f source.tar.gz.b64
+      - name: Commit complete project
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Import Trader Arena VN mobile app and bots [skip ci]"
+          git push
