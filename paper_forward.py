@@ -12,8 +12,10 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import pandas as pd
 from engine import Settings, TRADERS, make_features, stop_signal
+from execution import modeled_slippage, pass_cost_gate
 
 DEFAULT_STATE = Path(__file__).resolve().parent / 'state' / 'paper_state.json'
+RULES_REVISION = 2
 
 
 def _now():
@@ -63,7 +65,9 @@ def _plans(bot, trader, rows, features, date, settings):
     candidates.sort(key=lambda x:(-x[0],x[1]))
     for score,symbol in candidates:
         r=rows[symbol]
-        plans.append({'side':'BUY','symbol':symbol, 'reason':'Tín hiệu chiến thuật sau đóng cửa',
+        if not pass_cost_gate(settings,r,settings.initial_cash/settings.max_positions):
+            continue
+        plans.append({'side':'BUY','symbol':symbol, 'reason':'Tín hiệu xác nhận thanh khoản và đủ biên độ so với chi phí',
                       'signal_date':str(date.date()),
                       'vol20_prev':float(r['vol20_prev']),
                       'score':round(score,4)})
@@ -72,30 +76,38 @@ def _plans(bot, trader, rows, features, date, settings):
 
 def _execute(bot, date, index_pos, rows, settings):
     orders=bot['orders_next']; bot['orders_next']=[]
+    last_sold=bot.setdefault('last_sold',{})
     sells=[o for o in orders if o['side']=='SELL']
     buys=[o for o in orders if o['side']=='BUY']
     events=[]
     for o in sells:
         s=o['symbol']; pos=bot['positions'].get(s); r=rows.get(s)
         if pos is None: continue
-        if index_pos < pos['buy_index']+3 or r is None or pd.isna(r['open']) or r['volume']<=0:
+        if index_pos < pos['buy_index']+max(3,settings.minimum_hold_sessions) or r is None or pd.isna(r['open']) or r['volume']<=0:
             # Reconsider exit after today's close; preserve pending_exit.
             continue
-        price=float(r['open'])*(1-settings.slippage)
+        slip=modeled_slippage(settings,r.get('value20_prev',0),float(r['open'])*pos['qty'])
+        price=float(r['open'])*(1-slip)
         gross=pos['qty']*price; fee=gross*settings.fee_rate; tax=gross*settings.sell_tax
         proceeds=gross-fee-tax
         pnl=proceeds-pos['entry_cost']
         bot['cash'] += proceeds
         trade={'date':str(date.date()),'symbol':s,'side':'BÁN','qty':pos['qty'],
                'price':round(price),'pnl':round(pnl),'reason':o['reason'],
-               'fee':round(fee),'tax':round(tax)}
+               'fee':round(fee),'tax':round(tax),'slippage_rate':round(slip,6)}
         bot['trades'].append(trade); events.append(trade)
         del bot['positions'][s]
+        last_sold[s]=index_pos
     for o in buys:
         s=o['symbol']; r=rows.get(s)
         if s in bot['positions'] or len(bot['positions'])>=settings.max_positions: continue
+        if s in last_sold and index_pos-last_sold[s]<settings.cooldown_sessions: continue
         if r is None or pd.isna(r['open']) or r['open']<=0 or r['volume']<=0: continue
-        price=float(r['open'])*(1+settings.slippage)
+        allocation_guess=bot['cash']/max(1,settings.max_positions)
+        if not pass_cost_gate(settings,r,allocation_guess):
+            continue
+        slip=modeled_slippage(settings,r.get('value20_prev',0),allocation_guess)
+        price=float(r['open'])*(1+slip)
         gross_nav=bot['cash']
         for held,p in bot['positions'].items():
             held_row=rows.get(held)
@@ -106,6 +118,8 @@ def _execute(bot, date, index_pos, rows, settings):
         max_qty_by_budget=int(allocation/(price*(1+settings.fee_rate)))
         qty=(min(max_qty_by_liquidity,max_qty_by_budget)//settings.lot)*settings.lot
         if qty < settings.lot: continue
+        slip=modeled_slippage(settings,r.get('value20_prev',0),qty*float(r['open']))
+        price=float(r['open'])*(1+slip)
         cost=qty*price*(1+settings.fee_rate)
         if cost>bot['cash']+0.001:continue
         bot['cash']-=cost
@@ -113,22 +127,29 @@ def _execute(bot, date, index_pos, rows, settings):
                              'buy_index':index_pos,'buy_date':str(date.date()),
                              'high_water':price,'pending_exit':''}
         trade={'date':str(date.date()),'symbol':s,'side':'MUA','qty':qty,
-               'price':round(price),'reason':o['reason'],'fee':round(cost-qty*price),'tax':0}
+               'price':round(price),'reason':o['reason'],'fee':round(cost-qty*price),'tax':0,
+               'slippage_rate':round(slip,6)}
         bot['trades'].append(trade); events.append(trade)
     return events
 
 
-def update_paper(prices, benchmark, state_path=DEFAULT_STATE, settings=None, active_ids=None):
+def update_paper(prices, benchmark, state_path=DEFAULT_STATE, settings=None,
+                 active_ids=None, prepared_rows=None):
     settings=settings or Settings()
     active_ids=set(TRADERS) if active_ids is None else set(active_ids)
     if not active_ids.issubset(TRADERS):
         raise ValueError("Bot bật/tắt không nằm trong danh sách")
     session=benchmark.index.max()
     full_idx=benchmark.index
-    features={s:make_features(frame,benchmark).reindex(full_idx) for s,frame in prices.items() if len(frame)>=252}
-    if not features:
-        raise ValueError('Dữ liệu không đủ để tính tín hiệu')
-    rows={s:f.loc[session] for s,f in features.items() if session in f.index}
+    if prepared_rows is not None:
+        features={}
+        rows=prepared_rows
+    else:
+        features={s:make_features(frame,benchmark,settings.min_average_value).reindex(full_idx)
+                  for s,frame in prices.items() if len(frame)>=252}
+        if not features:
+            raise ValueError('Dữ liệu không đủ để tính tín hiệu')
+        rows={s:f.loc[session] for s,f in features.items() if session in f.index}
     if any(s not in rows or pd.isna(rows[s]['close']) for s in prices):
         raise ValueError('Dữ liệu cuối phiên thiếu cho một số cổ phiếu')
     state_path=Path(state_path); state_path.parent.mkdir(exist_ok=True,parents=True)
@@ -137,7 +158,8 @@ def update_paper(prices, benchmark, state_path=DEFAULT_STATE, settings=None, act
         if state.get('version') != 1: raise ValueError('State version không được hỗ trợ')
     else:
         state={'version':1,'started_at':_now(),'last_session':None,
-               'bots':{key:_base_bot(settings) for key in TRADERS},'warnings':[]}
+               'bots':{key:_base_bot(settings) for key in TRADERS},'warnings':[],
+               'rules_revision':RULES_REVISION}
     # Upgrade a running contest in place. The original bots keep their entire
     # journal; newly introduced bot IDs start NOW with 100m virtual cash.
     added=[key for key in TRADERS if key not in state['bots']]
@@ -145,21 +167,27 @@ def update_paper(prices, benchmark, state_path=DEFAULT_STATE, settings=None, act
         state['bots'][key]=_base_bot(settings)
     last=state['last_session']
     today=str(session.date())
+    migrated=state.get('rules_revision') != RULES_REVISION
     if last is not None and today<=last:
-        if not added:
+        if not (added or migrated):
             return state, False
         if today != last:
             raise ValueError('State có ngày phiên mới hơn dữ liệu; không thể nâng cấp an toàn')
-        for key in added:
+        for key in TRADERS:
             bot=state['bots'][key]
+            # On rule migration, discard yesterday's pending signals; do not
+            # retroactively create fills or delete any historical transactions.
             bot['orders_next']=_plans(bot,key,rows,features,session,settings) if key in active_ids else []
-            summary=_summary(bot,session,rows,settings)
-            bot['latest']=summary
-            bot['history'].append({k:summary[k] for k in ('date','nav','cash','return_pct')})
+            if key in added:
+                bot['started_session']=today
+                summary=_summary(bot,session,rows,settings)
+                bot['latest']=summary
+                bot['history'].append({k:summary[k] for k in ('date','nav','cash','return_pct')})
         state['updated_at']=_now()
+        state['rules_revision']=RULES_REVISION
         state['cloud_enabled']={key: key in active_ids for key in TRADERS}
-        state['warnings'].append('Đã thêm '+', '.join(added)+' vào cuộc thi kể từ phiên '+today+
-                                 '; không tạo lệnh ảo cho thời gian trước.')
+        state['warnings'].append('Nâng cấp luật bot ở phiên '+today+
+                                 ' mà không hồi tố lệnh giao dịch cũ.')
         tmp=state_path.with_suffix('.tmp')
         tmp.write_text(json.dumps(state,ensure_ascii=False,indent=2,default=str),encoding='utf-8')
         tmp.replace(state_path)
@@ -175,7 +203,7 @@ def update_paper(prices, benchmark, state_path=DEFAULT_STATE, settings=None, act
             state['warnings'].append(f'Bỏ lỡ {missed} phiên giữa {last} và {today}; không tự tạo giao dịch cho các phiên đó.')
     for key in TRADERS:
         bot=state['bots'][key]
-        if last is None or missed>0 or key in added or key not in active_ids:
+        if last is None or missed>0 or migrated or key in added or key not in active_ids:
             # Do NOT backdate orders. Disabled bots neither trade nor queue new orders.
             bot['orders_next']=[]
         else:
@@ -186,6 +214,7 @@ def update_paper(prices, benchmark, state_path=DEFAULT_STATE, settings=None, act
         bot['history'].append({k:summary[k] for k in ('date','nav','cash','return_pct')})
         bot['history']=bot['history'][-800:]
     state['last_session']=today
+    state['rules_revision']=RULES_REVISION
     state['cloud_enabled']={key: key in active_ids for key in TRADERS}
     state['updated_at']=_now()
     # Atomic write, caller should commit updated state to a persistent remote repository.
