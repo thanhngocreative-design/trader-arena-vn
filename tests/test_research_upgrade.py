@@ -110,3 +110,17 @@ def test_paper_cooldown_after_sell():
                            'volume':2_000_000.,'value20_prev':20e9})}
     assert _execute(bot,pd.Timestamp("2026-11-06"),350,now,st)==[]
     assert not bot['positions']
+
+
+def test_paper_buy_ranking_uses_relative_strength_not_raw_return():
+    from paper_forward import _plans
+    st=Settings()
+    bot={'cash':100_000_000.,'positions':{},'orders_next':[]}
+    common=dict(buy_CIS=True,atr14=1000.,close=30_000.,
+                value20_prev=10e9,vol20_prev=2_000_000)
+    rows={
+        'AAA':pd.Series({**common,'momentum60':.45,'rs60':.01}),
+        'BBB':pd.Series({**common,'momentum60':.16,'rs60':.25}),
+    }
+    plans=_plans(bot,'CIS',rows,{},pd.Timestamp('2026-11-06'),st)
+    assert [p['symbol'] for p in plans]==['BBB','AAA']
