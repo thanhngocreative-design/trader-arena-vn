@@ -2,7 +2,7 @@
 
 The strategies are rule-based approximations of *publicly described* approaches,
 not reverse-engineered or authenticated trade histories of named individuals.
-All transaction amounts are VND. Vnstock equity prices are supplied in 1,000 VND.
+All transaction amounts are VND. The adapter supplies equity input prices in 1,000 VND.
 """
 from __future__ import annotations
 
@@ -14,21 +14,49 @@ import pandas as pd
 TRADERS = {
     "Minervini": {
         "name": "Mark Minervini", "emoji": "🚀",
-        "tag": "Săn cổ phiếu tăng mạnh",
+        "tag": "Săn cổ phiếu tăng mạnh", "region": "US", "flag": "🇺🇸",
         "explain": "Chờ cổ phiếu có xu hướng dài hạn đi lên, rồi mua khi vượt đỉnh 20 phiên với khối lượng tăng.",
         "detail": "Bộ lọc Trend Template giản lược + breakout 20 phiên; chưa mô phỏng VCP, RS rank hoặc phân tích cơ bản.",
     },
     "ONeil": {
         "name": "William O’Neil", "emoji": "🔍",
-        "tag": "Săn cú bứt phá",
+        "tag": "Săn cú bứt phá", "region": "US", "flag": "🇺🇸",
         "explain": "Tìm cổ phiếu phá đỉnh 55 phiên với khối lượng lớn, khi VN-Index còn trên xu hướng trung hạn.",
         "detail": "Chỉ mô phỏng tín hiệu breakout/volume và market filter; không phải chiến thuật CAN SLIM đầy đủ.",
     },
     "Darvas": {
         "name": "Nicolas Darvas", "emoji": "📦",
-        "tag": "Vượt hộp giá",
+        "tag": "Vượt hộp giá", "region": "US", "flag": "🇺🇸",
         "explain": "Mua cổ phiếu vượt vùng giá cao 55 phiên, rồi đi theo xu hướng và thoát khi phá hỗ trợ.",
         "detail": "Mô hình hộp Darvas xấp xỉ bằng rolling high/low, chưa tái tạo chính xác cách Darvas tự xác định hộp.",
+    },
+    "BNF": {
+        "name": "Takashi Kotegawa (BNF)", "emoji": "🎯", "region": "JP", "flag": "🇯🇵",
+        "tag": "Săn cổ phiếu bị bán quá đà",
+        "explain": "Tìm cổ phiếu rơi xa dưới giá trung bình 25 phiên nhưng bắt đầu ngừng giảm, kỳ vọng một nhịp hồi ngắn.",
+        "detail": "Mean reversion giản lược: lệch dưới SMA25 từ 10%, phiên đóng cửa hồi và có thanh khoản. Mốc 10% là giả thuyết cho VN, không phải ngưỡng BNF sử dụng cố định.",
+        "source": "https://h9nfp.com/bnf/",
+    },
+    "CIS": {
+        "name": "CIS", "emoji": "⚡", "region": "JP", "flag": "🇯🇵",
+        "tag": "Đi theo đà tăng ngắn hạn",
+        "explain": "Mua khi cổ phiếu tăng vượt vùng giá 10 phiên, hướng đi chung đang thuận lợi và nhiều người giao dịch.",
+        "detail": "Trend-following proxy cho tư duy giao dịch ngắn hạn của CIS; không có bộ RSI/MACD hoặc tham số chính thức được xác thực.",
+        "source": "https://diamond.jp/zai/articles/-/197112",
+    },
+    "Qullamaggie": {
+        "name": "Kristjan Kullamägi (Qullamaggie)", "emoji": "🏄", "region": "EU", "flag": "🇸🇪",
+        "tag": "Tăng mạnh rồi bứt phá tiếp",
+        "explain": "Tìm cổ phiếu đã tăng mạnh, nghỉ trong biên độ tương đối hẹp rồi vượt đỉnh ngắn hạn.",
+        "detail": "Proxy cho setup Breakout: momentum 60 phiên, vùng tích lũy 10 phiên, khối lượng xác nhận. Không mô phỏng điểm mua intraday hoặc Episodic Pivot.",
+        "source": "https://qullamaggie.com/my-3-timeless-setups-that-have-made-me-tens-of-millions/",
+    },
+    "Unger": {
+        "name": "Andrea Unger", "emoji": "🧠", "region": "EU", "flag": "🇮🇹",
+        "tag": "Breakout có kiểm soát biến động",
+        "explain": "Chỉ mua khi giá vượt đỉnh 20 phiên, thị trường đang thuận lợi và biến động không quá hỗn loạn.",
+        "detail": "Mô hình thử nghiệm breakouts + ATR/volatility filter theo triết lý hệ thống; Unger chủ yếu giao dịch futures nên đây không phải chiến thuật cổ phiếu gốc.",
+        "source": "https://ungeracademy.com/blog/the-trading-edge",
     },
 }
 
@@ -72,9 +100,17 @@ def prepare(raw: pd.DataFrame) -> pd.DataFrame:
 def make_features(df: pd.DataFrame, benchmark: pd.DataFrame) -> pd.DataFrame:
     p = df.copy()
     c, h, lo, v = p["close"], p["high"], p["low"], p["volume"]
-    for n in (20, 50, 100, 150, 200):
+    for n in (10, 20, 25, 50, 100, 150, 200):
         p[f"sma{n}"] = c.rolling(n, min_periods=n).mean()
+    p["high10_prev"] = h.rolling(10, min_periods=10).max().shift(1)
     p["high20_prev"] = h.rolling(20, min_periods=20).max().shift(1)
+    p["low10_prev"] = lo.rolling(10, min_periods=10).min().shift(1)
+    prev_close = c.shift(1)
+    true_range = pd.concat([(h-lo).abs(), (h-prev_close).abs(), (lo-prev_close).abs()],axis=1).max(axis=1)
+    p["atr14"] = true_range.rolling(14, min_periods=14).mean()
+    # Consolidation uses only the 10 bars BEFORE signal day, not today's high/low.
+    p["range10_prev"] = p["high10_prev"] / p["low10_prev"] - 1
+    p["mom5"] = c / c.shift(5) - 1
     p["high55_prev"] = h.rolling(55, min_periods=55).max().shift(1)
     p["low15_prev"] = lo.rolling(15, min_periods=15).min().shift(1)
     p["low252"] = lo.rolling(252, min_periods=252).min()
@@ -95,6 +131,21 @@ def make_features(df: pd.DataFrame, benchmark: pd.DataFrame) -> pd.DataFrame:
         & (v > p["vol20_prev"] * 1.5) & p["market_ok"]
     p["buy_Darvas"] = (c > p["sma100"]) & (c > p["high55_prev"]) \
         & (v > p["vol20_prev"] * 1.15)
+    # BNF proxy: oversold mean-reversion, distinct from breakout systems.
+    p["buy_BNF"] = (c <= p["sma25"] * .90) & (c > c.shift(1)) \
+        & (v > p["vol20_prev"] * .8)
+    # CIS proxy: follow a strong short-term move instead of anticipating a reversal.
+    p["buy_CIS"] = (c > p["sma10"]) & (p["sma10"] > p["sma20"]) \
+        & (p["sma20"] > p["sma50"]) & (c > p["high10_prev"]) \
+        & (v > p["vol20_prev"] * 1.15) & p["market_ok"]
+    # Qullamaggie proxy: momentum continuation after a compact consolidation.
+    p["buy_Qullamaggie"] = (p["momentum60"] > .25) & (p["range10_prev"] < .18) \
+        & (c > p["high10_prev"]) & (c > p["sma20"]) \
+        & (v > p["vol20_prev"] * 1.25) & p["market_ok"]
+    # Unger proxy: mechanical breakout gated by volatility.
+    p["buy_Unger"] = (c > p["high20_prev"]) & (c > p["sma50"]) \
+        & (p["atr14"] / c.shift(1) < .055) & (p["atr14"] / c.shift(1) > .009) \
+        & (v > p["vol20_prev"] * 1.05) & p["market_ok"]
     for key in TRADERS:
         p[f"buy_{key}"] = (p[f"buy_{key}"] & p["liq_ok"]).fillna(False)
     return p
@@ -119,6 +170,25 @@ def stop_signal(trader: str, yesterday: pd.Series, position: dict) -> tuple[bool
             return True, "Giá giảm 12% so với đỉnh khi đang giữ"
         if close < yesterday.get("low15_prev", np.nan):
             return True, "Giá phá đáy 15 phiên"
+    if trader == "BNF":
+        if close <= position["price"] * .93:
+            return True, "Hồi không thành, giảm hơn 7% từ giá mua"
+        if close >= yesterday.get("sma25", np.nan) * .98:
+            return True, "Giá đã hồi về gần trung bình 25 phiên"
+        if close >= position["price"] * 1.06:
+            return True, "Giá đã tăng 6% so với lúc mua"
+    if trader == "CIS":
+        if close < position["price"] * .94 or close < yesterday.get("sma10", np.nan):
+            return True, "Đà tăng 10 phiên yếu đi hoặc lỗ quá 6%"
+    if trader == "Qullamaggie":
+        if close < position["price"] * .93 or close < yesterday.get("sma20", np.nan):
+            return True, "Mất xu hướng 20 phiên hoặc lỗ quá 7%"
+    if trader == "Unger":
+        atr = yesterday.get("atr14", np.nan)
+        if close < yesterday.get("sma20", np.nan):
+            return True, "Giá xuống dưới trung bình 20 phiên"
+        if pd.notna(atr) and close < position["high_water"] - 2.5 * atr:
+            return True, "Giá giảm quá 2,5 lần biến động ATR từ đỉnh"
     return False, ""
 
 
