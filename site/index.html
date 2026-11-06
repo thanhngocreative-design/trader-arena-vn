@@ -344,7 +344,7 @@ async function startLiveBridge(){
     if(u.protocol!=='https:')throw new Error('Require HTTPS live data');
     liveApiBase=u.origin;
     await pollLive();
-    window.setInterval(pollLive,7000);
+    window.setInterval(pollLive,3000);
   }catch(_){
     state.textContent='CHƯA KẾT NỐI';
     detail.textContent='Đang dùng dữ liệu cuối ngày; không có kết nối giá realtime đã xác minh.';
