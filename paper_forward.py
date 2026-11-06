@@ -63,7 +63,7 @@ def _plans(bot, trader, rows, features, date, settings):
     candidates.sort(key=lambda x:(-x[0],x[1]))
     for score,symbol in candidates:
         r=rows[symbol]
-        plans.append({'side':'BUY','symbol':symbol, 'reason':'Tín hiệu breakout sau đóng cửa',
+        plans.append({'side':'BUY','symbol':symbol, 'reason':'Tín hiệu chiến thuật sau đóng cửa',
                       'signal_date':str(date.date()),
                       'vol20_prev':float(r['vol20_prev']),
                       'score':round(score,4)})
@@ -135,10 +135,31 @@ def update_paper(prices, benchmark, state_path=DEFAULT_STATE, settings=None):
     else:
         state={'version':1,'started_at':_now(),'last_session':None,
                'bots':{key:_base_bot(settings) for key in TRADERS},'warnings':[]}
+    # Upgrade a running contest in place. The original bots keep their entire
+    # journal; newly introduced bot IDs start NOW with 100m virtual cash.
+    added=[key for key in TRADERS if key not in state['bots']]
+    for key in added:
+        state['bots'][key]=_base_bot(settings)
     last=state['last_session']
     today=str(session.date())
     if last is not None and today<=last:
-        return state, False
+        if not added:
+            return state, False
+        if today != last:
+            raise ValueError('State có ngày phiên mới hơn dữ liệu; không thể nâng cấp an toàn')
+        for key in added:
+            bot=state['bots'][key]
+            bot['orders_next']=_plans(bot,key,rows,features,session,settings)
+            summary=_summary(bot,session,rows,settings)
+            bot['latest']=summary
+            bot['history'].append({k:summary[k] for k in ('date','nav','cash','return_pct')})
+        state['updated_at']=_now()
+        state['warnings'].append('Đã thêm '+', '.join(added)+' vào cuộc thi kể từ phiên '+today+
+                                 '; không tạo lệnh ảo cho thời gian trước.')
+        tmp=state_path.with_suffix('.tmp')
+        tmp.write_text(json.dumps(state,ensure_ascii=False,indent=2,default=str),encoding='utf-8')
+        tmp.replace(state_path)
+        return state, True
     idx_pos=full_idx.get_loc(session)
     missed=0
     if last is not None:
@@ -150,7 +171,7 @@ def update_paper(prices, benchmark, state_path=DEFAULT_STATE, settings=None):
             state['warnings'].append(f'Bỏ lỡ {missed} phiên giữa {last} và {today}; không tự tạo giao dịch cho các phiên đó.')
     for key in TRADERS:
         bot=state['bots'][key]
-        if last is None or missed>0:
+        if last is None or missed>0 or key in added:
             # Do NOT retroactively fake trading on the first/missed session.
             bot['orders_next']=[]
         else:
