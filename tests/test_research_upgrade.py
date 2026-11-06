@@ -79,3 +79,34 @@ def test_hybrid_cash_when_nobody_makes_positive_trailing_return():
     build_hybrid_signals(ctx,base,training_bars=42,rebalance_bars=7)
     assert not ctx.buy["Hybrid"].any()
     assert ctx.hybrid_winners[len(ctx.dates)-1]=={}
+
+
+def test_paper_fill_uses_prior_signal_cost_data_not_future_candle():
+    from paper_forward import _execute
+    bot={'cash':100_000_000.,'positions':{},'trades':[],
+         'orders_next':[{'side':'BUY','symbol':'FPT','reason':'prior signal',
+            'signal_date':'2026-11-05','vol20_prev':2_000_000,
+            'atr14':1200.,'signal_close':30_000.,'value20_prev':10e9}]}
+    # If the simulator were to evaluate today's completed candle, the
+    # artificially tiny current ATR would incorrectly reject the fill.
+    today={'FPT':pd.Series({'open':30_100.,'close':29_900.,
+                           'volume':1_000_000.,'atr14':1.,'value20_prev':10e9})}
+    events=_execute(bot,pd.Timestamp("2026-11-06"),350,today,Settings())
+    assert len(events)==1
+    assert events[0]['side']=='MUA'
+    assert events[0]['qty']>=100
+    assert events[0]['slippage_rate']>=Settings().slippage
+
+
+def test_paper_cooldown_after_sell():
+    from paper_forward import _execute
+    st=Settings()
+    bot={'cash':100_000_000.,'positions':{},'trades':[],
+         'last_sold':{'FPT':345},
+         'orders_next':[{'side':'BUY','symbol':'FPT','reason':'bounce',
+             'vol20_prev':2_000_000,'atr14':1000.,
+             'signal_close':30_000.,'value20_prev':20e9}]}
+    now={'FPT':pd.Series({'open':30_000.,'close':30_000.,
+                           'volume':2_000_000.,'value20_prev':20e9})}
+    assert _execute(bot,pd.Timestamp("2026-11-06"),350,now,st)==[]
+    assert not bot['positions']
