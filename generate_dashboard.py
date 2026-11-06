@@ -11,8 +11,9 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import argparse
 import pandas as pd
-from datafeed import update_prices, load_prices, parse_symbols, DEFAULT_TICKERS
-from engine import TRADERS, Settings, backtest, make_features
+from datafeed import update_prices, load_prices, parse_symbols, DEFAULT_TICKERS, MIN_USABLE
+from engine import TRADERS, Settings, backtest
+from fast_engine import FastContext, CORE, build_hybrid_signals
 from paper_forward import update_paper
 
 ROOT=Path(__file__).resolve().parent
@@ -99,12 +100,16 @@ def summary_backtest(r):
 
 def build(symbols, history_start, out_path):
     status=update_prices(symbols,start='2021-01-01')
-    # Important: NEVER reuse cached files after a failure or stale update.
+    # Candidate failures are disclosed but cannot silently pass as data.
     if status['errors']:
         raise RuntimeError('Không xuất dashboard: lỗi tải dữ liệu '+str(status['errors']))
-    prices,benchmark,missing=load_prices(symbols)
+    accepted=[k for k in symbols if k in status['success']]
+    required=min(MIN_USABLE,len(symbols))
+    if len(accepted)<required:
+        raise RuntimeError(f"Chỉ có {len(accepted)}/{len(symbols)} mã đủ dữ liệu; cần tối thiểu {required}. Lỗi mẫu: "+str(list(status['skipped'].items())[:8]))
+    prices,benchmark,missing=load_prices(accepted)
     if missing or benchmark is None:
-        raise RuntimeError('Không xuất dashboard: thiếu dữ liệu '+str(missing))
+        raise RuntimeError('Không xuất dashboard: thiếu giá '+str(missing))
     last=benchmark.index.max()
     if any(p.index.max()!=last for p in prices.values()):
         stale=[s for s,p in prices.items() if p.index.max()!=last]
@@ -113,10 +118,15 @@ def build(symbols, history_start, out_path):
         raise RuntimeError('Không đủ dữ liệu tính chiến thuật (>=252 phiên)')
     settings=Settings()
     active_ids=load_cloud_config()
-    # Reuse full-data rolling indicators so that every preset is a true, separate
-    # 100m VND backtest — not a misleading cut-and-normalize of one NAV curve.
-    features={sym:make_features(frame,benchmark).reindex(benchmark.index)
-              for sym,frame in prices.items() if len(frame)>=100}
+    # Build numpy-ready matrices once: 11 bots x 5 windows x many symbols,
+    # without repeatedly evaluating dataframe row lookups.
+    context=FastContext(prices,benchmark,settings)
+    # Fitted only on PAST simulated NAVs for each day (pre-2023 warm-up).
+    # IMPORTANT: never pick winners using 2026 final total returns at 2023 entry.
+    training_start=max(benchmark.index.min(),pd.Timestamp('2022-01-03'))
+    reference={k:backtest(prices,benchmark,k,start_date=str(training_start.date()),
+                          settings=settings,features_cache=context) for k in CORE}
+    hybrid_info=build_hybrid_signals(context,{k:v['curve'] for k,v in reference.items()})
     periods={
         '3M': max(pd.Timestamp(history_start),last-pd.DateOffset(months=3)),
         '6M': max(pd.Timestamp(history_start),last-pd.DateOffset(months=6)),
@@ -128,11 +138,29 @@ def build(symbols, history_start, out_path):
     for period,start in periods.items():
         by_period[period]={
             k:summary_backtest(backtest(prices,benchmark,k,start_date=str(start.date()),
-                                         settings=settings,features_cache=features))
+                                         settings=settings,features_cache=context))
             for k in TRADERS
         }
     results=by_period['ALL']
-    paper_state, changed=update_paper(prices,benchmark,settings=settings,active_ids=active_ids)
+    last_idx=len(context.dates)-1
+    prepared_rows={
+        symbol:pd.Series({
+            **{k:float(context.a[k][i,last_idx]) for k in context.a},
+            **{f'buy_{name}':bool(context.buy[name][i,last_idx]) for name in TRADERS},
+        })
+        for i,symbol in enumerate(context.symbols)
+    }
+    paper_state, changed=update_paper(
+        prices,benchmark,settings=settings,active_ids=active_ids,prepared_rows=prepared_rows)
+    # Keep huge chart datasets out of the dashboard's initial network request.
+    outdir=Path(out_path).parent/'stocks'
+    outdir.mkdir(parents=True,exist_ok=True)
+    for symbol,frame in prices.items():
+        path=outdir/f"{symbol}.json"
+        tmp=path.with_suffix('.tmp')
+        tmp.write_text(json.dumps(stock_chart_payload(frame),ensure_ascii=False,
+                                  separators=(',',':')),encoding='utf-8')
+        tmp.replace(path)
     benchmark_start=benchmark.loc[benchmark.index>=pd.Timestamp(history_start)]['close']
     if len(benchmark_start)<2:
         raise RuntimeError('Không đủ dữ liệu benchmark trong khoảng')
@@ -140,7 +168,25 @@ def build(symbols, history_start, out_path):
     out={'version':1,'mode':'real_market_data','generated_at':datetime.now(ZoneInfo('Asia/Ho_Chi_Minh')).isoformat(timespec='seconds'),
          'last_session':last.date().isoformat(),'start_date':history_start,
          'capital_each':settings.initial_cash,'source':status['source'],
-         'universe':symbols,
+         'universe':accepted,
+         'universe_audit':{
+             'candidate_count':len(symbols),'tradable_history_count':len(accepted),
+             'excluded_count':len(status['skipped']),
+             'universe_asof':status['candidate_set_asof'],
+             'note':status['universe_note'],
+             'skipped_examples':dict(list(status['skipped'].items())[:10]),
+         },
+         'execution_model':{
+             'broker_fee_each_side':settings.fee_rate,
+             'sell_tax':settings.sell_tax,
+             'slippage_floor_each_side':settings.slippage,
+             'slippage':'Depends on past 20d turnover and order participation; capped 1.25% each side',
+             'cooldown_sessions':settings.cooldown_sessions,
+             'minimum_hold_sessions':settings.minimum_hold_sessions,
+             'max_daily_participation':settings.max_daily_participation,
+             'min_average_value':settings.min_average_value,
+         },
+         'hybrid_model':hybrid_info,
          'market':{'index':'VN-Index','level':round(now_index/1000,2),
                    'return_since_backtest_start':round((now_index/base_index-1)*100,2)},
          'traders':TRADERS,'backtests':results,
@@ -149,7 +195,8 @@ def build(symbols, history_start, out_path):
                                'start':str(date.date()), 'end':str(last.date())}
                               for key,date in periods.items()],
          'cloud_enabled':{key:key in active_ids for key in TRADERS},
-         'stocks':{symbol:stock_chart_payload(frame) for symbol,frame in prices.items()},
+         'stock_symbols':sorted(prices),
+         'stocks':{},  # loaded on demand from ./stocks/<symbol>.json
          'paper':{k:{'cash':round(b['cash']),
                      'nav':b['history'][-1]['nav'],'return_pct':b['history'][-1]['return_pct'],
                      'holdings':b.get('latest',{}).get('holdings',[]),
@@ -161,7 +208,9 @@ def build(symbols, history_start, out_path):
          'warnings':paper_state.get('warnings',[])[-5:]+[
              'Tín hiệu là mô hình đơn giản lấy cảm hứng từ phương pháp được thảo luận bởi các trader Mỹ, Nhật, châu Âu và Việt Nam; không phải lệnh thực tế của họ.',
              'Kết quả backtest chưa phản ánh đầy đủ cổ tức, chia tách, mất thanh khoản và hủy niêm yết.',
-             'Paper-forward là giao dịch giả lập tại giá mở cửa có trượt giá/phí; không chứng minh lệnh thật khớp được.'
+             'Paper-forward là giao dịch giả lập tại giá mở cửa có trượt giá/phí; không chứng minh lệnh thật khớp được.',
+             'Vũ trụ chỉ gồm các ứng viên còn niêm yết trong năm 2026, không có thành phần lịch sử đúng từng thời điểm: survivorship bias vẫn tồn tại.',
+             'Arena Hybrid chỉ chọn mô hình theo kết quả 126 phiên đã qua; không dùng thành tích tương lai để tạo tín hiệu.'
          ],'is_new_session':bool(changed)}
     out_path=Path(out_path);out_path.parent.mkdir(parents=True,exist_ok=True)
     tmp=out_path.with_suffix('.tmp')
@@ -211,7 +260,7 @@ if __name__=='__main__':
     parser.add_argument('--start',default='2023-01-03')
     args=parser.parse_args()
     data=build(parse_symbols(args.symbols),args.start,args.output)
-    print(f'Đã tạo dữ liệu đến phiên {data["last_session"]}; newly recorded: {data["is_new_session"]}')
+    print(f'Đã tạo dữ liệu đến phiên {data["last_session"]}; coverage {data["universe_audit"]["tradable_history_count"]}/{data["universe_audit"]["candidate_count"]}; newly recorded: {data["is_new_session"]}')
     try:
         sent=send_telegram(data)
         print('Telegram sent' if sent else 'Telegram skipped (no new session or missing secrets)')
