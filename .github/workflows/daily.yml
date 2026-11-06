@@ -39,14 +39,22 @@ jobs:
         run: |
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
-          git add state/paper_state.json site/dashboard.json
-          if ! git diff --cached --quiet; then
-            git commit -m "Daily paper simulation results [skip ci]"
-            # The repo may have been edited while this workflow ran.
-            # Rebase our daily results on top of the latest main before pushing.
-            git fetch origin main
-            git rebase origin/main
-            git push origin HEAD:main
+          # Never rebase or overwrite a newer paper ledger. A different workflow
+          # may have committed updated data or newer code while we were computing.
+          git fetch origin main
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+            echo "main advanced while processing: use latest committed site/ledger"
+            git reset --hard origin/main
+          else
+            git add state/paper_state.json site/dashboard.json
+            if ! git diff --cached --quiet; then
+              git commit -m "Daily paper simulation results [skip ci]"
+              if ! git push origin HEAD:main; then
+                echo "Concurrent push detected; preserve newer remote results"
+                git fetch origin main
+                git reset --hard origin/main
+              fi
+            fi
           fi
       - uses: actions/configure-pages@v5
         with:
