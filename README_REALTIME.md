@@ -27,7 +27,7 @@ Render always-on service (1 instance, persistent disk)
    -> GET /api/live (public, read-only)
        |
        v
-GitHub Pages: dashboard iPhone, poll mỗi 7 giây (HTTPS)
+GitHub Pages: dashboard iPhone, poll mỗi 3 giây (HTTPS)
 ```
 
 Mô hình nguồn quote và SDK được mô tả tại:
