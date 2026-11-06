@@ -49,16 +49,17 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
 <div id="dataNotice" class="notice demo">DEMO — dữ liệu chỉ để xem giao diện, không phải kết quả thị trường thật.</div>
 <section id="homePage" class="page on">
   <div class="eyebrow">Cuộc thi tiền ảo</div><h1>Ai đang giao dịch giỏi nhất? 🏆</h1>
-  <p class="sub">Ba chiến thuật Mỹ thử sức trên cổ phiếu Việt Nam. Mỗi bot khởi đầu với 100 triệu đồng ảo.</p>
+  <p class="sub" id="arenaIntro">Bảy chiến thuật Mỹ, Nhật và châu Âu cùng thử sức trên cổ phiếu Việt Nam. Mỗi bot bắt đầu với 100 triệu đồng ảo.</p>
   <div class="switch"><button id="modePaper" class="active" onclick="setMode('paper')">📅 Thi đấu mỗi ngày</button><button id="modeBacktest" onclick="setMode('backtest')">⏳ Thử lại quá khứ</button></div>
   <div class="card">
-    <div class="row"><span class="label" id="totalLabel">Tổng tiền ảo của 3 bot</span><span class="pill" id="modePill">Giả lập từ hôm nay</span></div>
+    <div class="row"><span class="label" id="totalLabel">Tổng tiền ảo của các bot</span><span class="pill" id="modePill">Giả lập từ hôm nay</span></div>
     <div class="big tnum" id="totalNav">—</div>
     <div id="totalDelta" class="ssmall">—</div>
-    <div class="metric-grid"><div class="metric"><div class="label">Vốn ban đầu</div><div class="value tnum" id="totalInitial">300 tr</div></div><div class="metric"><div class="label">Phiên dữ liệu</div><div class="value" id="marketDay" style="font-size:16px">—</div></div></div>
+    <div class="metric-grid"><div class="metric"><div class="label">Vốn ban đầu</div><div class="value tnum" id="totalInitial">—</div></div><div class="metric"><div class="label">Phiên dữ liệu</div><div class="value" id="marketDay" style="font-size:16px">—</div></div></div>
   </div>
   <div class="section-title"><h2>🏁 Bảng xếp hạng</h2><span class="hint">Chạm vào bot để xem</span></div>
-  <div id="leaderboard"></div>
+  <div class="scroll-chip" id="regionChips" aria-label="Chọn khu vực trader"></div>
+  <div id="leaderboard" style="margin-top:10px"></div>
   <div class="section-title"><h2>📈 Ai thắng thị trường?</h2><span class="hint" id="plotTime">Kết quả %</span></div>
   <div class="card"><div class="row"><div style="font-weight:790" id="chartTitle">Biểu đồ tăng trưởng</div><span class="pill" id="chartResult">—</span></div><div class="plot-wrap"><svg class="plot" id="mainChart" viewBox="0 0 360 160" aria-label="Biểu đồ hiệu suất"></svg><div class="legend"><span><i class="dot"></i>Bot</span><span id="legendIndex"><i class="dot index"></i>VN-Index</span></div></div><p class="note" id="chartNote" style="margin-top:10px"></p></div>
   <div class="card soft"><div class="row"><strong>💡 Nói đơn giản</strong><span class="pill">Lớp 5</span></div><p class="note" id="simpleMessage" style="margin-top:8px"></p></div>
@@ -68,7 +69,7 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
 <section id="learnPage" class="page"><div class="eyebrow">Giải thích dễ hiểu</div><h1>Bot chơi thế nào? 🎒</h1><div class="card explain">
   <div class="step"><div class="bubble">1</div><div><b>Mỗi bot có 100 triệu tiền ảo.</b> Không có tiền thật nào được dùng để mua cổ phiếu.</div></div>
   <div class="step"><div class="bubble">2</div><div><b>Bot xem giá trên sàn sau giờ giao dịch.</b> Dữ liệu đến từ nguồn giá chứng khoán Việt Nam, không phải giá do bot tự bịa.</div></div>
-  <div class="step"><div class="bubble">3</div><div><b>Nó quyết định mua hoặc bán.</b> Những quy tắc này lấy cảm hứng từ cách các trader Mỹ mô tả chiến thuật của mình.</div></div>
+  <div class="step"><div class="bubble">3</div><div><b>Nó quyết định mua hoặc bán.</b> Những quy tắc này lấy cảm hứng từ các chiến thuật của trader Mỹ, Nhật và châu Âu; không sao chép tài khoản thật của họ.</div></div>
   <div class="step"><div class="bubble">4</div><div><b>Chỉ là trò chơi mô phỏng.</b> Lệnh được tính theo giá giả định đã trừ phí, thuế, trượt giá. Không gửi lệnh tới công ty chứng khoán.</div></div>
   <div class="step"><div class="bubble">5</div><div><b>Hai cách chấm điểm khác nhau.</b> “Thử lại quá khứ” là backtest. “Thi đấu mỗi ngày” là sổ tiền ảo ghi nối tiếp từ ngày bắt đầu sử dụng.</div></div>
 </div><div class="card soft"><strong>⚠️ Điều chưa hoàn hảo</strong><p class="note" style="margin-top:9px">Backtest chưa xử lý trọn vẹn cổ tức, chia tách, cổ phiếu hủy niêm yết, giá sàn/trần và khả năng lệnh không khớp. Lợi nhuận ảo không đảm bảo lợi nhuận thật.</p></div><div id="warnings" class="note"></div></section>
@@ -81,10 +82,12 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
   <button id="nav-learn" onclick="setPage('learn')"><span class="nav-ico">🎒</span>Giải thích</button>
 </div></nav>
 <script>
-const IDS=['Minervini','ONeil','Darvas'];
-const EMOJI={Minervini:'🚀',ONeil:'🔎',Darvas:'📦'};
-const SHORT={Minervini:'Minervini',ONeil:'O’Neil',Darvas:'Darvas'};
-const TEXT={Minervini:'Tìm cổ phiếu đang tăng rất khỏe. Chỉ mua khi giá vượt đỉnh cũ.',ONeil:'Săn cổ phiếu bứt phá với nhiều người mua, khi thị trường chung thuận lợi.',Darvas:'Tìm cổ phiếu thoát khỏi chiếc “hộp giá”, giữ đến khi xu hướng yếu đi.'};
+let IDS=['Minervini','ONeil','Darvas'];
+let regionFilter='ALL';
+const REGION={ALL:'🌍 Tất cả',US:'🇺🇸 Mỹ',JP:'🇯🇵 Nhật',EU:'🇪🇺 Châu Âu'};
+const EMOJI={Minervini:'🚀',ONeil:'🔎',Darvas:'📦',BNF:'🎯',CIS:'⚡',Qullamaggie:'🏄',Unger:'🧠'};
+const SHORT={Minervini:'Minervini',ONeil:'O’Neil',Darvas:'Darvas',BNF:'BNF',CIS:'CIS',Qullamaggie:'Kullamägi',Unger:'Unger'};
+const TEXT={Minervini:'Tìm cổ phiếu đang tăng rất khỏe. Chỉ mua khi giá vượt đỉnh cũ.',ONeil:'Săn cổ phiếu bứt phá với nhiều người mua, khi thị trường chung thuận lợi.',Darvas:'Tìm cổ phiếu thoát khỏi chiếc “hộp giá”, giữ đến khi xu hướng yếu đi.',BNF:'Săn cổ phiếu đã giảm sâu rồi bắt đầu hồi phục.',CIS:'Bám theo hướng tăng của giá, không cố bắt đáy.',Qullamaggie:'Chọn cổ phiếu tăng mạnh, nghỉ lấy sức rồi vượt đỉnh.',Unger:'Mua tín hiệu breakout khi biến động nằm trong mức chấp nhận.'};
 const mkDemo=(r,i)=>{let seq=Array.from({length:25},(_,k)=>({date:'Mốc '+(k+1),bot:+(r*k/24+Math.sin(k*.7+i)*1.35*(k/24)).toFixed(2),index:+(5*k/24+Math.sin(k*.25)*1.8).toFixed(2),nav:Math.round(100000000*(1+(r*k/24)/100))}));return {nav:Math.round(100000000*(1+r/100)),cash:35500000,return_pct:r,benchmark_return_pct:5,max_drawdown_pct:-4.7-i*1.3,win_rate:55+i*2,closed_trades:13+i,buy_count:17+i,curve:seq,holdings:[{symbol:['FPT','HPG','MBB'][i],qty:300,buy_price:88000,last_price:92500,pnl:1350000,pnl_pct:5.1,value:27750000}],actions:[{symbol:['FPT','HPG','MBB'][i],action:'TIẾP TỤC GIỮ',reason:'Giá chưa giảm xuống ngưỡng bán'}],trades:[{date:'VÍ DỤ',symbol:['FPT','HPG','MBB'][i],side:'MUA',qty:300,price:88000,reason:'Mua giả định khi giá vượt đỉnh'}]}};
 const DEMO={mode:'demo',generated_at:'',last_session:'VÍ DỤ',start_date:'VÍ DỤ',capital_each:100000000,market:{index:'VN-Index',level:null,return_since_backtest_start:5},traders:{Minervini:{name:'Mark Minervini',tag:'Săn cổ phiếu tăng mạnh'},ONeil:{name:'William O’Neil',tag:'Săn cú bứt phá'},Darvas:{name:'Nicolas Darvas',tag:'Vượt hộp giá'}},backtests:{Minervini:mkDemo(12.4,0),ONeil:mkDemo(3.1,1),Darvas:mkDemo(6.8,2)},paper:{Minervini:{nav:100000000,return_pct:0,cash:100000000,holdings:[],orders_next:[],history:[{date:'VÍ DỤ',nav:100000000,return_pct:0}],trades:[]},ONeil:{nav:100000000,return_pct:0,cash:100000000,holdings:[],orders_next:[],history:[{date:'VÍ DỤ',nav:100000000,return_pct:0}],trades:[]},Darvas:{nav:100000000,return_pct:0,cash:100000000,holdings:[],orders_next:[],history:[{date:'VÍ DỤ',nav:100000000,return_pct:0}],trades:[]}},warnings:[]};
 let DATA=DEMO, mode='paper', page='home', selected='Minervini', tradeFilter='ALL', demo=true;
@@ -102,6 +105,7 @@ function setPage(p){page=p;document.querySelectorAll('.page').forEach(x=>x.class
 function setMode(m){mode=m;document.querySelectorAll('.switch button').forEach(x=>x.classList.toggle('active',x.id===(m==='paper'?'modePaper':'modeBacktest')));render()}
 function setSelected(id){selected=id;setPage('bots')}
 function setTradeFilter(v){tradeFilter=v;renderTrades()}
+function setRegionFilter(r){regionFilter=r;const keys=IDS.filter(k=>r==='ALL'||DATA.traders?.[k]?.region===r);if(keys.length&&!keys.includes(selected))selected=keys[0];render()}
 function graph(svg,series,showIndex){
   if(!series?.length){svg.innerHTML='<text x="180" y="82" text-anchor="middle" fill="#8ba3bd" font-size="13">Chưa có dữ liệu để vẽ</text>';return}
   const a=series.map(x=>n(x.bot)), b=showIndex?series.map(x=>n(x.index)):[];
@@ -111,22 +115,25 @@ function graph(svg,series,showIndex){
 }
 function renderHome(){
   $('modePill').textContent=mode==='paper'?'Ghi nối tiếp từng phiên':'Backtest từ 2023';
-  $('totalLabel').textContent=mode==='paper'?'Tổng tiền ảo đang thi đấu':'Tổng kết quả thử lại quá khứ';
-  const total=IDS.reduce((s,k)=>s+nav(k),0),capital=n(DATA.capital_each)*3,change=(total/capital-1)*100;
+  $('totalLabel').textContent=mode==='paper'?('Tổng tiền ảo của '+IDS.length+' bot'):('Tổng backtest của '+IDS.length+' bot');
+  $('arenaIntro').textContent=IDS.length+' bot Mỹ, Nhật và châu Âu cùng thi đấu trên cổ phiếu Việt Nam. Mỗi bot bắt đầu với 100 triệu đồng tiền ảo.';
+  const total=IDS.reduce((s,k)=>s+nav(k),0),capital=n(DATA.capital_each)*IDS.length,change=(total/capital-1)*100;
   $('totalNav').textContent=vnd(total);$('totalDelta').innerHTML=`<span class="${color(change)}">${pct(change)}</span> <span class="muted">so với ${money(capital)} ban đầu</span>`;
   $('totalInitial').textContent=money(capital);$('marketDay').textContent=DATA.last_session==='VÍ DỤ'?'Số liệu ví dụ':DATA.last_session.split('-').reverse().join('/');
-  const sorted=[...IDS].sort((a,b)=>ret(b)-ret(a));
-  $('leaderboard').innerHTML=sorted.map((k,i)=>`<button class="ranker ${k===selected?'selected':''}" onclick="setSelected('${k}')"><span class="rankicon">${['🥇','🥈','🥉'][i]}</span><span class="push"><div class="rankname">${safe(SHORT[k])} Bot</div><div class="rankdetail">${safe(DATA.traders?.[k]?.tag||TEXT[k])} · ${money(nav(k))}</div></span><span class="return ${color(ret(k))}">${pct(ret(k))}<small>lãi / lỗ</small></span></button>`).join('');
+  const available=IDS.filter(k=>regionFilter==='ALL'||DATA.traders?.[k]?.region===regionFilter);
+  const sorted=available.sort((a,b)=>ret(b)-ret(a));
+  $('regionChips').innerHTML=Object.entries(REGION).map(([k,label])=>`<button class="chip ${regionFilter===k?'active':''}" onclick="setRegionFilter('${k}')">${label} · ${k==='ALL'?IDS.length:IDS.filter(t=>DATA.traders?.[t]?.region===k).length}</button>`).join('');
+  $('leaderboard').innerHTML=sorted.map((k,i)=>`<button class="ranker ${k===selected?'selected':''}" onclick="setSelected('${k}')"><span class="rankicon">${['🥇','🥈','🥉'][i]||('#'+(i+1))}</span><span class="push"><div class="rankname">${safe(DATA.traders?.[k]?.flag||'')} ${safe(SHORT[k])} Bot</div><div class="rankdetail">${safe(DATA.traders?.[k]?.tag||TEXT[k])} · ${money(nav(k))}</div></span><span class="return ${color(ret(k))}">${pct(ret(k))}<small>lãi / lỗ</small></span></button>`).join('');
   const bot=part(selected),series=mode==='paper'?(bot.history||[]).map(x=>({date:x.date,bot:x.return_pct})):bot.curve||[];
   $('chartTitle').textContent=SHORT[selected]+' Bot';$('chartResult').textContent=pct(ret(selected));$('chartResult').className='pill '+(ret(selected)>=0?'good':'warn');
   $('legendIndex').style.display=mode==='paper'?'none':'';graph($('mainChart'),series,mode==='backtest');
   $('chartNote').textContent=mode==='paper'?'Đường xanh là tiền ảo của bot qua các ngày đã chạy. Ban đầu có thể chỉ có một điểm vì cuộc thi mới bắt đầu.':'Đường xanh là bot; đường nét đứt là VN-Index. Cả hai được so trong cùng thời gian.';
-  const winner=sorted[0];$('simpleMessage').textContent=mode==='paper'?(part(winner).history?.length<2?'Cuộc thi mới khởi động! Chưa đủ phiên để xếp hạng có ý nghĩa. Sau mỗi ngày thị trường mở cửa, bot sẽ ghi thêm kết quả.':`${SHORT[winner]} đang dẫn đầu với ${pct(ret(winner))}. Nhưng đây chỉ là tiền ảo, không có nghĩa bot chắc chắn kiếm được tiền thật.`):`${SHORT[winner]} có kết quả cao nhất trong lần thử trên dữ liệu lịch sử này (${pct(ret(winner))}). Kiểm tra cả mức lỗ sâu nhất và số giao dịch trước khi kết luận.`;
+  const winner=sorted[0]||IDS[0];$('simpleMessage').textContent=mode==='paper'?(part(winner).history?.length<2?'Cuộc thi mới khởi động! Chưa đủ phiên để xếp hạng có ý nghĩa. Sau mỗi ngày thị trường mở cửa, bot sẽ ghi thêm kết quả.':`${SHORT[winner]} đang dẫn đầu với ${pct(ret(winner))}. Nhưng đây chỉ là tiền ảo, không có nghĩa bot chắc chắn kiếm được tiền thật.`):`${SHORT[winner]} có kết quả cao nhất trong lần thử trên dữ liệu lịch sử này (${pct(ret(winner))}). Kiểm tra cả mức lỗ sâu nhất và số giao dịch trước khi kết luận.`;
 }
 function renderBots(){
   $('botChips').innerHTML=IDS.map(k=>`<button class="chip ${selected===k?'active':''}" onclick="selected='${k}';renderBots()">${EMOJI[k]} ${SHORT[k]}</button>`).join('');
   const b=part(selected),holds=b.holdings||[],plans=b.orders_next||[],acts=b.actions||[];
-  $('botDetail').innerHTML=`<div class="card"><div class="bothead"><div class="avatar">${EMOJI[selected]}</div><div><strong>${safe(DATA.traders?.[selected]?.name||SHORT[selected])}</strong><div class="label">${safe(DATA.traders?.[selected]?.tag||'Chiến thuật công khai')}</div></div></div><p class="note" style="margin:13px 0 4px">${TEXT[selected]}</p><div class="metric-grid"><div class="metric"><span class="label">Tài sản tiền ảo</span><div class="value">${money(b.nav)}</div></div><div class="metric"><span class="label">Đang lãi hay lỗ?</span><div class="value ${color(b.return_pct)}">${pct(b.return_pct)}</div></div><div class="metric"><span class="label">Tiền chưa mua cổ phiếu</span><div class="value">${money(b.cash)}</div></div><div class="metric"><span class="label">Số mã đang nắm</span><div class="value">${holds.length}</div></div></div></div>
+  $('botDetail').innerHTML=`<div class="card"><div class="bothead"><div class="avatar">${EMOJI[selected]}</div><div><strong>${safe(DATA.traders?.[selected]?.name||SHORT[selected])}</strong><div class="label">${safe(DATA.traders?.[selected]?.tag||'Chiến thuật công khai')}</div></div></div><p class="note" style="margin:13px 0 4px">${safe(DATA.traders?.[selected]?.explain||TEXT[selected])}</p><p class="note" style="margin:5px 0 4px">${safe(DATA.traders?.[selected]?.detail||'Mô phỏng quy tắc công khai; không phải giao dịch thật của trader.')}</p><div class="metric-grid"><div class="metric"><span class="label">Tài sản tiền ảo</span><div class="value">${money(b.nav)}</div></div><div class="metric"><span class="label">Đang lãi hay lỗ?</span><div class="value ${color(b.return_pct)}">${pct(b.return_pct)}</div></div><div class="metric"><span class="label">Tiền chưa mua cổ phiếu</span><div class="value">${money(b.cash)}</div></div><div class="metric"><span class="label">Số mã đang nắm</span><div class="value">${holds.length}</div></div></div></div>
   <div class="section-title"><h2>👜 Giỏ cổ phiếu</h2><span class="hint">${mode==='paper'?'Mô phỏng mỗi ngày':'Cuối backtest'}</span></div>
   <div class="table">${holds.length?holds.map(h=>`<div class="tableitem"><div class="row"><strong>${safe(h.symbol)}</strong><strong class="${color(h.pnl)}">${h.pnl>=0?'+':''}${money(h.pnl)}</strong></div><div class="row label"><span>${n(h.qty).toLocaleString('vi-VN')} cổ phiếu · Giá ${vnd(h.last_price)}</span><span>${h.pnl_pct==null?'':pct(h.pnl_pct)}</span></div></div>`).join(''):'<div class="card empty">Bot đang giữ tiền mặt, chưa mua cổ phiếu nào.</div>'}</div>
   <div class="section-title"><h2>📣 Bot định làm gì tiếp?</h2></div><div class="card">${mode==='paper'?(plans.length?plans.slice(0,7).map(o=>`<div class="action"><span class="action-symbol">${safe(o.symbol)}</span><div><strong>${o.side==='BUY'?'🟢 DỰ KIẾN MUA':'🔴 DỰ KIẾN BÁN'}</strong><p>${safe(o.reason)}</p></div></div>`).join(''):'<div class="empty">Hôm nay không có tín hiệu mới. Bot chưa định mua hay bán gì.</div>'):(acts.length?acts.slice(0,7).map(a=>`<div class="action"><span class="action-symbol">${safe(a.symbol)}</span><div><strong>${safe(a.action)}</strong><p>${safe(a.reason)}</p></div></div>`).join(''):'<div class="empty">Chưa có tín hiệu mới ở cuối giai đoạn backtest.</div>')}</div>
@@ -147,6 +154,9 @@ async function boot(){
     const d=await res.json();
     if(d.mode!=='real_market_data'||!d.paper||!d.backtests||!d.last_session)throw new Error('Invalid feed');
     DATA=d;demo=false;
+    IDS=Object.keys(DATA.traders||{}).filter(k=>DATA.paper?.[k]&&DATA.backtests?.[k]);
+    if(!IDS.length)throw new Error('No valid trader profiles');
+    if(!IDS.includes(selected))selected=IDS[0];
   }catch(e){DATA=DEMO;demo=true;}
   $('dateLabel').textContent=demo?'CHƯA KẾT NỐI DATA':'Phiên: '+DATA.last_session.split('-').reverse().join('/')+'\n'+DATA.source;
   const note=$('dataNotice');
