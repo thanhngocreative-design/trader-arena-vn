@@ -118,8 +118,11 @@ def _execute(bot, date, index_pos, rows, settings):
     return events
 
 
-def update_paper(prices, benchmark, state_path=DEFAULT_STATE, settings=None):
+def update_paper(prices, benchmark, state_path=DEFAULT_STATE, settings=None, active_ids=None):
     settings=settings or Settings()
+    active_ids=set(TRADERS) if active_ids is None else set(active_ids)
+    if not active_ids.issubset(TRADERS):
+        raise ValueError("Bot bật/tắt không nằm trong danh sách")
     session=benchmark.index.max()
     full_idx=benchmark.index
     features={s:make_features(frame,benchmark).reindex(full_idx) for s,frame in prices.items() if len(frame)>=252}
@@ -149,11 +152,12 @@ def update_paper(prices, benchmark, state_path=DEFAULT_STATE, settings=None):
             raise ValueError('State có ngày phiên mới hơn dữ liệu; không thể nâng cấp an toàn')
         for key in added:
             bot=state['bots'][key]
-            bot['orders_next']=_plans(bot,key,rows,features,session,settings)
+            bot['orders_next']=_plans(bot,key,rows,features,session,settings) if key in active_ids else []
             summary=_summary(bot,session,rows,settings)
             bot['latest']=summary
             bot['history'].append({k:summary[k] for k in ('date','nav','cash','return_pct')})
         state['updated_at']=_now()
+        state['cloud_enabled']={key: key in active_ids for key in TRADERS}
         state['warnings'].append('Đã thêm '+', '.join(added)+' vào cuộc thi kể từ phiên '+today+
                                  '; không tạo lệnh ảo cho thời gian trước.')
         tmp=state_path.with_suffix('.tmp')
@@ -171,17 +175,18 @@ def update_paper(prices, benchmark, state_path=DEFAULT_STATE, settings=None):
             state['warnings'].append(f'Bỏ lỡ {missed} phiên giữa {last} và {today}; không tự tạo giao dịch cho các phiên đó.')
     for key in TRADERS:
         bot=state['bots'][key]
-        if last is None or missed>0 or key in added:
-            # Do NOT retroactively fake trading on the first/missed session.
+        if last is None or missed>0 or key in added or key not in active_ids:
+            # Do NOT backdate orders. Disabled bots neither trade nor queue new orders.
             bot['orders_next']=[]
         else:
             _execute(bot,session,idx_pos,rows,settings)
-        bot['orders_next']=_plans(bot,key,rows,features,session,settings)
+        bot['orders_next']=_plans(bot,key,rows,features,session,settings) if key in active_ids else []
         summary=_summary(bot,session,rows,settings)
         bot['latest']=summary
         bot['history'].append({k:summary[k] for k in ('date','nav','cash','return_pct')})
         bot['history']=bot['history'][-800:]
     state['last_session']=today
+    state['cloud_enabled']={key: key in active_ids for key in TRADERS}
     state['updated_at']=_now()
     # Atomic write, caller should commit updated state to a persistent remote repository.
     tmp=state_path.with_suffix('.tmp')
