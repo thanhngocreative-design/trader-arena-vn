@@ -79,6 +79,12 @@ TRADERS = {
         "detail": "Proxy đa yếu tố kỹ thuật momentum/ATR/risk-filter, KHÔNG tái tạo mô hình V20 hay P.Thai Quant Score có thêm dữ liệu cơ bản và đánh giá point-in-time.",
         "source": "https://pthaicapital.io.vn/en/methodology",
     },
+    "Hybrid": {
+        "name": "Arena Hybrid · Adaptive Mix", "emoji": "🧬", "region": "MIX", "flag": "🌍",
+        "tag": "Trộn các chiến thuật dẫn đầu gần đây",
+        "explain": "Chọn tối đa ba mô hình đã có lợi nhuận dương trong 126 phiên trước đó, giảm điểm nếu lỗ sâu; chỉ mua khi có tín hiệu phù hợp từ nhóm được chọn.",
+        "detail": "Chọn walk-forward với kết quả CHỈ đến phiên trước. Cứ 21 phiên cập nhật nhóm; cần tối thiểu 126 phiên huấn luyện. Nếu không mô hình nào đủ tốt, bot giữ tiền mặt. Đây là bot do Arena tạo, không phải chiến thuật của bất kỳ cá nhân nào.",
+    },
 }
 
 @dataclass(frozen=True)
@@ -86,11 +92,15 @@ class Settings:
     initial_cash: float = 100_000_000
     fee_rate: float = 0.0015             # 0.15% each way
     sell_tax: float = 0.001              # 0.1% on gross selling value
-    slippage: float = 0.0015             # 0.15% each way
+    slippage: float = 0.0015             # conservative base per side, not a waived fee
     max_positions: int = 4
     lot: int = 100
-    min_average_value: float = 5_000_000_000  # VND/day
-    max_daily_participation: float = 0.01
+    min_average_value: float = 3_000_000_000  # liquidity gate, point-in-time
+    cooldown_sessions: int = 7           # wait after sale to avoid fee churn
+    minimum_hold_sessions: int = 5        # never sell before VN T+2.5 settlement
+    min_price: float = 5_000.0
+    min_expected_edge_cost_multiple: float = 2.5
+    max_daily_participation: float = 0.005 # <=0.5% of recent daily volume
 
 
 def prepare(raw: pd.DataFrame) -> pd.DataFrame:
@@ -118,7 +128,7 @@ def prepare(raw: pd.DataFrame) -> pd.DataFrame:
     return df[["open", "high", "low", "close", "volume"]].astype(float)
 
 
-def make_features(df: pd.DataFrame, benchmark: pd.DataFrame) -> pd.DataFrame:
+def make_features(df: pd.DataFrame, benchmark: pd.DataFrame, min_average_value: float = 3_000_000_000) -> pd.DataFrame:
     p = df.copy()
     c, h, lo, v = p["close"], p["high"], p["low"], p["volume"]
     for n in (10, 20, 25, 50, 100, 150, 200):
@@ -132,6 +142,9 @@ def make_features(df: pd.DataFrame, benchmark: pd.DataFrame) -> pd.DataFrame:
     # Consolidation uses only the 10 bars BEFORE signal day, not today's high/low.
     p["range10_prev"] = p["high10_prev"] / p["low10_prev"] - 1
     p["mom5"] = c / c.shift(5) - 1
+    p["close_prev1"] = c.shift(1)
+    p["sma20_prev1"] = c.shift(1).rolling(20).mean().shift(1)
+    p["mom20"] = c / c.shift(20) - 1
     change = c.diff()
     gain = change.clip(lower=0).ewm(alpha=1/14, adjust=False).mean()
     loss = (-change.clip(upper=0)).ewm(alpha=1/14, adjust=False).mean()
@@ -148,30 +161,38 @@ def make_features(df: pd.DataFrame, benchmark: pd.DataFrame) -> pd.DataFrame:
     p["vol20_prev"] = v.rolling(20, min_periods=20).mean().shift(1)
     p["value20_prev"] = (c * v).rolling(20, min_periods=20).mean().shift(1)
     p["momentum60"] = c / c.shift(60) - 1
+    b_close = benchmark["close"].reindex(p.index).ffill()
+    p["rs60"] = p["momentum60"] - (b_close / b_close.shift(60) - 1)
+    p["range20_prev"] = h.rolling(20).max().shift(1) / lo.rolling(20).min().shift(1) - 1
     b = benchmark["close"].reindex(p.index).ffill()
     bma = b.rolling(50, min_periods=50).mean()
     p["market_ok"] = (b > bma).fillna(False)
-    p["liq_ok"] = (p["value20_prev"] >= 5_000_000_000) & (p["vol20_prev"] > 0)
+    p["liq_ok"] = (p["value20_prev"] >= min_average_value) & (p["vol20_prev"] > 0) & (c >= 5_000)
 
     trend = (c > p["sma50"]) & (p["sma50"] > p["sma150"]) & (p["sma150"] > p["sma200"]) \
         & (p["sma200"] > p["sma200"].shift(21)) & (c >= p["low252"] * 1.30) \
         & (c >= p["high252"] * .75)
-    p["buy_Minervini"] = trend & (c > p["high20_prev"]) & (v > p["vol20_prev"] * 1.20)
+    p["buy_Minervini"] = trend & (c > p["high20_prev"]) & (v > p["vol20_prev"] * 1.20) \
+        & (p["rs60"] > .02) & p["market_ok"]
     p["buy_ONeil"] = (c > p["sma50"]) & (c > p["high55_prev"]) \
-        & (v > p["vol20_prev"] * 1.5) & p["market_ok"]
+        & (v > p["vol20_prev"] * 1.4) & (p["rs60"] > .03) \
+        & (p["close_location"] > .6) & p["market_ok"]
     p["buy_Darvas"] = (c > p["sma100"]) & (c > p["high55_prev"]) \
-        & (v > p["vol20_prev"] * 1.15)
+        & (v > p["vol20_prev"] * 1.15) & (p["rs60"] > 0) \
+        & (p["range20_prev"] < .40)
     # BNF proxy: oversold mean-reversion, distinct from breakout systems.
     p["buy_BNF"] = (c <= p["sma25"] * .90) & (c > c.shift(1)) \
-        & (v > p["vol20_prev"] * .8)
+        & (p["close_location"] > .58) & (p["rsi14"] > 26) \
+        & (v > p["vol20_prev"] * .85) & (p["market_ok"] | (b > b.shift(5)))
     # CIS proxy: follow a strong short-term move instead of anticipating a reversal.
     p["buy_CIS"] = (c > p["sma10"]) & (p["sma10"] > p["sma20"]) \
         & (p["sma20"] > p["sma50"]) & (c > p["high10_prev"]) \
-        & (v > p["vol20_prev"] * 1.15) & p["market_ok"]
+        & (p["rs60"] > .03) & (p["momentum60"] > .10) \
+        & (v > p["vol20_prev"] * 1.2) & p["market_ok"]
     # Qullamaggie proxy: momentum continuation after a compact consolidation.
     p["buy_Qullamaggie"] = (p["momentum60"] > .25) & (p["range10_prev"] < .18) \
         & (c > p["high10_prev"]) & (c > p["sma20"]) \
-        & (v > p["vol20_prev"] * 1.25) & p["market_ok"]
+        & (p["rs60"] > .08) & (v > p["vol20_prev"] * 1.25) & p["market_ok"]
     # Unger proxy: mechanical breakout gated by volatility.
     p["buy_Unger"] = (c > p["high20_prev"]) & (c > p["sma50"]) \
         & (p["atr14"] / c.shift(1) < .055) & (p["atr14"] / c.shift(1) > .009) \
@@ -185,9 +206,12 @@ def make_features(df: pd.DataFrame, benchmark: pd.DataFrame) -> pd.DataFrame:
         & (c > c.shift(1)) & (p["close_location"] > .6) \
         & (v > p["vol20_prev"] * .85)
     p["buy_PThai"] = (p["momentum60"] > .15) \
-        & (c > p["sma50"]) & (p["sma50"] > p["sma100"]) \
+        & (p["rs60"] > .02) & (c > p["sma50"]) & (p["sma50"] > p["sma100"]) \
         & ((p["atr14"] / c) >= .01) & ((p["atr14"] / c) <= .055) \
         & (v > p["vol20_prev"] * .9) & p["market_ok"]
+    # Hybrid's signals require other strategies' *prior* out-of-sample NAVs.
+    # They are built by fast_engine after preparing the entire market context.
+    p["buy_Hybrid"] = False
     for key in TRADERS:
         p[f"buy_{key}"] = (p[f"buy_{key}"] & p["liq_ok"]).fillna(False)
     return p
@@ -220,8 +244,11 @@ def stop_signal(trader: str, yesterday: pd.Series, position: dict) -> tuple[bool
         if close >= position["price"] * 1.06:
             return True, "Giá đã tăng 6% so với lúc mua"
     if trader == "CIS":
-        if close < position["price"] * .94 or close < yesterday.get("sma10", np.nan):
-            return True, "Đà tăng 10 phiên yếu đi hoặc lỗ quá 6%"
+        if close < position["price"] * .94:
+            return True, "Dừng lỗ 6%"
+        # Avoid exiting on a one-day whipsaw in a rising market.
+        if close < yesterday.get("sma10", np.nan) and yesterday.get("close_prev1", np.inf) < yesterday.get("sma20_prev1", -np.inf):
+            return True, "Hai nhịp giảm xác nhận đà tăng suy yếu"
     if trader == "Qullamaggie":
         if close < position["price"] * .93 or close < yesterday.get("sma20", np.nan):
             return True, "Mất xu hướng 20 phiên hoặc lỗ quá 7%"
@@ -244,6 +271,14 @@ def stop_signal(trader: str, yesterday: pd.Series, position: dict) -> tuple[bool
     if trader == "PThai":
         if close < position["price"] * .94 or close < yesterday.get("sma50", np.nan):
             return True, "Rủi ro xu hướng tăng hoặc lỗ quá 6%"
+    if trader == "Hybrid":
+        atr = yesterday.get("atr14", np.nan)
+        if close < position["price"] * .92:
+            return True, "Hybrid: giảm hơn 8% so với điểm mua"
+        if pd.notna(atr) and close < position["high_water"] - 3 * atr:
+            return True, "Hybrid: mất hơn 3 ATR từ đỉnh"
+        if close < yesterday.get("sma50", np.nan):
+            return True, "Hybrid: giá yếu hơn trung bình 50 phiên"
     return False, ""
 
 
@@ -264,8 +299,13 @@ def backtest(prices: Dict[str, pd.DataFrame], benchmark: pd.DataFrame,
     dates = bench.index[(bench.index >= start) & (bench.index <= end)]
     if len(dates) < 2:
         raise ValueError("Khoảng backtest cần tối thiểu 2 phiên thị trường")
+    # Large universes use a vectorized research engine. Existing callers
+    # with plain DataFrame fixtures retain this reference implementation.
+    if getattr(features_cache, "fast_context", False):
+        from fast_engine import run_backtest
+        return run_backtest(features_cache, trader, start_date, end_date, settings)
     features = features_cache if features_cache is not None else {
-        s: make_features(frame, bench).reindex(bench.index)
+        s: make_features(frame, bench, settings.min_average_value).reindex(bench.index)
         for s, frame in prices.items() if len(frame) >= 100
     }
     if not features:
