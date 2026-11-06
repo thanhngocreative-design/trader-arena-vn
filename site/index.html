@@ -193,7 +193,7 @@ function renderHome(){
   $('totalNav').textContent=vnd(total);$('totalDelta').innerHTML=`<span class="${color(change)}">${pct(change)}</span> <span class="muted">so với ${money(capital)} ban đầu</span>`;
   $('totalInitial').textContent=money(capital);$('marketDay').textContent=DATA.last_session==='VÍ DỤ'?'Số liệu ví dụ':DATA.last_session.split('-').reverse().join('/');
   const available=included.filter(k=>regionFilter==='ALL'||DATA.traders?.[k]?.region===regionFilter);
-  const sorted=available.sort((a,b)=>ret(b)-ret(a);
+  const sorted=available.sort((a,b)=>ret(b)-ret(a));
   $('regionChips').innerHTML=Object.entries(REGION).map(([k,label])=>`<button class="chip ${regionFilter===k?'active':''}" onclick="setRegionFilter('${k}')">${label} · ${k==='ALL'?IDS.length:IDS.filter(t=>DATA.traders?.[t]?.region===k).length}</button>`).join('');
   $('leaderboard').innerHTML=(sorted.length?sorted.map((k,i)=>`<button class="ranker ${k===selected?'selected':''}" onclick="setSelected('${k}')"><span class="rankicon">${['🥇','🥈','🥉'][i]||('#'+(i+1))}</span><span class="push"><div class="rankname">${safe(DATA.traders?.[k]?.flag||'')} ${safe(SHORT[k])} Bot</div><div class="rankdetail">${safe(DATA.traders?.[k]?.tag||TEXT[k])} · ${money(nav(k))}</div></span><span class="return ${color(ret(k))}">${pct(ret(k))}<small>lãi / lỗ</small></span></button>`).join(''):'<div class="card empty">Chưa có bot nào đang bật trong khu vực này. Bật lại ở mục Các bot.</div>');
   const chartBot=sorted.includes(selected)?selected:(sorted[0]||IDS[0]);
