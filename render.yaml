@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: trader-arena-vn-live
+    runtime: docker
+    dockerfilePath: ./Dockerfile.live
+    dockerContext: .
+    plan: starter
+    numInstances: 1
+    healthCheckPath: /health
+    disk:
+      name: paper-ledger
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: LIVE_DB_PATH
+        value: /data/live-papers.sqlite
+      - key: DNSE_API_KEY
+        sync: false
+      - key: DNSE_API_SECRET
+        sync: false
