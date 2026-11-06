@@ -15,7 +15,7 @@ def test_mobile_ui_controls_exist():
                  "stockShortcuts", "toggleBot", "renderStock", "regionChips"]:
         assert item in html, f"missing UI: {item}"
     assert "localStorage" in html  # client-only tracking toggles
-    assert "config/bots.json" in html  # honest path to real cloud pause
+    assert "actions/workflows/bot-control.yml" in html  # path to authenticated cloud pause
 
 
 def test_onsite_javascript_parses_under_node():
