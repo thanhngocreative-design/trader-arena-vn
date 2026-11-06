@@ -249,7 +249,7 @@ def stop_signal(trader: str, yesterday: pd.Series, position: dict) -> tuple[bool
 
 def backtest(prices: Dict[str, pd.DataFrame], benchmark: pd.DataFrame,
              trader: str, start_date: str, end_date: str | None = None,
-             settings: Settings | None = None) -> dict:
+             settings: Settings | None = None, features_cache: dict | None = None) -> dict:
     settings = settings or Settings()
     if trader not in TRADERS:
         raise ValueError("Trader không được hỗ trợ")
@@ -264,7 +264,10 @@ def backtest(prices: Dict[str, pd.DataFrame], benchmark: pd.DataFrame,
     dates = bench.index[(bench.index >= start) & (bench.index <= end)]
     if len(dates) < 2:
         raise ValueError("Khoảng backtest cần tối thiểu 2 phiên thị trường")
-    features = {s: make_features(frame, bench).reindex(bench.index) for s, frame in prices.items() if len(frame) >= 100}
+    features = features_cache if features_cache is not None else {
+        s: make_features(frame, bench).reindex(bench.index)
+        for s, frame in prices.items() if len(frame) >= 100
+    }
     if not features:
         raise ValueError("Dữ liệu cổ phiếu chưa đủ dài để tính chiến thuật")
 
