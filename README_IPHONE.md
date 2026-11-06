@@ -1,0 +1,66 @@
+# Trader Arena VN — iPhone-first / Cloud-ready
+
+Đây là bản **mobile-first Web App** với 3 bot mô phỏng quy tắc công khai gắn với Mark Minervini, William O’Neil, Nicolas Darvas. Mỗi bot bắt đầu từ 100 triệu đồng **tiền ảo**. Không có API mua bán chứng khoán và KHÔNG KẾT NỐI TÀI KHOẢN BROKER.
+
+**Bản có trong ZIP là một dự án sẵn sàng triển khai, KHÔNG PHẢI website đã được công khai, và không có tài khoản Telegram nào đã kết nối.** Mở `site/index.html` trước khi triển khai sẽ chỉ thấy chế độ `DEMO`: các số liệu đều mang tính minh họa.
+
+## Người chỉ sử dụng iPhone cần làm gì?
+
+### 1. Đưa project lên GitHub (làm một lần)
+
+- Tạo tài khoản GitHub nếu chưa có. Cách đỡ phải thao tác máy tính nhất là **kết nối GitHub trong ChatGPT** để có thể yêu cầu trợ lý giúp chuẩn bị repository và đẩy mã nguồn (các quyền sẽ do bạn chấp thuận).
+- Hoặc tải ZIP, giải nén và upload tất cả nội dung thư mục `trader_arena_mobile/` vào **gốc** một repository tên ví dụ `trader-arena-vn`, nhánh `main`.
+- GitHub repo công khai + GitHub Pages công khai sẽ khiến người khác xem được dashboard. Nếu muốn dashboard riêng tư, cần nền tảng triển khai có đăng nhập hoặc tính năng phù hợp; **đừng** đưa dữ liệu tài khoản thật hoặc token vào repo.
+
+### 2. Bật GitHub Pages (làm một lần)
+
+- Trên GitHub, mở `Settings → Pages → Build and deployment → Source: GitHub Actions`.
+- Trên repo, mở `Actions`, chạy workflow **Trader Arena VN daily paper contest** bằng nút **Run workflow** (hoặc để tự kích hoạt sau khi push mã).
+- Workflow: cài Python 3.11 và Vnstock 5.0.1; thử engine; lấy giá cổ phiếu và VN-Index; chạy ba backtest; cập nhật ví tiền ảo; xuất `site/dashboard.json` và deploy `site/index.html` qua GitHub Pages.
+- Lịch chạy mặc định **16:47 giờ Việt Nam thứ Hai–thứ Sáu** (09:47 UTC). GitHub có thể chạy trễ hoặc bỏ lượt; đừng coi đây là dịch vụ dữ liệu thời gian thực. Nếu thị trường nghỉ, không phát sinh phiên mới.
+- Vào URL Pages do GitHub trả về. Mở trên Safari → Share → **Add to Home Screen** để dùng như một app iPhone.
+
+### 3. Bật tin nhắn Telegram cuối ngày (tùy chọn)
+
+- Trên Telegram, tạo bot qua **@BotFather**, lấy bot token. Bắt đầu chat với bot và xác định chat ID của bạn.
+- Trên GitHub, vào `Settings → Secrets and variables → Actions → New repository secret`, thêm đúng hai secret tên `TELEGRAM_BOT_TOKEN` và `TELEGRAM_CHAT_ID`. TUYỆT ĐỐI không gửi bot token qua chat hoặc commit token vào mã nguồn.
+- Workflow chỉ gửi báo cáo khi có **phiên giao dịch mới** và đã build/deploy thành công. Không gửi trùng khi hệ thống chạy lại cùng phiên.
+- Nếu nhà cung cấp cần cấp quyền dùng nguồn dữ liệu, có thể thêm secret `VNSTOCK_API_KEY` theo tài liệu Vnstock. Gói Community và hạn mức sử dụng của nhà cung cấp có thể thay đổi.
+
+## Dashboard giải thích được gì?
+
+- **Thi đấu mỗi ngày:** sổ tiền ảo được ghi nối tiếp vào `state/paper_state.json`. Lần chạy đầu tiên **không tự bịa giao dịch trong quá khứ**; tín hiệu chốt ngày đầu sẽ được chờ tới phiên tiếp theo, lệnh ảo chỉ được xác nhận sau khi có giá mở cửa thực tế của phiên đó. Nếu hệ thống bỏ lỡ một ngày, KHÔNG tạo lệnh ảo đã khớp trong ngày bị bỏ lỡ; thông báo độ tin cậy bị giảm.
+- **Thử lại quá khứ:** backtest trên 12 mã cổ phiếu được lựa chọn mặc định và VN-Index từ ngày 03/01/2023, sử dụng dữ liệu giá lịch sử tải từ Vnstock. Backtest được tính lại hàng ngày và có thể thay đổi khi nguồn điều chỉnh giá lịch sử.
+- **Các bot:** trạng thái tiền mặt, danh mục, lãi/lỗ, vì sao mua bán, lệnh dự định của ngày kế tiếp.
+- **Nhật ký:** ngày, mã, số lượng, giá khớp GIẢ ĐỊNH, lý do và lãi/lỗ mô phỏng.
+- **Giải thích:** ngôn ngữ dễ hiểu, phân biệt backtest với paper-forward.
+
+## Quy tắc và giới hạn
+
+- Bot được **lấy cảm hứng từ sách/quy tắc công khai**; KHÔNG chứng minh chính là lịch sử lệnh thực tế của các trader được nêu tên. Minervini: Trend Template rút gọn; O’Neil: breakout/volume/market filter rút gọn; Darvas: box-breakout proxy. Không có yếu tố tài chính doanh nghiệp hoặc VCP/CAN SLIM đầy đủ.
+- Data: `vnstock==5.0.1`, `Market().equity(symbol).ohlcv(...)`, `Market().index('VNINDEX').ohlcv(...)`; nguồn VCI. Đây là **dữ liệu từ bên trung gian**, không phải kết nối trực tiếp sàn HOSE.
+- Danh sách 12 mã (FPT, HPG, VCB, MBB, TCB, ACB, MWG, VNM, SSI, PNJ, DGC, VHM) cố định có thiên lệch chọn mẫu/survivorship. Không đại diện toàn bộ thị trường.
+- Tài khoản giả lập, phí mua/bán 0,15% mỗi chiều, thuế bán 0,1%, trượt giá 0,15%, lô 100 và tối đa 4 vị thế. Bán T+3 ở giá mở cửa mô phỏng để tránh giả định bán được trước T+2 chiều.
+- **Chưa xử lý chính xác:** cổ tức, chia tách, hủy niêm yết, trần/sàn, order book, lệnh có thể không khớp, ảnh hưởng giá khi giao dịch và thay đổi giá quá khứ sau điều chỉnh. Backtest không phải lời hứa lợi nhuận.
+- Không thêm giá giả vào báo cáo dữ liệu thật. Khi nguồn dữ liệu lỗi, script **thất bại** thay vì xuất kết quả mới bằng dữ liệu cũ; website đã triển khai lần trước có thể vẫn đang hiển thị kỳ dữ liệu gần nhất, xem nhãn **Phiên** để nhận biết.
+- GitHub Pages website không có đăng nhập mặc định và GitHub Actions chỉ chạy theo lịch **best-effort**; muốn sản phẩm thương mại cần bổ sung xác thực, giám sát job và license dữ liệu.
+
+## Cấu trúc mã
+
+- `site/index.html`: dashboard responsive, offline demo fallback, không có quảng cáo hay Javascript ngoài.
+- `generate_dashboard.py`: đồng bộ dữ liệu, chạy backtest và xuất JSON cho dashboard, gửi Telegram nếu cấu hình đủ.
+- `paper_forward.py`: lưu sổ tiền ảo nối tiếp mỗi phiên; chống chạy trùng.
+- `engine.py`: chiến thuật và backtesting engine phiên bản MVP.
+- `datafeed.py`: tải và kiểm tra OHLCV từ Vnstock.
+- `.github/workflows/daily.yml`: lịch chạy GitHub Actions, lưu lại kết quả/ledger, GitHub Pages deploy.
+- `tests/`: test engine, tránh lookahead và kiểm tra ledger.
+
+## Kiểm tra bằng môi trường Python (không bắt buộc cho người dùng iPhone)
+
+```bash
+python -m pip install -r requirements.txt
+python -m pytest -q
+python generate_dashboard.py
+```
+
+Để chạy pipeline thật cần Internet và phải tuân thủ hạn mức/quyền sử dụng dữ liệu của nhà cung cấp. Bộ này được kiểm thử logic bằng dữ liệu thử nghiệm, **chưa** được chạy end-to-end trên dữ liệu thật trong môi trường tạo file.

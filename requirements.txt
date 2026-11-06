@@ -1,0 +1,5 @@
+--extra-index-url https://vnstocks.com/api/packages
+vnstock==5.0.1
+pandas>=2.0,<3
+numpy>=1.26,<3
+pytest>=8,<10

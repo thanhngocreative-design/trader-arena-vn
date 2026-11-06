@@ -1,0 +1,7 @@
+__pycache__/
+.pytest_cache/
+.venv/
+data/prices/
+data/update_status.json
+*.pyc
+.env
