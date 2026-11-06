@@ -1,0 +1,63 @@
+name: Bat/tat bot tien ao
+on:
+  workflow_dispatch:
+    inputs:
+      trader:
+        description: "Chon bot muon doi trang thai"
+        required: true
+        type: choice
+        options:
+          - Minervini
+          - ONeil
+          - Darvas
+          - BNF
+          - CIS
+          - Qullamaggie
+          - Unger
+          - ThaiPham
+          - DuongChung
+          - PThai
+      status:
+        description: "Trang thai bot: on = mo, off = tam dung"
+        required: true
+        type: choice
+        options:
+          - on
+          - off
+permissions:
+  contents: write
+concurrency:
+  group: trader-arena-bot-control
+  cancel-in-progress: false
+jobs:
+  update-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update cloud bot switch
+        env:
+          BOT: ${{ inputs.trader }}
+          SWITCH: ${{ inputs.status }}
+        run: |
+          python - <<'PY'
+          import os,json
+          from pathlib import Path
+          key=os.environ['BOT']
+          assert key in {'Minervini','ONeil','Darvas','BNF','CIS','Qullamaggie','Unger','ThaiPham','DuongChung','PThai'}
+          config=Path('config/bots.json')
+          current=json.loads(config.read_text(encoding='utf-8'))
+          current[key]=(os.environ['SWITCH']=='on')
+          config.write_text(json.dumps(current,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print('Changed',key,'to',current[key])
+          PY
+      - name: Commit configuration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add config/bots.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Update virtual trader bot activation"
+            git fetch origin main
+            git rebase origin/main
+            git push origin HEAD:main
+          fi
