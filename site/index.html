@@ -41,6 +41,24 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
 .bottom .nav{max-width:560px;margin:auto;display:grid;grid-template-columns:repeat(4,1fr)}.bottom button{background:transparent;border:0;color:#8199b5;padding:11px 3px 9px;display:grid;gap:3px;justify-items:center;font-size:10px;font-weight:700;cursor:pointer}.bottom button.selected{color:#78edd1}.nav-ico{font-size:21px;line-height:1.3}
 .page{display:none}.page.on{display:block}.explain{counter-reset:num}.explain .step{display:flex;gap:10px;padding:13px 0;border-bottom:1px solid #263a55}.bubble{background:#243853;border-radius:50%;width:26px;height:26px;flex-shrink:0;display:grid;place-items:center;font-weight:900;color:#75ecd0;font-size:12px}.step div:last-child{font-size:13px;line-height:1.6;color:#aec6de}.step b{display:block;color:#ecf6ff;margin-bottom:3px}.footer{margin-top:18px;font-size:11px;color:#647e9e;line-height:1.6;text-align:center}
 @media(min-width:610px){.shell{padding-top:28px}.bottom{position:sticky;bottom:0}}
+.periodbar{display:flex;gap:7px;overflow-x:auto;margin:0 0 12px;padding-bottom:5px}
+.periodbar button{border:1px solid #35536b;background:#152943;color:#c5d8ea;padding:9px 11px;border-radius:11px;font-size:12px;font-weight:780;white-space:nowrap;cursor:pointer}
+.periodbar button.selected{background:#dffaf6;color:#0c2b37;border-color:#dffaf6}
+.tickerbtn{border:0;background:#1d4552;color:#8cf2da;border-radius:7px;padding:5px 9px;font-size:13px;font-weight:850;cursor:pointer}
+.switchline{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#0d1f33;padding:12px;border-radius:13px;margin:13px 0}
+.tog{border:1px solid #56cdb1;background:#134339;border-radius:99px;padding:9px 13px;color:#9af5d4;font-weight:800;cursor:pointer;font-size:12px}
+.tog.off{border-color:#4a5167;background:#283349;color:#c5d1e2}
+.stockoverlay{display:none;position:fixed;inset:0;z-index:20;background:#041021e8;overflow-y:auto;padding:calc(13px + env(safe-area-inset-top)) 12px calc(22px + env(safe-area-inset-bottom))}
+.stockoverlay.on{display:block}
+.stockpanel{max-width:560px;margin:0 auto;background:#102038;border:1px solid #31506b;border-radius:20px;padding:15px}
+.stockhead{display:flex;align-items:start;justify-content:space-between;gap:10px}
+.stockclose{background:#223a52;color:#fff;border:1px solid #37526c;border-radius:13px;padding:9px 13px;font-weight:700;cursor:pointer}
+.stockplot{width:100%;height:270px;touch-action:pan-y;display:block}
+.stocknotes{font-size:12px;color:#aac0d7;line-height:1.5}
+.stocktabs{display:flex;gap:7px;overflow-x:auto;margin:12px 0}
+.stocktabs button{background:#21354e;color:#afc5da;border:1px solid #355270;border-radius:9px;padding:7px 9px;white-space:nowrap;cursor:pointer;font-size:12px}
+.stocktabs button.selected{background:#c6f5e5;color:#092735}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
@@ -51,6 +69,11 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
   <div class="eyebrow">Cuộc thi tiền ảo</div><h1>Ai đang giao dịch giỏi nhất? 🏆</h1>
   <p class="sub" id="arenaIntro">Bảy chiến thuật Mỹ, Nhật và châu Âu cùng thử sức trên cổ phiếu Việt Nam. Mỗi bot bắt đầu với 100 triệu đồng ảo.</p>
   <div class="switch"><button id="modePaper" class="active" onclick="setMode('paper')">📅 Thi đấu mỗi ngày</button><button id="modeBacktest" onclick="setMode('backtest')">⏳ Thử lại quá khứ</button></div>
+  <div id="backtestTimePicker" style="display:none">
+    <div class="eyebrow" style="margin-bottom:8px">Chọn thời gian backtest</div>
+    <div class="periodbar" id="backtestPeriods"></div>
+    <p class="note" id="rangeDetail" style="margin:-5px 0 14px">Tính lại 100 triệu vốn gốc trong mỗi khoảng thời gian.</p>
+  </div>
   <div class="card">
     <div class="row"><span class="label" id="totalLabel">Tổng tiền ảo của các bot</span><span class="pill" id="modePill">Giả lập từ hôm nay</span></div>
     <div class="big tnum" id="totalNav">—</div>
@@ -62,6 +85,8 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
   <div id="leaderboard" style="margin-top:10px"></div>
   <div class="section-title"><h2>📈 Ai thắng thị trường?</h2><span class="hint" id="plotTime">Kết quả %</span></div>
   <div class="card"><div class="row"><div style="font-weight:790" id="chartTitle">Biểu đồ tăng trưởng</div><span class="pill" id="chartResult">—</span></div><div class="plot-wrap"><svg class="plot" id="mainChart" viewBox="0 0 360 160" aria-label="Biểu đồ hiệu suất"></svg><div class="legend"><span><i class="dot"></i>Bot</span><span id="legendIndex"><i class="dot index"></i>VN-Index</span></div></div><p class="note" id="chartNote" style="margin-top:10px"></p></div>
+  <div class="section-title"><h2>📊 Bấm vào mã cổ phiếu</h2><span class="hint">Giá &amp; khối lượng thật</span></div>
+  <div class="scroll-chip" id="stockShortcuts" style="margin-bottom:12px"></div>
   <div class="card soft"><div class="row"><strong>💡 Nói đơn giản</strong><span class="pill">Lớp 5</span></div><p class="note" id="simpleMessage" style="margin-top:8px"></p></div>
 </section>
 <section id="botsPage" class="page"><div class="eyebrow">Hồ sơ chiến thuật</div><h1>Các bot của mình 🤖</h1><p class="sub">Chọn bot để xem nó đang cầm gì và vì sao.</p><div class="scroll-chip" id="botChips"></div><div id="botDetail"></div></section>
@@ -69,9 +94,10 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
 <section id="learnPage" class="page"><div class="eyebrow">Giải thích dễ hiểu</div><h1>Bot chơi thế nào? 🎒</h1><div class="card explain">
   <div class="step"><div class="bubble">1</div><div><b>Mỗi bot có 100 triệu tiền ảo.</b> Không có tiền thật nào được dùng để mua cổ phiếu.</div></div>
   <div class="step"><div class="bubble">2</div><div><b>Bot xem giá trên sàn sau giờ giao dịch.</b> Dữ liệu đến từ nguồn giá chứng khoán Việt Nam, không phải giá do bot tự bịa.</div></div>
-  <div class="step"><div class="bubble">3</div><div><b>Nó quyết định mua hoặc bán.</b> Những quy tắc này lấy cảm hứng từ các chiến thuật của trader Mỹ, Nhật và châu Âu; không sao chép tài khoản thật của họ.</div></div>
+  <div class="step"><div class="bubble">3</div><div><b>Nó quyết định mua hoặc bán.</b> Các quy tắc là bản nghiên cứu từ phong cách trader Mỹ, Nhật, châu Âu và Việt Nam, không phải sao chép tài khoản thật.</div></div>
   <div class="step"><div class="bubble">4</div><div><b>Chỉ là trò chơi mô phỏng.</b> Lệnh được tính theo giá giả định đã trừ phí, thuế, trượt giá. Không gửi lệnh tới công ty chứng khoán.</div></div>
-  <div class="step"><div class="bubble">5</div><div><b>Hai cách chấm điểm khác nhau.</b> “Thử lại quá khứ” là backtest. “Thi đấu mỗi ngày” là sổ tiền ảo ghi nối tiếp từ ngày bắt đầu sử dụng.</div></div>
+  <div class="step"><div class="bubble">5</div><div><b>Hai cách chấm điểm khác nhau.</b> “Thử lại quá khứ” chạy độc lập theo 3 tháng/6 tháng/1 năm/2 năm/từ 2023. “Thi đấu mỗi ngày” là sổ tiền ảo ghi nối tiếp.</div></div>
+  <div class="step"><div class="bubble">6</div><div><b>Bật/tắt bot trên điện thoại.</b> Công tắc trên website chỉ ẩn khỏi bảng xếp hạng cá nhân, không dừng bot trên cloud. Có thể nhắn ChatGPT yêu cầu tạm dừng cloud để nó thay đổi cấu hình riêng.</div></div>
 </div><div class="card soft"><strong>⚠️ Điều chưa hoàn hảo</strong><p class="note" style="margin-top:9px">Backtest chưa xử lý trọn vẹn cổ tức, chia tách, cổ phiếu hủy niêm yết, giá sàn/trần và khả năng lệnh không khớp. Lợi nhuận ảo không đảm bảo lợi nhuận thật.</p></div><div id="warnings" class="note"></div></section>
 <div class="footer">Research only · Không tư vấn đầu tư · Không kết nối đặt lệnh thật</div>
 </div>
@@ -81,16 +107,57 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
   <button id="nav-trades" onclick="setPage('trades')"><span class="nav-ico">🧾</span>Nhật ký</button>
   <button id="nav-learn" onclick="setPage('learn')"><span class="nav-ico">🎒</span>Giải thích</button>
 </div></nav>
+<div class="stockoverlay" id="stockOverlay" role="dialog" aria-modal="true" aria-label="Biểu đồ chứng khoán">
+  <div class="stockpanel">
+    <div class="stockhead"><div><div class="eyebrow">Dữ liệu giá thực · cuối phiên</div><h1 id="stockName" style="margin-top:5px">Cổ phiếu</h1><p class="note" id="stockNow"></p></div>
+    <button class="stockclose" onclick="closeStock()" aria-label="Đóng biểu đồ">✕ Đóng</button></div>
+    <div class="stocktabs" id="stockTabs"></div>
+    <svg id="stockGraph" class="stockplot" viewBox="0 0 360 270" role="img" aria-label="Biểu đồ giá và khối lượng"></svg>
+    <div class="stocknotes" id="stockCursor" style="margin-top:5px"></div>
+    <p class="stocknotes" style="margin-top:12px">Chạm vào biểu đồ để xem giá mở / cao / thấp / đóng và khối lượng từng ngày. Giá cuối phiên từ nguồn dữ liệu thị trường, không phải giá trực tiếp.</p>
+  </div>
+</div>
 <script>
 let IDS=['Minervini','ONeil','Darvas'];
 let regionFilter='ALL';
-const REGION={ALL:'🌍 Tất cả',US:'🇺🇸 Mỹ',JP:'🇯🇵 Nhật',EU:'🇪🇺 Châu Âu'};
-const EMOJI={Minervini:'🚀',ONeil:'🔎',Darvas:'📦',BNF:'🎯',CIS:'⚡',Qullamaggie:'🏄',Unger:'🧠'};
-const SHORT={Minervini:'Minervini',ONeil:'O’Neil',Darvas:'Darvas',BNF:'BNF',CIS:'CIS',Qullamaggie:'Kullamägi',Unger:'Unger'};
-const TEXT={Minervini:'Tìm cổ phiếu đang tăng rất khỏe. Chỉ mua khi giá vượt đỉnh cũ.',ONeil:'Săn cổ phiếu bứt phá với nhiều người mua, khi thị trường chung thuận lợi.',Darvas:'Tìm cổ phiếu thoát khỏi chiếc “hộp giá”, giữ đến khi xu hướng yếu đi.',BNF:'Săn cổ phiếu đã giảm sâu rồi bắt đầu hồi phục.',CIS:'Bám theo hướng tăng của giá, không cố bắt đáy.',Qullamaggie:'Chọn cổ phiếu tăng mạnh, nghỉ lấy sức rồi vượt đỉnh.',Unger:'Mua tín hiệu breakout khi biến động nằm trong mức chấp nhận.'};
+const REGION={ALL:'🌍 Tất cả',US:'🇺🇸 Mỹ',JP:'🇯🇵 Nhật',EU:'🇪🇺 Châu Âu',VN:'🇻🇳 Việt Nam'};
+const EMOJI={Minervini:'🚀',ONeil:'🔎',Darvas:'📦',BNF:'🎯',CIS:'⚡',Qullamaggie:'🏄',Unger:'🧠',ThaiPham:'🌊',DuongChung:'🪃',PThai:'🧮'};
+const SHORT={Minervini:'Minervini',ONeil:'O’Neil',Darvas:'Darvas',BNF:'BNF',CIS:'CIS',Qullamaggie:'Kullamägi',Unger:'Unger',ThaiPham:'Thái Phạm',DuongChung:'D.V. Chung',PThai:'P.Thai Quant'};
+const TEXT={Minervini:'Tìm cổ phiếu đang tăng rất khỏe. Chỉ mua khi giá vượt đỉnh cũ.',ONeil:'Săn cổ phiếu bứt phá với nhiều người mua, khi thị trường chung thuận lợi.',Darvas:'Tìm cổ phiếu thoát khỏi chiếc “hộp giá”, giữ đến khi xu hướng yếu đi.',BNF:'Săn cổ phiếu đã giảm sâu rồi bắt đầu hồi phục.',CIS:'Bám theo hướng tăng của giá, không cố bắt đáy.',Qullamaggie:'Chọn cổ phiếu tăng mạnh, nghỉ lấy sức rồi vượt đỉnh.',Unger:'Mua tín hiệu breakout khi biến động nằm trong mức chấp nhận.',ThaiPham:'Đọc giá và khối lượng để tìm dấu hiệu dòng tiền quay lại.',DuongChung:'Bắt nhịp hồi từ vùng giảm sâu.',PThai:'Xếp hạng đà tăng và kiểm soát rủi ro bằng dữ liệu.'};
 const mkDemo=(r,i)=>{let seq=Array.from({length:25},(_,k)=>({date:'Mốc '+(k+1),bot:+(r*k/24+Math.sin(k*.7+i)*1.35*(k/24)).toFixed(2),index:+(5*k/24+Math.sin(k*.25)*1.8).toFixed(2),nav:Math.round(100000000*(1+(r*k/24)/100))}));return {nav:Math.round(100000000*(1+r/100)),cash:35500000,return_pct:r,benchmark_return_pct:5,max_drawdown_pct:-4.7-i*1.3,win_rate:55+i*2,closed_trades:13+i,buy_count:17+i,curve:seq,holdings:[{symbol:['FPT','HPG','MBB'][i],qty:300,buy_price:88000,last_price:92500,pnl:1350000,pnl_pct:5.1,value:27750000}],actions:[{symbol:['FPT','HPG','MBB'][i],action:'TIẾP TỤC GIỮ',reason:'Giá chưa giảm xuống ngưỡng bán'}],trades:[{date:'VÍ DỤ',symbol:['FPT','HPG','MBB'][i],side:'MUA',qty:300,price:88000,reason:'Mua giả định khi giá vượt đỉnh'}]}};
 const DEMO={mode:'demo',generated_at:'',last_session:'VÍ DỤ',start_date:'VÍ DỤ',capital_each:100000000,market:{index:'VN-Index',level:null,return_since_backtest_start:5},traders:{Minervini:{name:'Mark Minervini',tag:'Săn cổ phiếu tăng mạnh'},ONeil:{name:'William O’Neil',tag:'Săn cú bứt phá'},Darvas:{name:'Nicolas Darvas',tag:'Vượt hộp giá'}},backtests:{Minervini:mkDemo(12.4,0),ONeil:mkDemo(3.1,1),Darvas:mkDemo(6.8,2)},paper:{Minervini:{nav:100000000,return_pct:0,cash:100000000,holdings:[],orders_next:[],history:[{date:'VÍ DỤ',nav:100000000,return_pct:0}],trades:[]},ONeil:{nav:100000000,return_pct:0,cash:100000000,holdings:[],orders_next:[],history:[{date:'VÍ DỤ',nav:100000000,return_pct:0}],trades:[]},Darvas:{nav:100000000,return_pct:0,cash:100000000,holdings:[],orders_next:[],history:[{date:'VÍ DỤ',nav:100000000,return_pct:0}],trades:[]}},warnings:[]};
 let DATA=DEMO, mode='paper', page='home', selected='Minervini', tradeFilter='ALL', demo=true;
+let period='ALL', stockSymbol='',stockWindow='3M',stockSelectedBar=null;
+let hiddenBots={};try{hiddenBots=JSON.parse(localStorage.getItem('arena-hidden-bots-v1')||'{}')||{};}catch(_){hiddenBots={};}
+const activeKeys=()=>IDS.filter(k=>!hiddenBots[k]);
+const periodData=()=>DATA.backtest_periods?.[period]||DATA.backtests;
+function selectPeriod(p){if(!DATA.backtest_periods?.[p]&&p!=='ALL')return;period=p;render();}
+function toggleBot(k){hiddenBots[k]=!hiddenBots[k];try{localStorage.setItem('arena-hidden-bots-v1',JSON.stringify(hiddenBots));}catch(_){};render();}
+const chartRanges={ '1M':22,'3M':66,'6M':132,'1Y':252,'3Y':780 };
+function openStock(symbol){if(!/^[A-Z0-9]{2,7}$/.test(String(symbol)))return;stockSymbol=symbol;stockWindow='3M';stockSelectedBar=null;document.getElementById('stockOverlay').classList.add('on');document.body.style.overflow='hidden';renderStock();}
+function closeStock(){document.getElementById('stockOverlay').classList.remove('on');document.body.style.overflow='';}
+function changeStockWindow(w){if(!(w in chartRanges))return;stockWindow=w;stockSelectedBar=null;renderStock();}
+function stockTap(evt){const b=document.getElementById('stockGraph').getBoundingClientRect(),x=(evt.clientX-b.left)/b.width*360;const len=Math.min(chartRanges[stockWindow],DATA.stocks?.[stockSymbol]?.length||0);if(!len)return;stockSelectedBar=Math.max(0,Math.min(len-1,Math.round((x-12)/336*(len-1))));renderStock();}
+function renderStock(){
+  const all=DATA.stocks?.[stockSymbol]||[],bars=all.slice(-chartRanges[stockWindow]);
+  $('stockName').textContent=stockSymbol+' · Biểu đồ giá';
+  $('stockTabs').innerHTML=Object.keys(chartRanges).map(k=>`<button onclick="changeStockWindow('${k}')" class="${stockWindow===k?'selected':''}">${k==='3Y'?'Tối đa':k}</button>`).join('');
+  if(!bars.length){$('stockNow').textContent='Chưa có dữ liệu giá công khai cho mã này.';$('stockGraph').innerHTML='';$('stockCursor').textContent='';return;}
+  const last=all[all.length-1],prev=all.length>=2?all[all.length-2]:last;
+  const delta=(last[4]/prev[4]-1)*100;
+  $('stockNow').textContent=vnd(last[4])+' / CP  ·  '+pct(delta)+' so với phiên trước · '+last[0];
+  const lo=Math.min(...bars.map(b=>b[3]))*.994,hi=Math.max(...bars.map(b=>b[2]))*1.006;
+  const y=price=>181-(price-lo)/(Math.max(hi-lo,1))*158;
+  const x=i=>12+i/(Math.max(1,bars.length-1))*336;
+  const maxVol=Math.max(1,...bars.map(b=>b[5]));
+  const coords=bars.map((b,i)=>`${x(i).toFixed(1)},${y(b[4]).toFixed(1)}`).join(' ');
+  const volumes=bars.map((b,i)=>`<line x1="${x(i).toFixed(1)}" x2="${x(i).toFixed(1)}" y1="253" y2="${(253-b[5]/maxVol*47).toFixed(1)}" stroke="${b[4]>=b[1]?'#3ecaa3':'#e97782'}" stroke-width="${Math.max(1,294/bars.length).toFixed(1)}" opacity=".58"/>`).join('');
+  const candles=bars.length<=132?bars.map((b,i)=>{const col=b[4]>=b[1]?'#53e8ad':'#ff849b',bx=x(i).toFixed(1),w=Math.max(1.3,Math.min(5,240/bars.length));return `<line x1="${bx}" x2="${bx}" y1="${y(b[2]).toFixed(1)}" y2="${y(b[3]).toFixed(1)}" stroke="${col}" stroke-width="1"/><rect x="${(x(i)-w/2).toFixed(1)}" y="${Math.min(y(b[1]),y(b[4])).toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(1,Math.abs(y(b[4])-y(b[1]))).toFixed(1)}" fill="${col}"/>`}).join(''):`<polyline points="${coords}" stroke="#6aebcf" stroke-width="2.1" fill="none" stroke-linejoin="round"/>`;
+  const idx=stockSelectedBar===null?bars.length-1:Math.max(0,Math.min(bars.length-1,stockSelectedBar));
+  const focus=bars[idx],cx=x(idx);
+  $('stockGraph').innerHTML=`<rect width="360" height="270" fill="#0c1c31" rx="12"/><g stroke="#29445b" stroke-dasharray="4 6"><line x1="12" y1="45" x2="350" y2="45"/><line x1="12" y1="100" x2="350" y2="100"/><line x1="12" y1="155" x2="350" y2="155"/></g><g>${volumes}</g><g>${candles}</g><line x1="${cx.toFixed(1)}" y1="16" x2="${cx.toFixed(1)}" y2="253" stroke="#f2eab7" stroke-width="1" stroke-dasharray="3 4"/><circle cx="${cx.toFixed(1)}" cy="${y(focus[4]).toFixed(1)}" r="4" fill="#f2eab7"/><rect x="12" y="184" width="336" height="1" fill="#37526b"/><text x="15" y="198" fill="#93adc7" font-size="9">KHỐI LƯỢNG</text><text x="14" y="265" fill="#8ba4c0" font-size="9">${bars[0][0]}</text><text x="347" y="265" text-anchor="end" fill="#8ba4c0" font-size="9">${last[0]}</text><rect x="12" y="10" width="336" height="174" fill="transparent" onclick="stockTap(event)"/>`;
+  $('stockCursor').innerHTML=`<strong>${focus[0]}</strong> · Mở ${vnd(focus[1])} · Cao ${vnd(focus[2])} · Thấp ${vnd(focus[3])} · Đóng ${vnd(focus[4])}<div>Khối lượng: ${n(focus[5]).toLocaleString('vi-VN')} CP</div>`;
+}
 const $=id=>document.getElementById(id);
 const safe=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const n=x=>Number.isFinite(Number(x))?Number(x):0;
