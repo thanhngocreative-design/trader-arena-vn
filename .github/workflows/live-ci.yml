@@ -1,0 +1,37 @@
+name: Trader Arena VN realtime component tests
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'live/**'
+      - 'tests/**'
+      - 'engine.py'
+      - 'execution.py'
+      - 'fast_engine.py'
+      - 'site/index.html'
+      - 'site/live-config.json'
+      - 'Dockerfile.live'
+      - 'requirements-live.txt'
+      - '.github/workflows/live-ci.yml'
+permissions:
+  contents: read
+jobs:
+  test-offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install local test dependencies only
+        run: python -m pip install pandas numpy pytest
+      - name: Test real-time ledger without any broker credentials
+        run: python -m pytest -q
+      - name: Confirm no order endpoint or DNSE order method
+        run: |
+          if grep -R -E 'place_order|send_order|submit_order' live/; then
+            echo "Live component attempted to include an order-placement method"
+            exit 1
+          fi
+          echo "Read-only paper data bridge verified"
