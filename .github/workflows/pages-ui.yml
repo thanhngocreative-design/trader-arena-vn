@@ -1,0 +1,45 @@
+name: Publish Trader Arena iPhone UI
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - site/index.html
+      - site/live-config.json
+      - .github/workflows/pages-ui.yml
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: trader-arena-static-ui
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate publicly readable live config (no secrets)
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          obj=json.loads(Path("site/live-config.json").read_text())
+          assert isinstance(obj.get("enabled"),bool)
+          base=str(obj.get("api_base",""))
+          assert not obj["enabled"] or base.startswith("https://")
+          for token in ("DNSE_API_SECRET","DNSE_API_KEY","api_secret","api_key"):
+              assert token not in obj
+          print("Read-only live URL config valid")
+          PY
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+      - uses: actions/deploy-pages@v4
+        id: deploy
