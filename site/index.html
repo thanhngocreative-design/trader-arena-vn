@@ -59,6 +59,22 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
 .stocktabs button{background:#21354e;color:#afc5da;border:1px solid #355270;border-radius:9px;padding:7px 9px;white-space:nowrap;cursor:pointer;font-size:12px}
 .stocktabs button.selected{background:#c6f5e5;color:#092735}
 @media (prefers-reduced-motion: reduce){*{scroll-behavior:auto!important}}
+
+/* Expand a ranking card without switching bottom navigation tabs. */
+.rankgroup{margin-bottom:9px}
+.rankgroup>.ranker{margin-bottom:0}
+.rankgroup>.ranker[aria-expanded="true"]{border-radius:15px 15px 0 0;border-color:#63e5cd;background:#172e42}
+.rank-chevron{font-size:18px;color:#91b9c9;align-self:center;margin-left:2px;transition:transform .16s}
+.rankgroup>.ranker[aria-expanded="true"] .rank-chevron{transform:rotate(180deg)}
+.rankdetail-panel{background:#11263e;border:1px solid #63e5cd;border-top:0;border-radius:0 0 15px 15px;padding:14px;line-height:1.5}
+.rank-detail-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:11px 0}
+.rank-detail-metric{background:#0a1a2e;border-radius:10px;padding:10px;min-width:0}
+.rank-detail-metric .label{font-size:11px}
+.rank-detail-metric strong{display:block;margin-top:4px;font-size:15px;font-variant-numeric:tabular-nums}
+.rank-details-bottom{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+.rank-details-bottom button{border:1px solid #366481;background:#163d4a;color:#a4f1df;padding:9px 12px;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer}
+.rank-holdings{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.rank-holdings button{background:#193d51;color:#a9e9d8;border:1px solid #367e83;border-radius:9px;padding:7px 10px;font-size:12px;font-weight:750;cursor:pointer}
 </style>
 </head>
 <body>
@@ -80,7 +96,7 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
     <div id="totalDelta" class="ssmall">—</div>
     <div class="metric-grid"><div class="metric"><div class="label">Vốn ban đầu</div><div class="value tnum" id="totalInitial">—</div></div><div class="metric"><div class="label">Phiên dữ liệu</div><div class="value" id="marketDay" style="font-size:16px">—</div></div></div>
   </div>
-  <div class="section-title"><h2>🏁 Bảng xếp hạng</h2><span class="hint">Chạm vào bot để xem</span></div>
+  <div class="section-title"><h2>🏁 Bảng xếp hạng</h2><span class="hint">Chạm để mở ngay tại đây</span></div>
   <div class="scroll-chip" id="regionChips" aria-label="Chọn khu vực trader"></div>
   <div id="leaderboard" style="margin-top:10px"></div>
   <div class="section-title"><h2>📈 Ai thắng thị trường?</h2><span class="hint" id="plotTime">Kết quả %</span></div>
@@ -127,6 +143,7 @@ const TEXT={Minervini:'Tìm cổ phiếu đang tăng rất khỏe. Chỉ mua khi
 const mkDemo=(r,i)=>{let seq=Array.from({length:25},(_,k)=>({date:'Mốc '+(k+1),bot:+(r*k/24+Math.sin(k*.7+i)*1.35*(k/24)).toFixed(2),index:+(5*k/24+Math.sin(k*.25)*1.8).toFixed(2),nav:Math.round(100000000*(1+(r*k/24)/100))}));return {nav:Math.round(100000000*(1+r/100)),cash:35500000,return_pct:r,benchmark_return_pct:5,max_drawdown_pct:-4.7-i*1.3,win_rate:55+i*2,closed_trades:13+i,buy_count:17+i,curve:seq,holdings:[{symbol:['FPT','HPG','MBB'][i],qty:300,buy_price:88000,last_price:92500,pnl:1350000,pnl_pct:5.1,value:27750000}],actions:[{symbol:['FPT','HPG','MBB'][i],action:'TIẾP TỤC GIỮ',reason:'Giá chưa giảm xuống ngưỡng bán'}],trades:[{date:'VÍ DỤ',symbol:['FPT','HPG','MBB'][i],side:'MUA',qty:300,price:88000,reason:'Mua giả định khi giá vượt đỉnh'}]}};
 const DEMO={mode:'demo',generated_at:'',last_session:'VÍ DỤ',start_date:'VÍ DỤ',capital_each:100000000,market:{index:'VN-Index',level:null,return_since_backtest_start:5},traders:{Minervini:{name:'Mark Minervini',tag:'Săn cổ phiếu tăng mạnh'},ONeil:{name:'William O’Neil',tag:'Săn cú bứt phá'},Darvas:{name:'Nicolas Darvas',tag:'Vượt hộp giá'}},backtests:{Minervini:mkDemo(12.4,0),ONeil:mkDemo(3.1,1),Darvas:mkDemo(6.8,2)},paper:{Minervini:{nav:100000000,return_pct:0,cash:100000000,holdings:[],orders_next:[],history:[{date:'VÍ DỤ',nav:100000000,return_pct:0}],trades:[]},ONeil:{nav:100000000,return_pct:0,cash:100000000,holdings:[],orders_next:[],history:[{date:'VÍ DỤ',nav:100000000,return_pct:0}],trades:[]},Darvas:{nav:100000000,return_pct:0,cash:100000000,holdings:[],orders_next:[],history:[{date:'VÍ DỤ',nav:100000000,return_pct:0}],trades:[]}},warnings:[]};
 let DATA=DEMO, mode='paper', page='home', selected='Minervini', tradeFilter='ALL', demo=true;
+let expandedBot=null;
 let period='ALL', stockSymbol='',stockWindow='3M',stockSelectedBar=null;
 let hiddenBots={};try{hiddenBots=JSON.parse(localStorage.getItem('arena-hidden-bots-v1')||'{}')||{};}catch(_){hiddenBots={};}
 const activeKeys=()=>IDS.filter(k=>!hiddenBots[k]);
@@ -170,7 +187,39 @@ const nav=k=>n(part(k)?.nav);
 const ret=k=>n(part(k)?.return_pct);
 function setPage(p){page=p;document.querySelectorAll('.page').forEach(x=>x.classList.toggle('on',x.id===p+'Page'));document.querySelectorAll('.bottom button').forEach(x=>x.classList.toggle('selected',x.id==='nav-'+p));window.scrollTo({top:0,behavior:'smooth'});render()}
 function setMode(m){mode=m;document.querySelectorAll('.switch button').forEach(x=>x.classList.toggle('active',x.id===(m==='paper'?'modePaper':'modeBacktest')));render()}
-function setSelected(id){selected=id;setPage('bots')}
+function selectRankBot(id){
+  if(!IDS.includes(id))return;
+  expandedBot=expandedBot===id?null:id;
+  selected=id;
+  // Repaint only the home view. Do not change page, tab or scroll to the top.
+  renderHome();
+}
+function openBotProfile(id){if(!IDS.includes(id))return;selected=id;setPage('bots')}
+function rankExtra(k){
+  const b=part(k);
+  if(!b)return '';
+  const holdings=b.holdings||[], actions=mode==='paper'?(b.orders_next||[]):(b.actions||[]);
+  const stop=b.max_drawdown_pct===undefined?'':`<div class="rank-detail-metric"><span class="label">Lỗ sâu nhất (backtest)</span><strong class="red">${pct(b.max_drawdown_pct)}</strong></div>`;
+  const holdingsMarkup=holdings.length
+    ?`<div class="rank-holdings">${holdings.slice(0,8).map(h=>`<button type="button" onclick="openStock('${safe(h.symbol)}')" aria-label="Xem chart cổ phiếu ${safe(h.symbol)}">📈 ${safe(h.symbol)} · ${n(h.qty).toLocaleString('vi-VN')} CP</button>`).join('')}</div>`
+    :'<p class="note" style="margin-top:5px">Hiện bot đang giữ tiền mặt, chưa có cổ phiếu nào.</p>';
+  const actionMarkup=actions.length
+    ?`<p class="note" style="margin-top:9px">📣 ${safe(actions[0].action||(actions[0].side==='BUY'?'Dự kiến mua':'Dự kiến bán'))} ${safe(actions[0].symbol)} · ${safe(actions[0].reason||'Theo quy tắc của bot')}</p>`
+    :'<p class="note" style="margin-top:9px">📣 Chưa có tín hiệu giao dịch mới.</p>';
+  return `<div id="rankdetail-${k}" class="rankdetail-panel">
+    <p class="note">🔎 ${safe(DATA.traders?.[k]?.explain||TEXT[k]||'Bot theo tín hiệu mô phỏng.')}</p>
+    <div class="rank-detail-metrics">
+      <div class="rank-detail-metric"><span class="label">Tài sản ảo</span><strong>${money(b.nav)}</strong></div>
+      <div class="rank-detail-metric"><span class="label">Tiền mặt</span><strong>${money(b.cash)}</strong></div>
+      <div class="rank-detail-metric"><span class="label">Đang nắm giữ</span><strong>${holdings.length} mã</strong></div>
+      ${stop||`<div class="rank-detail-metric"><span class="label">Lãi / lỗ</span><strong class="${color(b.return_pct)}">${pct(b.return_pct)}</strong></div>`}
+    </div>
+    <div class="note"><strong>👜 Cổ phiếu đang giữ</strong></div>
+    ${holdingsMarkup}
+    ${actionMarkup}
+    <div class="rank-details-bottom"><button type="button" onclick="openBotProfile('${k}')">Xem hồ sơ đầy đủ ↗</button></div>
+  </div>`;
+}
 function setTradeFilter(v){tradeFilter=v;renderTrades()}
 function setRegionFilter(r){regionFilter=r;const keys=IDS.filter(k=>r==='ALL'||DATA.traders?.[k]?.region===r);if(keys.length&&!keys.includes(selected))selected=keys[0];render()}
 function graph(svg,series,showIndex){
@@ -195,7 +244,15 @@ function renderHome(){
   const available=included.filter(k=>regionFilter==='ALL'||DATA.traders?.[k]?.region===regionFilter);
   const sorted=available.sort((a,b)=>ret(b)-ret(a));
   $('regionChips').innerHTML=Object.entries(REGION).map(([k,label])=>`<button class="chip ${regionFilter===k?'active':''}" onclick="setRegionFilter('${k}')">${label} · ${k==='ALL'?IDS.length:IDS.filter(t=>DATA.traders?.[t]?.region===k).length}</button>`).join('');
-  $('leaderboard').innerHTML=(sorted.length?sorted.map((k,i)=>`<button class="ranker ${k===selected?'selected':''}" onclick="setSelected('${k}')"><span class="rankicon">${['🥇','🥈','🥉'][i]||('#'+(i+1))}</span><span class="push"><div class="rankname">${safe(DATA.traders?.[k]?.flag||'')} ${safe(SHORT[k])} Bot</div><div class="rankdetail">${safe(DATA.traders?.[k]?.tag||TEXT[k])} · ${money(nav(k))}</div></span><span class="return ${color(ret(k))}">${pct(ret(k))}<small>lãi / lỗ</small></span></button>`).join(''):'<div class="card empty">Chưa có bot nào đang bật trong khu vực này. Bật lại ở mục Các bot.</div>');
+  $('leaderboard').innerHTML=(sorted.length?sorted.map((k,i)=>`<div class="rankgroup">
+    <button type="button" class="ranker ${k===selected?'selected':''}" aria-expanded="${expandedBot===k}" aria-controls="rankdetail-${k}" onclick="selectRankBot('${k}')">
+      <span class="rankicon">${['🥇','🥈','🥉'][i]||('#'+(i+1))}</span>
+      <span class="push"><span class="rankname">${safe(DATA.traders?.[k]?.flag||'')} ${safe(SHORT[k])} Bot</span><span class="rankdetail" style="display:block">${safe(DATA.traders?.[k]?.tag||TEXT[k])} · ${money(nav(k))}</span></span>
+      <span class="return ${color(ret(k))}">${pct(ret(k))}<small>lãi / lỗ</small></span>
+      <span class="rank-chevron" aria-hidden="true">⌄</span>
+    </button>
+    ${expandedBot===k?rankExtra(k):''}
+  </div>`).join(''):'<div class="card empty">Chưa có bot nào đang bật trong khu vực này. Bật lại ở mục Các bot.</div>');
   const chartBot=sorted.includes(selected)?selected:(sorted[0]||IDS[0]);
   const bot=part(chartBot),series=mode==='paper'?(bot.history||[]).map(x=>({date:x.date,bot:x.return_pct})):bot.curve||[];
   $('chartTitle').textContent=SHORT[chartBot]+' Bot';$('chartResult').textContent=pct(ret(chartBot));$('chartResult').className='pill '+(ret(chartBot)>=0?'good':'warn');
