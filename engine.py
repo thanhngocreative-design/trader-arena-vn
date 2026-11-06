@@ -58,6 +58,27 @@ TRADERS = {
         "detail": "Mô hình thử nghiệm breakouts + ATR/volatility filter theo triết lý hệ thống; Unger chủ yếu giao dịch futures nên đây không phải chiến thuật cổ phiếu gốc.",
         "source": "https://ungeracademy.com/blog/the-trading-edge",
     },
+    "ThaiPham": {
+        "name": "Thái Phạm", "emoji": "🌊", "region": "VN", "flag": "🇻🇳",
+        "tag": "Đọc dòng tiền theo VSA",
+        "explain": "Quan sát giá đi lên cùng khối lượng mạnh sau giai đoạn tích lũy, giả định lực mua đang trở lại.",
+        "detail": "Mô hình nghiên cứu VSA/Wyckoff: thân nến tăng, đóng gần đỉnh ngày, khối lượng > 1,4 lần bình quân, vượt vùng giá gần. Chỉ là proxy của học thuyết được Thái Phạm phổ biến; không phải các lệnh thật hoặc phương pháp riêng được ông xác nhận.",
+        "source": "https://www.youtube.com/watch?v=r_SSPGd88mE",
+    },
+    "DuongChung": {
+        "name": "Dương Văn Chung", "emoji": "🪃", "region": "VN", "flag": "🇻🇳",
+        "tag": "Tìm nhịp hồi từ vùng giảm sâu",
+        "explain": "Tìm cổ phiếu từng giảm mạnh, xuất hiện dấu hiệu ngừng rơi và bắt đầu tăng trở lại.",
+        "detail": "Proxy mean-reversion theo chu kỳ: giảm tối thiểu 15% từ đỉnh 60 phiên, RSI 14 ở vùng yếu, phiên giá hồi. Ngưỡng số là giả thuyết riêng của Arena, không chứng minh ông dùng các công thức này.",
+        "source": "https://www.google.com/search?q=D%C6%B0%C6%A1ng+V%C4%83n+Chung+ch%E1%BB%A9ng+kho%C3%A1n",
+    },
+    "PThai": {
+        "name": "Phạm Nguyễn Hồng Thái (P.Thai Capital)", "emoji": "🧮", "region": "VN", "flag": "🇻🇳",
+        "tag": "Định lượng theo đà và kiểm soát rủi ro",
+        "explain": "Chọn cổ phiếu đang có đà tăng tốt, thanh khoản đủ lớn và biến động vừa phải khi thị trường chung tích cực.",
+        "detail": "Proxy đa yếu tố kỹ thuật momentum/ATR/risk-filter, KHÔNG tái tạo mô hình V20 hay P.Thai Quant Score có thêm dữ liệu cơ bản và đánh giá point-in-time.",
+        "source": "https://pthaicapital.io.vn/en/methodology",
+    },
 }
 
 @dataclass(frozen=True)
@@ -111,6 +132,15 @@ def make_features(df: pd.DataFrame, benchmark: pd.DataFrame) -> pd.DataFrame:
     # Consolidation uses only the 10 bars BEFORE signal day, not today's high/low.
     p["range10_prev"] = p["high10_prev"] / p["low10_prev"] - 1
     p["mom5"] = c / c.shift(5) - 1
+    change = c.diff()
+    gain = change.clip(lower=0).ewm(alpha=1/14, adjust=False).mean()
+    loss = (-change.clip(upper=0)).ewm(alpha=1/14, adjust=False).mean()
+    rs = gain / loss.replace(0, np.nan)
+    p["rsi14"] = (100 - 100/(1+rs)).fillna(100)
+    p["high60_prev"] = h.rolling(60, min_periods=60).max().shift(1)
+    p["sma25"] = c.rolling(25, min_periods=25).mean()
+    candle_span = (h-lo).replace(0, np.nan)
+    p["close_location"] = ((c-lo)/candle_span).fillna(.5)
     p["high55_prev"] = h.rolling(55, min_periods=55).max().shift(1)
     p["low15_prev"] = lo.rolling(15, min_periods=15).min().shift(1)
     p["low252"] = lo.rolling(252, min_periods=252).min()
@@ -146,6 +176,18 @@ def make_features(df: pd.DataFrame, benchmark: pd.DataFrame) -> pd.DataFrame:
     p["buy_Unger"] = (c > p["high20_prev"]) & (c > p["sma50"]) \
         & (p["atr14"] / c.shift(1) < .055) & (p["atr14"] / c.shift(1) > .009) \
         & (v > p["vol20_prev"] * 1.05) & p["market_ok"]
+    # Vietnamese educational strategy proxies (not verified personal order histories).
+    p["buy_ThaiPham"] = (c > p["sma25"]) & (c > p["high20_prev"]) \
+        & (p["close_location"] > .78) & (v > p["vol20_prev"] * 1.4) \
+        & (c > p["open"]) & p["market_ok"]
+    p["buy_DuongChung"] = (c < p["high60_prev"] * .85) \
+        & (p["rsi14"] > 30) & (p["rsi14"] < 49) \
+        & (c > c.shift(1)) & (p["close_location"] > .6) \
+        & (v > p["vol20_prev"] * .85)
+    p["buy_PThai"] = (p["momentum60"] > .15) \
+        & (c > p["sma50"]) & (p["sma50"] > p["sma100"]) \
+        & ((p["atr14"] / c) >= .01) & ((p["atr14"] / c) <= .055) \
+        & (v > p["vol20_prev"] * .9) & p["market_ok"]
     for key in TRADERS:
         p[f"buy_{key}"] = (p[f"buy_{key}"] & p["liq_ok"]).fillna(False)
     return p
@@ -189,6 +231,19 @@ def stop_signal(trader: str, yesterday: pd.Series, position: dict) -> tuple[bool
             return True, "Giá xuống dưới trung bình 20 phiên"
         if pd.notna(atr) and close < position["high_water"] - 2.5 * atr:
             return True, "Giá giảm quá 2,5 lần biến động ATR từ đỉnh"
+    if trader == "ThaiPham":
+        if close < position["price"] * .93 or close < yesterday.get("sma25", np.nan):
+            return True, "Dấu hiệu dòng tiền suy yếu hoặc lỗ quá 7%"
+    if trader == "DuongChung":
+        if close < position["price"] * .92:
+            return True, "Nhịp hồi thất bại, lỗ quá 8%"
+        if close >= yesterday.get("sma25", np.nan) * .98:
+            return True, "Giá hồi về gần trung bình 25 phiên"
+        if close >= position["price"] * 1.10:
+            return True, "Chốt thử ở mức tăng 10%"
+    if trader == "PThai":
+        if close < position["price"] * .94 or close < yesterday.get("sma50", np.nan):
+            return True, "Rủi ro xu hướng tăng hoặc lỗ quá 6%"
     return False, ""
 
 
