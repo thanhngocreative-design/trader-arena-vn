@@ -17,6 +17,7 @@ on:
           - ThaiPham
           - DuongChung
           - PThai
+          - Hybrid
       status:
         description: "Trang thai bot: on = mo, off = tam dung"
         required: true
@@ -43,7 +44,7 @@ jobs:
           import os,json
           from pathlib import Path
           key=os.environ['BOT']
-          assert key in {'Minervini','ONeil','Darvas','BNF','CIS','Qullamaggie','Unger','ThaiPham','DuongChung','PThai'}
+          assert key in {'Minervini','ONeil','Darvas','BNF','CIS','Qullamaggie','Unger','ThaiPham','DuongChung','PThai','Hybrid'}
           config=Path('config/bots.json')
           current=json.loads(config.read_text(encoding='utf-8'))
           current[key]=(os.environ['SWITCH']=='on')
