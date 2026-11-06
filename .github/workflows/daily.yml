@@ -1,0 +1,68 @@
+name: Trader Arena VN daily paper contest
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore: ['state/**', 'site/dashboard.json']
+  schedule:
+    # 16:47 Vietnam time, weekdays (UTC+7).
+    - cron: '47 9 * * 1-5'
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: trader-arena-daily
+  cancel-in-progress: false
+jobs:
+  refresh-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Test backtesting and paper engine
+        run: python -m pytest -q
+      - name: Refresh Vietnamese market data and simulate bots
+        env:
+          VNSTOCK_API_KEY: ${{ secrets.VNSTOCK_API_KEY }}
+        run: python generate_dashboard.py
+      - name: Save daily results and paper state
+        run: |
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add state/paper_state.json site/dashboard.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Daily paper simulation results [skip ci]"
+            git push
+          fi
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: './site'
+      - uses: actions/deploy-pages@v4
+        id: deploy
+      - name: Send optional Telegram digest
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DASHBOARD_URL: ${{ steps.deploy.outputs.page_url }}
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from generate_dashboard import send_telegram
+          data=json.loads(Path('site/dashboard.json').read_text(encoding='utf-8'))
+          try:
+              print('Telegram sent:', send_telegram(data))
+          except Exception as exc:
+              print('Telegram delivery failed:', type(exc).__name__)
+          PY
