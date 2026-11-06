@@ -2,6 +2,7 @@ services:
   - type: web
     name: trader-arena-vn-live
     runtime: docker
+    region: singapore
     dockerfilePath: ./Dockerfile.live
     dockerContext: .
     plan: starter
