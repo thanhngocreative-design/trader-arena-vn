@@ -1,9 +1,6 @@
 name: Trader Arena VN daily paper contest
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths-ignore: ['state/**', 'site/dashboard.json']
   schedule:
     # 16:47 Vietnam time, weekdays (UTC+7).
     - cron: '47 9 * * 1-5'
@@ -13,7 +10,7 @@ permissions:
   id-token: write
 concurrency:
   group: trader-arena-daily
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  cancel-in-progress: false
 jobs:
   refresh-and-deploy:
     runs-on: ubuntu-latest
