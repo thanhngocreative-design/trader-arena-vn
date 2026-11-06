@@ -16,7 +16,7 @@
 
 - Trên GitHub, mở `Settings → Pages → Build and deployment → Source: GitHub Actions`.
 - Trên repo, mở `Actions`, chạy workflow **Trader Arena VN daily paper contest** bằng nút **Run workflow** (hoặc để tự kích hoạt sau khi push mã).
-- Workflow: cài Python 3.11 và Vnstock 5.0.1; thử engine; lấy giá cổ phiếu và VN-Index; chạy ba backtest; cập nhật ví tiền ảo; xuất `site/dashboard.json` và deploy `site/index.html` qua GitHub Pages.
+- Workflow: cài Python 3.11 và vn-market-data v0.4.0; thử engine; lấy giá cổ phiếu và VN-Index; chạy ba backtest; cập nhật ví tiền ảo; xuất `site/dashboard.json` và deploy `site/index.html` qua GitHub Pages.
 - Lịch chạy mặc định **16:47 giờ Việt Nam thứ Hai–thứ Sáu** (09:47 UTC). GitHub có thể chạy trễ hoặc bỏ lượt; đừng coi đây là dịch vụ dữ liệu thời gian thực. Nếu thị trường nghỉ, không phát sinh phiên mới.
 - Vào URL Pages do GitHub trả về. Mở trên Safari → Share → **Add to Home Screen** để dùng như một app iPhone.
 
@@ -25,7 +25,7 @@
 - Trên Telegram, tạo bot qua **@BotFather**, lấy bot token. Bắt đầu chat với bot và xác định chat ID của bạn.
 - Trên GitHub, vào `Settings → Secrets and variables → Actions → New repository secret`, thêm đúng hai secret tên `TELEGRAM_BOT_TOKEN` và `TELEGRAM_CHAT_ID`. TUYỆT ĐỐI không gửi bot token qua chat hoặc commit token vào mã nguồn.
 - Workflow chỉ gửi báo cáo khi có **phiên giao dịch mới** và đã build/deploy thành công. Không gửi trùng khi hệ thống chạy lại cùng phiên.
-- Nếu nhà cung cấp cần cấp quyền dùng nguồn dữ liệu, có thể thêm secret `VNSTOCK_API_KEY` theo tài liệu Vnstock. Gói Community và hạn mức sử dụng của nhà cung cấp có thể thay đổi.
+- Dữ liệu đang lấy qua các endpoint công khai của DNSE/Vietcap; tính khả dụng và hạn mức có thể thay đổi. Chương trình không bịa số nếu dữ liệu thất bại.
 
 ## Dashboard giải thích được gì?
 
@@ -38,7 +38,7 @@
 ## Quy tắc và giới hạn
 
 - Bot được **lấy cảm hứng từ sách/quy tắc công khai**; KHÔNG chứng minh chính là lịch sử lệnh thực tế của các trader được nêu tên. Minervini: Trend Template rút gọn; O’Neil: breakout/volume/market filter rút gọn; Darvas: box-breakout proxy. Không có yếu tố tài chính doanh nghiệp hoặc VCP/CAN SLIM đầy đủ.
-- Data: `vnstock==5.0.1`, `Market().equity(symbol).ohlcv(...)`, `Market().index('VNINDEX').ohlcv(...)`; nguồn VCI. Đây là **dữ liệu từ bên trung gian**, không phải kết nối trực tiếp sàn HOSE.
+- Data: `vn-market-data` v0.4.0, gọi `get_ohlcv()` qua DNSE và Vietcap, giá cổ phiếu quy đổi từ VND sang đơn vị nghìn VND cho backtester. Đây là **dữ liệu từ bên trung gian**, không phải kết nối trực tiếp sàn HOSE; cần tuân thủ điều kiện sử dụng của nhà cung cấp.
 - Danh sách 12 mã (FPT, HPG, VCB, MBB, TCB, ACB, MWG, VNM, SSI, PNJ, DGC, VHM) cố định có thiên lệch chọn mẫu/survivorship. Không đại diện toàn bộ thị trường.
 - Tài khoản giả lập, phí mua/bán 0,15% mỗi chiều, thuế bán 0,1%, trượt giá 0,15%, lô 100 và tối đa 4 vị thế. Bán T+3 ở giá mở cửa mô phỏng để tránh giả định bán được trước T+2 chiều.
 - **Chưa xử lý chính xác:** cổ tức, chia tách, hủy niêm yết, trần/sàn, order book, lệnh có thể không khớp, ảnh hưởng giá khi giao dịch và thay đổi giá quá khứ sau điều chỉnh. Backtest không phải lời hứa lợi nhuận.
@@ -51,7 +51,7 @@
 - `generate_dashboard.py`: đồng bộ dữ liệu, chạy backtest và xuất JSON cho dashboard, gửi Telegram nếu cấu hình đủ.
 - `paper_forward.py`: lưu sổ tiền ảo nối tiếp mỗi phiên; chống chạy trùng.
 - `engine.py`: chiến thuật và backtesting engine phiên bản MVP.
-- `datafeed.py`: tải và kiểm tra OHLCV từ Vnstock.
+- `datafeed.py`: tải và kiểm tra OHLCV qua DNSE/Vietcap (thư viện vn-market-data).
 - `.github/workflows/daily.yml`: lịch chạy GitHub Actions, lưu lại kết quả/ledger, GitHub Pages deploy.
 - `tests/`: test engine, tránh lookahead và kiểm tra ledger.
 
