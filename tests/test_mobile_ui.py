@@ -18,6 +18,20 @@ def test_mobile_ui_controls_exist():
     assert "actions/workflows/bot-control.yml" in html  # path to authenticated cloud pause
 
 
+
+
+def test_leaderboard_card_expands_inline_without_tab_navigation():
+    html = SITE.read_text(encoding="utf-8")
+    assert 'onclick="selectRankBot(' in html
+    assert 'aria-expanded="${expandedBot===k}"' in html
+    assert 'rankdetail-panel' in html
+    assert 'function selectRankBot(id)' in html
+    handler = html.split("function selectRankBot(id){", 1)[1].split("function openBotProfile(", 1)[0]
+    assert "setPage(" not in handler
+    assert "renderHome();" in handler
+    assert "expandedBot===id?null:id" in handler
+    assert "Xem hồ sơ đầy đủ" in html
+
 def test_onsite_javascript_parses_under_node():
     node = shutil.which("node")
     if not node:
