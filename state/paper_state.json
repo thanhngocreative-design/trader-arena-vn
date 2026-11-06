@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "started_at": "2026-11-06T16:03:49+07:00",
+  "last_session": "2026-11-06",
+  "bots": {
+    "Minervini": {
+      "cash": 100000000,
+      "positions": {},
+      "orders_next": [],
+      "trades": [],
+      "history": [
+        {
+          "date": "2026-11-06",
+          "nav": 100000000,
+          "cash": 100000000,
+          "return_pct": 0.0
+        }
+      ],
+      "latest": {
+        "date": "2026-11-06",
+        "nav": 100000000,
+        "cash": 100000000,
+        "return_pct": 0.0,
+        "holdings": []
+      }
+    },
+    "ONeil": {
+      "cash": 100000000,
+      "positions": {},
+      "orders_next": [],
+      "trades": [],
+      "history": [
+        {
+          "date": "2026-11-06",
+          "nav": 100000000,
+          "cash": 100000000,
+          "return_pct": 0.0
+        }
+      ],
+      "latest": {
+        "date": "2026-11-06",
+        "nav": 100000000,
+        "cash": 100000000,
+        "return_pct": 0.0,
+        "holdings": []
+      }
+    },
+    "Darvas": {
+      "cash": 100000000,
+      "positions": {},
+      "orders_next": [],
+      "trades": [],
+      "history": [
+        {
+          "date": "2026-11-06",
+          "nav": 100000000,
+          "cash": 100000000,
+          "return_pct": 0.0
+        }
+      ],
+      "latest": {
+        "date": "2026-11-06",
+        "nav": 100000000,
+        "cash": 100000000,
+        "return_pct": 0.0,
+        "holdings": []
+      }
+    }
+  },
+  "warnings": [],
+  "updated_at": "2026-11-06T16:03:49+07:00"
+}
