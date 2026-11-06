@@ -1,4 +1,4 @@
-"""Regression coverage for seven global strategy-inspired bots and safe upgrades."""
+"""Regression coverage for ten international and Vietnamese strategy proxy bots."""
 import json
 import numpy as np
 import pandas as pd
@@ -7,9 +7,9 @@ from paper_forward import update_paper
 from test_engine import data
 
 
-def test_all_seven_bots_are_independent_and_valid():
-    assert set(TRADERS) == {"Minervini","ONeil","Darvas","BNF","CIS","Qullamaggie","Unger"}
-    assert {TRADERS[k]["region"] for k in TRADERS} == {"US","JP","EU"}
+def test_all_ten_bots_are_independent_and_valid():
+    assert set(TRADERS) == {"Minervini","ONeil","Darvas","BNF","CIS","Qullamaggie","Unger","ThaiPham","DuongChung","PThai"}
+    assert {TRADERS[k]["region"] for k in TRADERS} == {"US","JP","EU","VN"}
     prices, index = data(420)
     features = make_features(prices,index)
     for key in TRADERS:
@@ -33,7 +33,7 @@ def test_same_day_upgrade_preserves_existing_paper_and_does_not_backdate(tmp_pat
     state_path.write_text(json.dumps(paper),encoding="utf-8")
     migrated, changed = update_paper({"FPT":prices.iloc[:end]},benchmark.iloc[:end],state_path)
     assert changed
-    assert len(migrated["bots"]) == 7
+    assert len(migrated["bots"]) == 10
     for key in ("Minervini","ONeil","Darvas"):
         assert migrated["bots"][key] == existing[key]
     for key in ("BNF","CIS","Qullamaggie","Unger"):
