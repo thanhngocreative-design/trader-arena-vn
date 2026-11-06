@@ -24,8 +24,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install local test dependencies only
-        run: python -m pip install pandas numpy pytest
+      - name: Install exact cloud runtime dependencies and pytest
+        run: python -m pip install -r requirements-live.txt pytest
+      - name: Import cloud service with no broker credentials
+        env:
+          LIVE_DB_PATH: ${{ runner.temp }}/paper-test.sqlite
+        run: python -c "from live.service import app; print('FastAPI app:',app.title)"
       - name: Test real-time ledger without any broker credentials
         run: python -m pytest -q
       - name: Confirm no order endpoint or DNSE order method
