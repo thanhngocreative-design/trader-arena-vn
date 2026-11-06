@@ -83,7 +83,8 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
 <div id="dataNotice" class="notice demo">DEMO — dữ liệu chỉ để xem giao diện, không phải kết quả thị trường thật.</div>
 <section id="homePage" class="page on">
   <div class="eyebrow">Cuộc thi tiền ảo</div><h1>Ai đang giao dịch giỏi nhất? 🏆</h1>
-  <p class="sub" id="arenaIntro">Bảy chiến thuật Mỹ, Nhật và châu Âu cùng thử sức trên cổ phiếu Việt Nam. Mỗi bot bắt đầu với 100 triệu đồng ảo.</p>
+  <p class="sub" id="arenaIntro">Các chiến thuật trên thị trường Việt Nam. Mỗi bot bắt đầu với 100 triệu đồng ảo.</p>
+  <p class="note" id="universeNotice" style="margin:-12px 0 15px"></p>
   <div class="switch"><button id="modePaper" class="active" onclick="setMode('paper')">📅 Thi đấu mỗi ngày</button><button id="modeBacktest" onclick="setMode('backtest')">⏳ Thử lại quá khứ</button></div>
   <div id="backtestTimePicker" style="display:none">
     <div class="eyebrow" style="margin-bottom:8px">Chọn thời gian backtest</div>
@@ -114,6 +115,8 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
   <div class="step"><div class="bubble">4</div><div><b>Chỉ là trò chơi mô phỏng.</b> Lệnh được tính theo giá giả định đã trừ phí, thuế, trượt giá. Không gửi lệnh tới công ty chứng khoán.</div></div>
   <div class="step"><div class="bubble">5</div><div><b>Hai cách chấm điểm khác nhau.</b> “Thử lại quá khứ” chạy độc lập theo 3 tháng/6 tháng/1 năm/2 năm/từ 2023. “Thi đấu mỗi ngày” là sổ tiền ảo ghi nối tiếp.</div></div>
   <div class="step"><div class="bubble">6</div><div><b>Bật/tắt bot trên điện thoại.</b> Công tắc trên website chỉ ẩn khỏi bảng xếp hạng cá nhân, không dừng bot trên cloud. Có thể nhắn ChatGPT yêu cầu tạm dừng cloud để nó thay đổi cấu hình riêng.</div></div>
+  <div class="step"><div class="bubble">7</div><div><b>Đủ rộng mới lọc thanh khoản.</b> Vũ trụ ứng viên được mở rộng; bot chỉ chọn những mã đủ lịch sử và giá trị giao dịch tại ngày đó. Danh sách cố định năm 2026 vẫn có sai lệch chọn mẫu của quá khứ.</div></div>
+  <div class="step"><div class="bubble">8</div><div><b>Không bỏ qua phí để thắng.</b> Thu phí hai chiều và thuế bán, thêm trượt giá tùy thanh khoản; có thời gian giữ tối thiểu và nghỉ sau khi bán. Hybrid xét lợi nhuận quá khứ 126 phiên, không biết trước tương lai.</div></div>
 </div><div class="card soft"><strong>⚠️ Điều chưa hoàn hảo</strong><p class="note" style="margin-top:9px">Backtest chưa xử lý trọn vẹn cổ tức, chia tách, cổ phiếu hủy niêm yết, giá sàn/trần và khả năng lệnh không khớp. Lợi nhuận ảo không đảm bảo lợi nhuận thật.</p></div><div id="warnings" class="note"></div></section>
 <div class="footer">Research only · Không tư vấn đầu tư · Không kết nối đặt lệnh thật</div>
 </div>
@@ -136,10 +139,10 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
 <script>
 let IDS=['Minervini','ONeil','Darvas'];
 let regionFilter='ALL';
-const REGION={ALL:'🌍 Tất cả',US:'🇺🇸 Mỹ',JP:'🇯🇵 Nhật',EU:'🇪🇺 Châu Âu',VN:'🇻🇳 Việt Nam'};
-const EMOJI={Minervini:'🚀',ONeil:'🔎',Darvas:'📦',BNF:'🎯',CIS:'⚡',Qullamaggie:'🏄',Unger:'🧠',ThaiPham:'🌊',DuongChung:'🪃',PThai:'🧮'};
-const SHORT={Minervini:'Minervini',ONeil:'O’Neil',Darvas:'Darvas',BNF:'BNF',CIS:'CIS',Qullamaggie:'Kullamägi',Unger:'Unger',ThaiPham:'Thái Phạm',DuongChung:'D.V. Chung',PThai:'P.Thai Quant'};
-const TEXT={Minervini:'Tìm cổ phiếu đang tăng rất khỏe. Chỉ mua khi giá vượt đỉnh cũ.',ONeil:'Săn cổ phiếu bứt phá với nhiều người mua, khi thị trường chung thuận lợi.',Darvas:'Tìm cổ phiếu thoát khỏi chiếc “hộp giá”, giữ đến khi xu hướng yếu đi.',BNF:'Săn cổ phiếu đã giảm sâu rồi bắt đầu hồi phục.',CIS:'Bám theo hướng tăng của giá, không cố bắt đáy.',Qullamaggie:'Chọn cổ phiếu tăng mạnh, nghỉ lấy sức rồi vượt đỉnh.',Unger:'Mua tín hiệu breakout khi biến động nằm trong mức chấp nhận.',ThaiPham:'Đọc giá và khối lượng để tìm dấu hiệu dòng tiền quay lại.',DuongChung:'Bắt nhịp hồi từ vùng giảm sâu.',PThai:'Xếp hạng đà tăng và kiểm soát rủi ro bằng dữ liệu.'};
+const REGION={ALL:'🌍 Tất cả',US:'🇺🇸 Mỹ',JP:'🇯🇵 Nhật',EU:'🇪🇺 Châu Âu',VN:'🇻🇳 Việt Nam',MIX:'🧬 Hybrid'};
+const EMOJI={Minervini:'🚀',ONeil:'🔎',Darvas:'📦',BNF:'🎯',CIS:'⚡',Qullamaggie:'🏄',Unger:'🧠',ThaiPham:'🌊',DuongChung:'🪃',PThai:'🧮',Hybrid:'🧬'};
+const SHORT={Minervini:'Minervini',ONeil:'O’Neil',Darvas:'Darvas',BNF:'BNF',CIS:'CIS',Qullamaggie:'Kullamägi',Unger:'Unger',ThaiPham:'Thái Phạm',DuongChung:'D.V. Chung',PThai:'P.Thai Quant',Hybrid:'Arena Hybrid'};
+const TEXT={Minervini:'Tìm cổ phiếu đang tăng rất khỏe. Chỉ mua khi giá vượt đỉnh cũ.',ONeil:'Săn cổ phiếu bứt phá với nhiều người mua, khi thị trường chung thuận lợi.',Darvas:'Tìm cổ phiếu thoát khỏi chiếc “hộp giá”, giữ đến khi xu hướng yếu đi.',BNF:'Săn cổ phiếu đã giảm sâu rồi bắt đầu hồi phục.',CIS:'Bám theo hướng tăng của giá, không cố bắt đáy.',Qullamaggie:'Chọn cổ phiếu tăng mạnh, nghỉ lấy sức rồi vượt đỉnh.',Unger:'Mua tín hiệu breakout khi biến động nằm trong mức chấp nhận.',ThaiPham:'Đọc giá và khối lượng để tìm dấu hiệu dòng tiền quay lại.',DuongChung:'Bắt nhịp hồi từ vùng giảm sâu.',PThai:'Xếp hạng đà tăng và kiểm soát rủi ro bằng dữ liệu.',Hybrid:'Đánh giá 126 phiên quá khứ để trộn tối đa ba chiến thuật thắng, cập nhật mỗi 21 phiên.'};
 const mkDemo=(r,i)=>{let seq=Array.from({length:25},(_,k)=>({date:'Mốc '+(k+1),bot:+(r*k/24+Math.sin(k*.7+i)*1.35*(k/24)).toFixed(2),index:+(5*k/24+Math.sin(k*.25)*1.8).toFixed(2),nav:Math.round(100000000*(1+(r*k/24)/100))}));return {nav:Math.round(100000000*(1+r/100)),cash:35500000,return_pct:r,benchmark_return_pct:5,max_drawdown_pct:-4.7-i*1.3,win_rate:55+i*2,closed_trades:13+i,buy_count:17+i,curve:seq,holdings:[{symbol:['FPT','HPG','MBB'][i],qty:300,buy_price:88000,last_price:92500,pnl:1350000,pnl_pct:5.1,value:27750000}],actions:[{symbol:['FPT','HPG','MBB'][i],action:'TIẾP TỤC GIỮ',reason:'Giá chưa giảm xuống ngưỡng bán'}],trades:[{date:'VÍ DỤ',symbol:['FPT','HPG','MBB'][i],side:'MUA',qty:300,price:88000,reason:'Mua giả định khi giá vượt đỉnh'}]}};
 const DEMO={mode:'demo',generated_at:'',last_session:'VÍ DỤ',start_date:'VÍ DỤ',capital_each:100000000,market:{index:'VN-Index',level:null,return_since_backtest_start:5},traders:{Minervini:{name:'Mark Minervini',tag:'Săn cổ phiếu tăng mạnh'},ONeil:{name:'William O’Neil',tag:'Săn cú bứt phá'},Darvas:{name:'Nicolas Darvas',tag:'Vượt hộp giá'}},backtests:{Minervini:mkDemo(12.4,0),ONeil:mkDemo(3.1,1),Darvas:mkDemo(6.8,2)},paper:{Minervini:{nav:100000000,return_pct:0,cash:100000000,holdings:[],orders_next:[],history:[{date:'VÍ DỤ',nav:100000000,return_pct:0}],trades:[]},ONeil:{nav:100000000,return_pct:0,cash:100000000,holdings:[],orders_next:[],history:[{date:'VÍ DỤ',nav:100000000,return_pct:0}],trades:[]},Darvas:{nav:100000000,return_pct:0,cash:100000000,holdings:[],orders_next:[],history:[{date:'VÍ DỤ',nav:100000000,return_pct:0}],trades:[]}},warnings:[]};
 let DATA=DEMO, mode='paper', page='home', selected='Minervini', tradeFilter='ALL', demo=true;
@@ -151,7 +154,26 @@ const periodData=()=>DATA.backtest_periods?.[period]||DATA.backtests;
 function selectPeriod(p){if(!DATA.backtest_periods?.[p]&&p!=='ALL')return;period=p;render();}
 function toggleBot(k){hiddenBots[k]=!hiddenBots[k];try{localStorage.setItem('arena-hidden-bots-v1',JSON.stringify(hiddenBots));}catch(_){};render();}
 const chartRanges={ '1M':22,'3M':66,'6M':132,'1Y':252,'3Y':780 };
-function openStock(symbol){if(!/^[A-Z0-9]{2,7}$/.test(String(symbol)))return;stockSymbol=symbol;stockWindow='3M';stockSelectedBar=null;document.getElementById('stockOverlay').classList.add('on');document.body.style.overflow='hidden';renderStock();}
+async function openStock(symbol){
+  if(!/^[A-Z0-9]{2,7}$/.test(String(symbol)))return;
+  stockSymbol=symbol;stockWindow='3M';stockSelectedBar=null;
+  $('stockOverlay').classList.add('on');document.body.style.overflow='hidden';
+  if(!DATA.stocks)DATA.stocks={};
+  if(!DATA.stocks[symbol]&&!demo){
+    $('stockName').textContent=symbol+' · Biểu đồ giá';
+    $('stockNow').textContent='Đang tải chart dữ liệu cuối phiên…';
+    $('stockGraph').innerHTML='';
+    $('stockCursor').textContent='';
+    try{
+      const response=await fetch('./stocks/'+encodeURIComponent(symbol)+'.json',{cache:'force-cache'});
+      if(!response.ok)throw new Error('Not found');
+      const bars=await response.json();
+      if(!Array.isArray(bars)||!bars.length)throw new Error('Invalid candles');
+      DATA.stocks[symbol]=bars;
+    }catch(err){DATA.stocks[symbol]=[];}
+  }
+  if(stockSymbol===symbol&&$('stockOverlay').classList.contains('on'))renderStock();
+}
 function closeStock(){document.getElementById('stockOverlay').classList.remove('on');document.body.style.overflow='';}
 function changeStockWindow(w){if(!(w in chartRanges))return;stockWindow=w;stockSelectedBar=null;renderStock();}
 function stockTap(evt){const b=document.getElementById('stockGraph').getBoundingClientRect(),x=(evt.clientX-b.left)/b.width*360;const len=Math.min(chartRanges[stockWindow],DATA.stocks?.[stockSymbol]?.length||0);if(!len)return;stockSelectedBar=Math.max(0,Math.min(len-1,Math.round((x-12)/336*(len-1))));renderStock();}
@@ -208,6 +230,7 @@ function rankExtra(k){
     :'<p class="note" style="margin-top:9px">📣 Chưa có tín hiệu giao dịch mới.</p>';
   return `<div id="rankdetail-${k}" class="rankdetail-panel">
     <p class="note">🔎 ${safe(DATA.traders?.[k]?.explain||TEXT[k]||'Bot theo tín hiệu mô phỏng.')}</p>
+    ${k==='Hybrid'? `<p class="note" style="margin-top:7px"><strong>🧬 Nhóm được chọn gần nhất:</strong> ${safe(Object.entries(DATA.hybrid_model?.leaders_latest||{}).map(([id,w])=> (SHORT[id]||id)+' '+(w*100).toFixed(0)+'%').join(' · ')||'Đang giữ tiền mặt vì không bot nào vượt bộ lọc 126 phiên.')}</p>`:''}
     <div class="rank-detail-metrics">
       <div class="rank-detail-metric"><span class="label">Tài sản ảo</span><strong>${money(b.nav)}</strong></div>
       <div class="rank-detail-metric"><span class="label">Tiền mặt</span><strong>${money(b.cash)}</strong></div>
@@ -237,7 +260,11 @@ function renderHome(){
   $('rangeDetail').textContent=mode==='backtest'&&opt?'Mỗi bot bắt đầu lại với 100 triệu đồng ảo từ '+opt.start+' đến '+opt.end+'.':'Mỗi khoảng thời gian được chạy lại thành một backtest riêng.';
   const included=activeKeys();
   $('totalLabel').textContent=mode==='paper'?('Tổng tiền ảo của '+included.length+' bot đang theo dõi'):('Tổng backtest của '+included.length+' bot đang theo dõi');
-  $('arenaIntro').textContent=IDS.length+' bot từ Mỹ, Nhật, châu Âu và Việt Nam thi đấu trên thị trường Việt Nam. Mỗi bot có 100 triệu tiền ảo.';
+  $('arenaIntro').textContent=IDS.length+' bot từ Mỹ, Nhật, châu Âu và Việt Nam + Arena Hybrid. Mỗi bot bắt đầu với 100 triệu đồng tiền ảo.';
+  const audit=DATA.universe_audit;
+  $('universeNotice').textContent=audit
+      ?'📊 Đã xác minh '+audit.tradable_history_count+'/'+audit.candidate_count+' mã ứng viên có dữ liệu phù hợp · Lọc thanh khoản tại từng phiên. Vẫn có sai lệch chọn mẫu lịch sử.'
+      : '📊 Vũ trụ cổ phiếu được xác nhận sau khi kết nối dữ liệu.';
   const total=included.reduce((sum,k)=>sum+nav(k),0),capital=n(DATA.capital_each)*included.length,change=capital?(total/capital-1)*100:0;
   $('totalNav').textContent=vnd(total);$('totalDelta').innerHTML=`<span class="${color(change)}">${pct(change)}</span> <span class="muted">so với ${money(capital)} ban đầu</span>`;
   $('totalInitial').textContent=money(capital);$('marketDay').textContent=DATA.last_session==='VÍ DỤ'?'Số liệu ví dụ':DATA.last_session.split('-').reverse().join('/');
@@ -265,6 +292,7 @@ function renderBots(){
   const b=part(selected),holds=b.holdings||[],plans=b.orders_next||[],acts=b.actions||[];
   const cloud=DATA.cloud_enabled?.[selected]!==false;
   $('botDetail').innerHTML=`<div class="card"><div class="bothead"><div class="avatar">${EMOJI[selected]}</div><div><strong>${safe(DATA.traders?.[selected]?.name||SHORT[selected])}</strong><div class="label">${safe(DATA.traders?.[selected]?.tag||'Chiến thuật công khai')}</div></div></div><p class="note" style="margin:13px 0 4px">${safe(DATA.traders?.[selected]?.explain||TEXT[selected])}</p><p class="note" style="margin:5px 0 4px">${safe(DATA.traders?.[selected]?.detail||'Mô phỏng quy tắc công khai; không phải giao dịch thật của trader.')}</p>
+  ${selected==='Hybrid'? `<div class="card soft"><strong>🧬 Chiến thuật được chọn gần nhất</strong><p class="note" style="margin-top:6px">${safe(Object.entries(DATA.hybrid_model?.leaders_latest||{}).map(([id,w])=>(SHORT[id]||id)+' · '+(w*100).toFixed(0)+'%').join(', ')||'Không có bot đủ lợi nhuận sau khi xét rủi ro; giữ tiền mặt.')}</p></div>`:''}
   <div class="switchline"><div><strong style="font-size:13px">${hiddenBots[selected]?'Đã tắt theo dõi':'Đang theo dõi bot'}</strong><p class="note">Chỉ ảnh hưởng bảng xếp hạng trên iPhone.</p></div><button class="tog ${hiddenBots[selected]?'off':''}" onclick="toggleBot('${selected}')">${hiddenBots[selected]?'BẬT':'TẮT'}</button></div>
   <p class="note">Cloud: ${cloud?'🟢 đang tính lệnh ảo':'⏸ đã tạm dừng đặt lệnh ảo'}. Muốn thay đổi trạng thái cloud, <a href="https://github.com/thanhngocreative-design/trader-arena-vn/actions/workflows/bot-control.yml" target="_blank" rel="noopener" style="color:#7fe6cb">mở công cụ bật/tắt Cloud</a> (GitHub → Run workflow → chọn bot và on/off) hoặc nhắn ChatGPT yêu cầu đổi.</p>
   <div class="metric-grid"><div class="metric"><span class="label">Tài sản tiền ảo</span><div class="value">${money(b.nav)}</div></div><div class="metric"><span class="label">Đang lãi hay lỗ?</span><div class="value ${color(b.return_pct)}">${pct(b.return_pct)}</div></div><div class="metric"><span class="label">Tiền chưa mua cổ phiếu</span><div class="value">${money(b.cash)}</div></div><div class="metric"><span class="label">Số mã đang nắm</span><div class="value">${holds.length}</div></div></div></div>
@@ -280,7 +308,7 @@ function renderTrades(){
   $('allTrades').innerHTML=items.length?items.slice(0,70).map(t=>`<div class="tableitem" style="margin-bottom:8px"><div class="row"><strong>${t.side==='MUA'?'🟢 MUA':'🔴 BÁN'} <button class="tickerbtn" onclick="openStock('${safe(t.symbol)}')">${safe(t.symbol)} 📈</button></strong><span class="label">${safe(t.date)}</span></div><div class="row" style="margin-top:7px"><span class="label">${safe(SHORT[t.bot])} · ${n(t.qty)} CP · ${vnd(t.price)}/CP</span><span class="${color(t.pnl)}" style="font-size:12px;font-weight:800">${t.pnl==null?'':(t.pnl>=0?'+':'')+vnd(t.pnl)}</span></div><p class="note" style="margin-top:7px">Vì sao: ${safe(t.reason||'Theo tín hiệu đã ghi')}</p></div>`).join(''):'<div class="card empty">Chưa có giao dịch nào trong mục này.<br>Bot chỉ mua khi đủ điều kiện, không cần mua mỗi ngày.</div>';
 }
 function render(){
-  $('stockShortcuts').innerHTML=Object.keys(DATA.stocks||{}).map(symbol=>`<button class="chip" onclick="openStock('${symbol}')">📈 ${symbol}</button>`).join('')||'<span class="note">Giá cổ phiếu sẽ xuất hiện sau khi kết nối dữ liệu.</span>';
+  $('stockShortcuts').innerHTML=(DATA.stock_symbols||Object.keys(DATA.stocks||{})).map(symbol=>`<button class="chip" onclick="openStock('${symbol}')">📈 ${symbol}</button>`).join('')||'<span class="note">Giá cổ phiếu sẽ xuất hiện sau khi kết nối dữ liệu.</span>';
   renderHome();renderBots();renderTrades();$('warnings').innerHTML=(DATA.warnings||[]).slice(0,6).map(x=>`<p style="margin:9px 0">• ${safe(x)}</p>`).join('')}
 async function boot(){
   try{
