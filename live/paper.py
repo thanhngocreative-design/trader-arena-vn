@@ -163,7 +163,7 @@ class LivePaper:
             or min(q.bid,q.ask)<=0 or q.bid>q.ask
             or max(q.bid_qty,q.ask_qty)<=0
             or (q.ask/q.bid-1) > MAX_SPREAD):
-            return []
+            return None
         results=[]
         with self.lock,self.db:
             current_day=self.get_meta("day")
@@ -176,6 +176,27 @@ class LivePaper:
                 ON CONFLICT(symbol) DO UPDATE SET bid=excluded.bid,ask=excluded.ask,event_at=excluded.event_at
                 WHERE excluded.event_at>marks.event_at""",
                 (q.symbol,q.bid,q.ask,q.event_at.isoformat()))
+            # Intraday stop-loss triggers are placed AFTER observing the quote.
+            # They can be modeled only against a SUBSEQUENT quote, never at the
+            # price that created the signal (no same-tick lookahead).
+            for held in self.db.execute("SELECT * FROM positions WHERE symbol=?",(q.symbol,)).fetchall():
+                if seq-int(held["buy_seq"])<self.st.minimum_hold_sessions:
+                    continue
+                self.db.execute("UPDATE positions SET high_water=MAX(high_water,?) WHERE bot=? AND symbol=?",
+                                (q.bid,held["bot"],q.symbol))
+                existing=self.db.execute("""SELECT 1 FROM orders WHERE bot=? AND symbol=?
+                    AND side='SELL' AND status='pending'""",(held["bot"],q.symbol)).fetchone()
+                if existing:continue
+                stop_mult={"CIS":.94,"BNF":.93,"Darvas":.88,"Hybrid":.92}.get(held["bot"],.93)
+                ref_price=float(held["high_water"]) if held["bot"]=="Darvas" else float(held["entry_price"])
+                if q.bid>ref_price*stop_mult:
+                    continue
+                oid=":".join((now.date().isoformat(),held["bot"],"STOP",q.symbol))
+                self.db.execute("""INSERT OR IGNORE INTO orders
+                    (id,bot,symbol,side,source_session,created_at,target_value,reason)
+                    VALUES (?,?,?,?,?,?,?,?)""",
+                    (oid,held["bot"],q.symbol,"SELL",now.date().isoformat(),
+                     now.isoformat(),0.0,"Intraday protective stop; not yet filled"))
             orders=self.db.execute("""SELECT * FROM orders
                 WHERE symbol=? AND status='pending' ORDER BY CASE WHEN side='SELL' THEN 0 ELSE 1 END,id""",
                 (q.symbol,)).fetchall()
