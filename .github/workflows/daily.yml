@@ -13,7 +13,7 @@ permissions:
   id-token: write
 concurrency:
   group: trader-arena-daily
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 jobs:
   refresh-and-deploy:
     runs-on: ubuntu-latest
