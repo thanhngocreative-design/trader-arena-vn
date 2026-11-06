@@ -1,6 +1,6 @@
 # Trader Arena VN — iPhone-first / Cloud-ready
 
-Đây là bản **mobile-first Web App** với 7 bot mô phỏng quy tắc công khai hoặc các chiến thuật nghiên cứu được gắn với Mark Minervini, William O’Neil, Nicolas Darvas (Mỹ), Takashi Kotegawa/BNF và CIS (Nhật Bản), Kristjan Kullamägi/Qullamaggie và Andrea Unger (châu Âu). Mỗi bot bắt đầu từ 100 triệu đồng **tiền ảo**. Không có API mua bán chứng khoán và KHÔNG KẾT NỐI TÀI KHOẢN BROKER.
+Đây là bản **mobile-first Web App** với 10 bot mô phỏng quy tắc công khai hoặc các chiến thuật nghiên cứu được gắn với Mark Minervini, William O’Neil, Nicolas Darvas (Mỹ), Takashi Kotegawa/BNF và CIS (Nhật Bản), Kristjan Kullamägi/Qullamaggie và Andrea Unger (châu Âu). Mỗi bot bắt đầu từ 100 triệu đồng **tiền ảo**. Không có API mua bán chứng khoán và KHÔNG KẾT NỐI TÀI KHOẢN BROKER.
 
 **Bản có trong ZIP là một dự án sẵn sàng triển khai, KHÔNG PHẢI website đã được công khai, và không có tài khoản Telegram nào đã kết nối.** Mở `site/index.html` trước khi triển khai sẽ chỉ thấy chế độ `DEMO`: các số liệu đều mang tính minh họa.
 
@@ -16,7 +16,7 @@
 
 - Trên GitHub, mở `Settings → Pages → Build and deployment → Source: GitHub Actions`.
 - Trên repo, mở `Actions`, chạy workflow **Trader Arena VN daily paper contest** bằng nút **Run workflow** (hoặc để tự kích hoạt sau khi push mã).
-- Workflow: cài Python 3.11 và vn-market-data v0.4.0; thử engine; lấy giá cổ phiếu và VN-Index; chạy bảy backtest; cập nhật ví tiền ảo; xuất `site/dashboard.json` và deploy `site/index.html` qua GitHub Pages.
+- Workflow: cài Python 3.11 và vn-market-data v0.4.0; thử engine; lấy giá cổ phiếu và VN-Index; chạy backtest độc lập cho 10 bot và 5 khoảng thời gian; cập nhật ví tiền ảo; xuất `site/dashboard.json` và deploy `site/index.html` qua GitHub Pages.
 - Lịch chạy mặc định **16:47 giờ Việt Nam thứ Hai–thứ Sáu** (09:47 UTC). GitHub có thể chạy trễ hoặc bỏ lượt; đừng coi đây là dịch vụ dữ liệu thời gian thực. Nếu thị trường nghỉ, không phát sinh phiên mới.
 - Vào URL Pages do GitHub trả về. Mở trên Safari → Share → **Add to Home Screen** để dùng như một app iPhone.
 
@@ -31,7 +31,7 @@
 
 - **Thi đấu mỗi ngày:** sổ tiền ảo được ghi nối tiếp vào `state/paper_state.json`. Lần chạy đầu tiên **không tự bịa giao dịch trong quá khứ**; tín hiệu chốt ngày đầu sẽ được chờ tới phiên tiếp theo, lệnh ảo chỉ được xác nhận sau khi có giá mở cửa thực tế của phiên đó. Nếu hệ thống bỏ lỡ một ngày, KHÔNG tạo lệnh ảo đã khớp trong ngày bị bỏ lỡ; thông báo độ tin cậy bị giảm.
 - **Thử lại quá khứ:** backtest trên 12 mã cổ phiếu được lựa chọn mặc định và VN-Index từ ngày 03/01/2023, sử dụng dữ liệu giá lịch sử tải từ DNSE/Vietcap qua vn-market-data. Backtest được tính lại hàng ngày và có thể thay đổi khi nguồn điều chỉnh giá lịch sử.
-- **Các bot:** 7 bot theo ba khu vực (Mỹ / Nhật / châu Âu) có tiền mặt, danh mục, lãi/lỗ, vì sao mua bán và lệnh dự định của ngày kế tiếp.
+- **Các bot:** 10 bot thuộc bốn khu vực (Mỹ / Nhật / châu Âu / Việt Nam) có tiền mặt, danh mục, lãi/lỗ, vì sao mua bán và lệnh dự định của ngày kế tiếp.
 - **Nhật ký:** ngày, mã, số lượng, giá khớp GIẢ ĐỊNH, lý do và lãi/lỗ mô phỏng.
 - **Giải thích:** ngôn ngữ dễ hiểu, phân biệt backtest với paper-forward.
 
@@ -41,7 +41,8 @@
   - Mỹ: Minervini (Trend Template rút gọn), O’Neil (breakout/volume/market filter), Darvas (box-breakout proxy). Không có VCP/CAN SLIM đầy đủ.
   - Nhật: BNF (độ lệch dưới SMA25 và nhịp hồi, proxy), CIS (bám đà tăng ngắn hạn, proxy). Không có thông số lệnh gốc được xác thực.
   - Châu Âu: Qullamaggie (momentum breakout sau vùng tích lũy, proxy); Unger (breakout có lọc ATR, **chỉ là chuyển thể** từ tư duy systematic trading, khác thị trường futures gốc).
-  - Mỗi bot mới bắt đầu paper-forward từ ngày được thêm vào; tài khoản ba bot cũ không bị làm lại, không có lệnh được tự tạo lùi ngày. Cả 7 bot đều có backtest chung khoảng thời gian lịch sử nhưng đây là thành tích giả lập.
+  - Việt Nam: Thái Phạm (VSA price-volume breakout proxy), Dương Văn Chung (oversold bounce proxy), P.Thai Capital (momentum+ATR multi-factor proxy; không dùng mã nguồn hay tín hiệu độc quyền V20).
+  - Mỗi bot mới bắt đầu paper-forward từ ngày được thêm vào; tài khoản các bot cũ không bị làm lại, không có lệnh được tự tạo lùi ngày. Cả 10 bot có backtest riêng cho từng thời lượng, chỉ là thành tích giả lập.
 - Data: `vn-market-data` v0.4.0, gọi `get_ohlcv()` qua DNSE và Vietcap, giá cổ phiếu quy đổi từ VND sang đơn vị nghìn VND cho backtester. Đây là **dữ liệu từ bên trung gian**, không phải kết nối trực tiếp sàn HOSE; cần tuân thủ điều kiện sử dụng của nhà cung cấp.
 - Danh sách 12 mã (FPT, HPG, VCB, MBB, TCB, ACB, MWG, VNM, SSI, PNJ, DGC, VHM) cố định có thiên lệch chọn mẫu/survivorship. Không đại diện toàn bộ thị trường.
 - Tài khoản giả lập, phí mua/bán 0,15% mỗi chiều, thuế bán 0,1%, trượt giá 0,15%, lô 100 và tối đa 4 vị thế. Bán T+3 ở giá mở cửa mô phỏng để tránh giả định bán được trước T+2 chiều.
@@ -78,3 +79,12 @@ python generate_dashboard.py
 - Andrea Unger: https://ungeracademy.com/blog/the-trading-edge và https://newcitytrader.com/conversation-with-andrea-unger/ (bài viết và phỏng vấn).
 
 Nguồn tham khảo không chứng minh bộ mã này phản ánh chính xác toàn bộ quy trình giao dịch của người gốc.
+
+## Cập nhật bản 10 bot — bộ điều khiển trên iPhone
+
+- **Khoảng backtest:** 3 tháng, 6 tháng, 1 năm, 2 năm hoặc từ 03/01/2023. `generate_dashboard.py` chạy riêng từng cửa sổ thời gian, mỗi lần reset 100.000.000đ tiền ảo, với dữ liệu chỉ có sẵn trước ngày giao dịch. Không chỉ cắt/đổi gốc đường NAV cũ.
+- **Bật/tắt trên màn hình:** các công tắc trong thẻ từng bot dùng `localStorage` của iPhone để chọn bot tham gia bảng xếp hạng. Điều này KHÔNG tác động đến server hay lịch sử paper. Reset dữ liệu Safari có thể xóa các công tắc hiển thị.
+- **Bật/tắt thực sự trên cloud:** `config/bots.json` được backend đọc mỗi phiên. Dùng workflow `Bat/tat bot tien ao` tại `Actions → Run workflow` để chọn tên bot + `on/off` (hoặc nhờ ChatGPT cập nhật file), không cần máy tính. Tắt cloud có nghĩa không mở/chốt lệnh ảo mới; các cổ phiếu đã giữ vẫn được định giá theo thị trường, không tự động bán. Khi bật lại, kế hoạch giao dịch mới được tính ở phiên tiếp theo.
+- **Chart mã cổ phiếu:** dữ liệu OHLCV theo ngày của 12 mã đang nghiên cứu được đính vào `site/dashboard.json`; chạm tên mã trong Giỏ cổ phiếu, Nhật ký, Kế hoạch mua/bán, hoặc danh sách mã ở Trang chủ. Chọn 1 tháng / 3 tháng / 6 tháng / 1 năm / tối đa; chạm biểu đồ để xem giá và khối lượng.
+- **Giới hạn:** GitHub Pages là site tĩnh; công tắc trên web không thể trực tiếp thay đổi cấu hình server một cách an toàn nếu không có phần đăng nhập/ủy quyền phía backend. Repo Pages công khai; cần xem xét điều kiện tái phân phối dữ liệu thị trường của nhà cung cấp.
+- **Nguồn tham khảo Việt Nam:** https://www.youtube.com/watch?v=r_SSPGd88mE · https://happy.live/cau-truc-toan-dien-cua-phuong-phap-luan-wyckoff/ · https://pthaicapital.io.vn/en/methodology . Mọi thông số trong bot là giả thuyết thử nghiệm, không được diễn giải thành hệ thống giao dịch cá nhân đã xác minh.
