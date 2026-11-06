@@ -15,7 +15,7 @@ from engine import Settings, TRADERS, make_features, stop_signal
 from execution import modeled_slippage, pass_cost_gate
 
 DEFAULT_STATE = Path(__file__).resolve().parent / 'state' / 'paper_state.json'
-RULES_REVISION = 2
+RULES_REVISION = 3
 
 
 def _now():
