@@ -12,10 +12,43 @@ from zoneinfo import ZoneInfo
 import argparse
 import pandas as pd
 from datafeed import update_prices, load_prices, parse_symbols, DEFAULT_TICKERS
-from engine import TRADERS, Settings, backtest
+from engine import TRADERS, Settings, backtest, make_features
 from paper_forward import update_paper
 
 ROOT=Path(__file__).resolve().parent
+
+PERIOD_LABELS = {
+    '3M': '3 tháng', '6M': '6 tháng', '1Y': '1 năm',
+    '2Y': '2 năm', 'ALL': 'Từ đầu 2023',
+}
+
+
+def load_cloud_config():
+    """GitHub-controlled, trusted source of actual cloud-run bot activation."""
+    p=ROOT/'config'/'bots.json'
+    if not p.exists():
+        return set(TRADERS)
+    data=json.loads(p.read_text(encoding='utf-8'))
+    if not isinstance(data,dict) or any(k not in TRADERS for k in data):
+        raise ValueError('Sai cấu trúc config/bots.json')
+    if any(not isinstance(v,bool) for v in data.values()):
+        raise ValueError('Các công tắc bot phải là true hoặc false')
+    return {k for k in TRADERS if data.get(k,True)}
+
+
+def stock_chart_payload(frame):
+    """Last ~3 years of real daily VND OHLCV; compact 6-column arrays."""
+    bars=[]
+    for d,row in frame.tail(780).iterrows():
+        if not pd.notna(row['close']):
+            continue
+        bars.append([
+            d.strftime('%Y-%m-%d'),
+            round(float(row['open'])), round(float(row['high'])),
+            round(float(row['low'])), round(float(row['close'])),
+            int(row['volume'])])
+    return bars
+
 
 
 def simple_number(n):
@@ -79,9 +112,27 @@ def build(symbols, history_start, out_path):
     if len(benchmark)<252 or any(len(p)<252 for p in prices.values()):
         raise RuntimeError('Không đủ dữ liệu tính chiến thuật (>=252 phiên)')
     settings=Settings()
-    results={k:summary_backtest(backtest(prices,benchmark,k,history_start,settings=settings))
-             for k in TRADERS}
-    paper_state, changed=update_paper(prices,benchmark,settings=settings)
+    active_ids=load_cloud_config()
+    # Reuse full-data rolling indicators so that every preset is a true, separate
+    # 100m VND backtest — not a misleading cut-and-normalize of one NAV curve.
+    features={sym:make_features(frame,benchmark).reindex(benchmark.index)
+              for sym,frame in prices.items() if len(frame)>=100}
+    periods={
+        '3M': max(pd.Timestamp(history_start),last-pd.DateOffset(months=3)),
+        '6M': max(pd.Timestamp(history_start),last-pd.DateOffset(months=6)),
+        '1Y': max(pd.Timestamp(history_start),last-pd.DateOffset(years=1)),
+        '2Y': max(pd.Timestamp(history_start),last-pd.DateOffset(years=2)),
+        'ALL': pd.Timestamp(history_start),
+    }
+    by_period={}
+    for period,start in periods.items():
+        by_period[period]={
+            k:summary_backtest(backtest(prices,benchmark,k,start_date=str(start.date()),
+                                         settings=settings,features_cache=features))
+            for k in TRADERS
+        }
+    results=by_period['ALL']
+    paper_state, changed=update_paper(prices,benchmark,settings=settings,active_ids=active_ids)
     benchmark_start=benchmark.loc[benchmark.index>=pd.Timestamp(history_start)]['close']
     if len(benchmark_start)<2:
         raise RuntimeError('Không đủ dữ liệu benchmark trong khoảng')
@@ -93,6 +144,12 @@ def build(symbols, history_start, out_path):
          'market':{'index':'VN-Index','level':round(now_index/1000,2),
                    'return_since_backtest_start':round((now_index/base_index-1)*100,2)},
          'traders':TRADERS,'backtests':results,
+         'backtest_periods':by_period,
+         'backtest_options':[{ 'key': key, 'label': PERIOD_LABELS[key],
+                               'start':str(date.date()), 'end':str(last.date())}
+                              for key,date in periods.items()],
+         'cloud_enabled':{key:key in active_ids for key in TRADERS},
+         'stocks':{symbol:stock_chart_payload(frame) for symbol,frame in prices.items()},
          'paper':{k:{'cash':round(b['cash']),
                      'nav':b['history'][-1]['nav'],'return_pct':b['history'][-1]['return_pct'],
                      'holdings':b.get('latest',{}).get('holdings',[]),
@@ -102,7 +159,7 @@ def build(symbols, history_start, out_path):
                   for k,b in paper_state['bots'].items()},
          'paper_started_at':paper_state['started_at'],
          'warnings':paper_state.get('warnings',[])[-5:]+[
-             'Tín hiệu của bot chỉ lấy cảm hứng từ quy tắc công khai của các trader Mỹ.',
+             'Tín hiệu là mô hình đơn giản lấy cảm hứng từ phương pháp được thảo luận bởi các trader Mỹ, Nhật, châu Âu và Việt Nam; không phải lệnh thực tế của họ.',
              'Kết quả backtest chưa phản ánh đầy đủ cổ tức, chia tách, mất thanh khoản và hủy niêm yết.',
              'Paper-forward là giao dịch giả lập tại giá mở cửa có trượt giá/phí; không chứng minh lệnh thật khớp được.'
          ],'is_new_session':bool(changed)}
