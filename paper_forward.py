@@ -70,6 +70,9 @@ def _plans(bot, trader, rows, features, date, settings):
         plans.append({'side':'BUY','symbol':symbol, 'reason':'Tín hiệu xác nhận thanh khoản và đủ biên độ so với chi phí',
                       'signal_date':str(date.date()),
                       'vol20_prev':float(r['vol20_prev']),
+                      'atr14':float(r['atr14']),
+                      'signal_close':float(r['close']),
+                      'value20_prev':float(r['value20_prev']),
                       'score':round(score,4)})
     return plans
 
@@ -104,7 +107,11 @@ def _execute(bot, date, index_pos, rows, settings):
         if s in last_sold and index_pos-last_sold[s]<settings.cooldown_sessions: continue
         if r is None or pd.isna(r['open']) or r['open']<=0 or r['volume']<=0: continue
         allocation_guess=bot['cash']/max(1,settings.max_positions)
-        if not pass_cost_gate(settings,r,allocation_guess):
+        # Intraday OHLCV of this execution date is not available at the
+        # opening auction. Recheck against the PREVIOUS day's queued facts only.
+        signal_facts={'atr14':o.get('atr14'),'close':o.get('signal_close'),
+                      'value20_prev':o.get('value20_prev')}
+        if not pass_cost_gate(settings,signal_facts,allocation_guess):
             continue
         slip=modeled_slippage(settings,r.get('value20_prev',0),allocation_guess)
         price=float(r['open'])*(1+slip)
