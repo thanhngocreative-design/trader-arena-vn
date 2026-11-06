@@ -1,8 +1,14 @@
-"""Daily Vietnam exchange market-data adapter. No broker trading permissions."""
+"""End-of-day Vietnam stock-market data adapter (real prices, no broker trading).
+
+Uses vn-market-data: DNSE primary / Vietcap fallback, pinned to a public release.
+Input prices are VND for equities and index points for VNINDEX. The existing
+backtester expects prices in 1,000 VND, so equities are scaled down *once*
+when storing CSV. No data is fabricated or extrapolated.
+"""
 from __future__ import annotations
-from datetime import datetime, date, timedelta
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 import json
 import time
 import pandas as pd
@@ -23,47 +29,54 @@ def parse_symbols(value: str) -> list[str]:
     return unique
 
 
-def update_prices(symbols: list[str], start: str = DEFAULT_START) -> dict:
-    """Full refresh prevents mixing differently back-adjusted historical prices.
+def normalize_rows(rows, ticker: str) -> pd.DataFrame:
+    """Normalize provider candles to the engine's documented thousand-VND unit."""
+    out = pd.DataFrame(rows).copy()
+    if out.empty:
+        raise ValueError(f"Không có nến giá {ticker}")
+    out.columns = [str(c).strip().lower() for c in out.columns]
+    if "time" not in out.columns and "date" in out.columns:
+        out = out.rename(columns={"date": "time"})
+    columns = ["time", "open", "high", "low", "close", "volume"]
+    if any(k not in out.columns for k in columns):
+        raise ValueError(f"Thiếu cột OHLCV cho {ticker}: {list(out.columns)}")
+    out = out[columns].copy()
+    for k in columns[1:]:
+        out[k] = pd.to_numeric(out[k], errors="coerce")
+    if ticker != "VNINDEX":
+        # vn-market-data returns FULL VND. engine.prepare() multiplies
+        # by 1000 to restore VND, so CSV must hold thousands of VND.
+        for k in ("open", "high", "low", "close"):
+            out[k] = out[k] / 1000.0
+    return out
 
-    Requires an Internet connection and vnstock 5.x installed locally.
-    Existing CSVs are retained when a provider call fails; never silently
-    substitute generated prices for real ones.
-    """
+
+def update_prices(symbols: list[str], start: str = DEFAULT_START) -> dict:
     try:
-        from vnstock import Market
+        from vn_market_data import get_ohlcv
     except ImportError as exc:
-        raise RuntimeError("Chưa cài vnstock 5. Chạy install_windows.bat hoặc pip install theo README.") from exc
+        raise RuntimeError("Chưa cài vn-market-data (xem requirements.txt)") from exc
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    api = Market()
-    end = (datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date() + timedelta(days=1)).isoformat()
-    status = {"attempted_at": datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).isoformat(),
-              "source": "vnstock Market() / VCI", "start": start, "end": end,
-              "success": {}, "errors": {}}
+    now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
+    days = max(400, (now.date() - pd.Timestamp(start).date()).days + 21)
+    status = {"attempted_at": now.isoformat(), "source": "DNSE/Vietcap via vn-market-data v0.4.0",
+              "start": start, "success": {}, "errors": {}}
     for ticker in ["VNINDEX"] + [s for s in symbols if s != "VNINDEX"]:
         try:
-            asset = api.index("VNINDEX") if ticker == "VNINDEX" else api.equity(ticker)
-            try:
-                raw = asset.ohlcv(start=start, end=end, interval="1D", source="vci")
-            except TypeError:
-                raw = asset.ohlcv(start=start, end=end, interval="1D")
-            cleaned = prepare(raw)
-            if len(cleaned) < 30:
-                raise ValueError("Quá ít nến giá (<30)")
-            out = raw.copy()
-            out.columns = [str(c).strip().lower() for c in out.columns]
-            if "time" not in out.columns and "date" in out.columns:
-                out = out.rename(columns={"date": "time"})
-            output_cols = ["time", "open", "high", "low", "close", "volume"]
+            rows = get_ohlcv(ticker, lookback_days=days, is_index=(ticker == "VNINDEX"))
+            out = normalize_rows(rows, ticker)
+            clean = prepare(out)
+            if len(clean) < 252:
+                raise ValueError(f"Không đủ nến giá: {len(clean)}")
             csv_path = DATA_DIR / f"{ticker}.csv"
             temp = csv_path.with_suffix(".tmp")
-            out[output_cols].to_csv(temp, index=False)
+            out.to_csv(temp, index=False)
             temp.replace(csv_path)
-            status["success"][ticker] = {"last_session": cleaned.index.max().date().isoformat(),
-                                         "rows": int(len(cleaned))}
+            status["success"][ticker] = {"last_session": clean.index.max().date().isoformat(),
+                                         "rows": int(len(clean))}
         except Exception as exc:
-            status["errors"][ticker] = str(exc)[:300]
-        time.sleep(0.12)
+            status["errors"][ticker] = (type(exc).__name__ + ": " + str(exc))[:350]
+        time.sleep(0.20)
     META_PATH.parent.mkdir(parents=True, exist_ok=True)
     META_PATH.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
     return status
