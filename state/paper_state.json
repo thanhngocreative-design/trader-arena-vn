@@ -58,7 +58,7 @@
           "atr14": 492.85714285714283,
           "signal_close": 13500.0,
           "value20_prev": 88053377500.0,
-          "score": 0.2118
+          "score": 0.2389
         }
       ],
       "trades": [],
@@ -251,9 +251,10 @@
   "warnings": [
     "Đã thêm BNF, CIS, Qullamaggie, Unger vào cuộc thi kể từ phiên 2026-11-06; không tạo lệnh ảo cho thời gian trước.",
     "Đã thêm ThaiPham, DuongChung, PThai vào cuộc thi kể từ phiên 2026-11-06; không tạo lệnh ảo cho thời gian trước.",
+    "Nâng cấp luật bot ở phiên 2026-11-06 mà không hồi tố lệnh giao dịch cũ.",
     "Nâng cấp luật bot ở phiên 2026-11-06 mà không hồi tố lệnh giao dịch cũ."
   ],
-  "updated_at": "2026-11-06T17:20:50+07:00",
+  "updated_at": "2026-11-06T17:27:10+07:00",
   "cloud_enabled": {
     "Minervini": true,
     "ONeil": true,
@@ -267,5 +268,5 @@
     "PThai": true,
     "Hybrid": true
   },
-  "rules_revision": 2
+  "rules_revision": 3
 }
