@@ -116,6 +116,8 @@ class DNSEMarketWorker:
             try:
                 book=sdk_quote_to_book(q)
                 results=self.book.on_quote(book)
+                if results is None:
+                    return  # stale, auction or invalid quote; not live evidence
                 self.book.note_feed(book.received_at)
                 self.processed_books+=1
                 self.fills+=len(results)
