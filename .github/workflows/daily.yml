@@ -42,9 +42,15 @@ jobs:
           git add state/paper_state.json site/dashboard.json
           if ! git diff --cached --quiet; then
             git commit -m "Daily paper simulation results [skip ci]"
-            git push
+            # The repo may have been edited while this workflow ran.
+            # Rebase our daily results on top of the latest main before pushing.
+            git fetch origin main
+            git rebase origin/main
+            git push origin HEAD:main
           fi
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: './site'
