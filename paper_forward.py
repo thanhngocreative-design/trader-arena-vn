@@ -60,8 +60,18 @@ def _plans(bot, trader, rows, features, date, settings):
     candidates=[]
     for symbol,r in rows.items():
         if symbol in bot['positions']: continue
-        if bool(r.get(f'buy_{trader}',False)) and pd.notna(r.get('momentum60')):
-            candidates.append((float(r['momentum60']),symbol))
+        if not (bool(r.get(f'buy_{trader}',False)) and pd.notna(r.get('momentum60'))):
+            continue
+        # Use EXACTLY the same signal-time ranking as the broad-universe
+        # backtest, so paper decisions are comparable (no future session data).
+        if trader in ('BNF','DuongChung'):
+            close=float(r.get('close',0))
+            moving=float(r.get('sma25',0))
+            score=moving/max(close,1)-1
+        else:
+            score=float(r.get('rs60',float('nan')))
+        if pd.notna(score):
+            candidates.append((score,symbol))
     candidates.sort(key=lambda x:(-x[0],x[1]))
     for score,symbol in candidates:
         r=rows[symbol]
