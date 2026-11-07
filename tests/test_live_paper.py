@@ -59,7 +59,7 @@ def test_no_auction_lunch_or_stale_early_quotes_and_idempotency():
         assert len(first)==1
         assert first[0]["bot"]=="Darvas"
         assert first[0]["price"]>30000  # crossed spread and modeled slippage
-        assert book.on_quote(q("2026-11-09T09:16:03"))==[]
+        assert book.on_quote(q("2026-11-09T09:16:03")) is None
         assert book.on_quote(q("2026-11-09T09:16:40"))==[]
         snap=book.snapshot()
         assert len(snap["recent_fills"])==1
@@ -99,7 +99,7 @@ def test_live_ledger_persists_across_restart_without_replaying_quote():
         book.close()
         reopened=LivePaper(path)
         assert reopened.queue_eod(make_source(monday),monday)["queued"]==0
-        assert reopened.on_quote(q("2026-11-09T09:17:00"))==[]
+        assert reopened.on_quote(q("2026-11-09T09:17:00")) is None
         assert reopened.snapshot()["bots"]["Darvas"]["positions"][0]["qty"]==500
         assert len(reopened.snapshot()["recent_fills"])==1
         reopened.close()
@@ -111,3 +111,33 @@ def test_closed_weekends_and_auction_phases():
     assert market_phase(at("2026-11-09T14:39:00"),"STO")=="closing_auction_or_other"
     assert market_phase(at("2026-11-09T13:04:00"),"STO")=="continuous"
     assert market_phase(at("2026-11-09T10:00:00"),"DVX")=="closed"
+
+
+
+def test_native_dnse_hmac_and_quote_payload():
+    import hmac,hashlib
+    from live.feed import make_auth,raw_quote_to_book
+    auth=make_auth("test_key","private_secret",ts=1770012000,nonce="test-nonce")
+    signature=hmac.new(b"private_secret",b"test_key:1770012000:test-nonce",hashlib.sha256).hexdigest()
+    assert auth == {"action":"auth","api_key":"test_key","signature":signature,
+                    "timestamp":1770012000,"nonce":"test-nonce"}
+    raw={"T":"q","symbol":"HPG","marketId":"STO","boardId":"G1",
+         "bid":[{"price":24.35,"quantity":2500}],
+         "offer":[{"price":24.40,"quantity":2700}],
+         "time":{"Seconds":1794190000,"Nanos":150000000}}
+    event=raw_quote_to_book(raw,received_at=at("2026-11-09T09:30:00"))
+    assert event.bid==24350 and event.ask==24400
+    assert event.bid_qty==2500 and event.ask_qty==2700
+    assert event.event_at.tzinfo is not None
+    import pytest
+    with pytest.raises(ValueError):
+        raw_quote_to_book({**raw,"T":"t"})
+
+
+def test_hnx_and_upcom_market_phases_are_exchange_specific():
+    assert market_phase(at("2026-11-09T09:05:00"),"STX")=="continuous"
+    assert market_phase(at("2026-11-09T09:05:00"),"UPX")=="continuous"
+    assert market_phase(at("2026-11-09T09:05:00"),"STO")=="opening_auction_or_preopen"
+    assert market_phase(at("2026-11-09T14:50:00"),"UPX")=="continuous"
+    assert market_phase(at("2026-11-09T14:50:00"),"STX")=="closing_auction_or_other"
+    assert market_phase(at("2026-11-09T14:50:00"),"STO")=="closed"
