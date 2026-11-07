@@ -106,6 +106,7 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
   <div class="card live-card" id="liveCard" aria-live="polite">
     <div class="row"><strong>📡 Paper Trading — trong phiên</strong><span id="livePill" class="live-stamp">Chưa kết nối</span></div>
     <p id="liveMessage" class="note" style="margin-top:8px">Mô phỏng theo bid/ask thật cần một server cloud và dữ liệu DNSE được cấp quyền. Paper cuối ngày vẫn hoạt động riêng.</p>
+    <p class="note" id="liveSetupLink" style="margin-top:8px"><a href="https://render.com/deploy?repo=https://github.com/thanhngocreative-design/trader-arena-vn" target="_blank" rel="noopener noreferrer" style="color:#85edcb;text-decoration:underline">Kích hoạt máy chủ live trên Render</a> · Cần đăng nhập Render và nhập khóa DNSE trong phần Secrets.</p>
     <div id="liveDetail" style="display:none">
       <div class="row" style="margin-top:12px"><div><span class="label">11 tài khoản live độc lập</span><div style="font-weight:830;font-size:18px" id="liveNav">—</div></div><div style="text-align:right"><span class="label">Dữ liệu cuối</span><div class="note" id="liveAsOf">—</div></div></div>
       <div id="liveBots"></div><div class="live-fills" id="liveFills"></div>
@@ -394,6 +395,7 @@ async function initializeLive(){
     if(url.protocol!=='https:'||!url.hostname||url.username||url.password||url.search||url.hash)
       throw new Error('Invalid live endpoint');
     liveApiBase=url.origin;
+    $('liveSetupLink').style.display='none';
     $('livePill').textContent='Đang kết nối…';
     $('liveMessage').textContent='Đang kiểm tra kết nối server và độ mới của giá trực tiếp.';
     await pollLive();
