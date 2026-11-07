@@ -170,7 +170,7 @@ class DNSEMarketWorker:
             try:
                 while True:
                     now=now_vn()
-                    if now.weekday()>4 or now.time()>time(14,38):
+                    if now.weekday()>4 or now.time()>time(15,1):
                         break
                     message=json.loads(await asyncio.wait_for(ws.recv(),timeout=65))
                     action=message.get("action")
@@ -210,7 +210,7 @@ class DNSEMarketWorker:
                     self.last_error="DNSE credentials not configured"
                     await asyncio.sleep(60)
                     continue
-                if now.weekday()>4 or not(time(8,43)<=now.time()<=time(14,38)):
+                if now.weekday()>4 or not(time(8,43)<=now.time()<=time(15,1)):
                     await asyncio.sleep(30)
                     continue
                 if now.time()<time(9,10):
