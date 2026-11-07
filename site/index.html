@@ -85,6 +85,14 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
 .liveboard details{margin-top:9px}
 .liveboard summary{font-weight:750;color:#90efdb;font-size:12px;cursor:pointer}
 .liveboard .live-help{font-size:11px;color:#93b6cc;margin-top:8px}
+.live-card{border-color:#2d516d;background:#11223b;margin-top:12px}
+.live-card .live-stamp{font-size:11px;font-weight:800;letter-spacing:.3px;padding:6px 9px;background:#26384f;border-radius:99px;color:#bad0e7}
+.live-card .live-stamp.connected{background:#134b3d;color:#88eec8}
+.live-card .live-stamp.error{background:#4b341e;color:#f2ce8b}
+.live-line{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:11px;padding:9px 10px;background:#0d2036;border-radius:10px;cursor:default}
+.live-line strong{font-size:12px}.live-line .gain{font-size:12px;font-weight:800}
+.live-fills{margin-top:12px;display:grid;gap:7px}
+.live-fill{font-size:12px;color:#b7cade;line-height:1.5;background:#0b2033;padding:9px;border-radius:10px}
 </style>
 </head>
 <body>
@@ -102,6 +110,15 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
   <div class="eyebrow">Cuộc thi tiền ảo</div><h1>Ai đang giao dịch giỏi nhất? 🏆</h1>
   <p class="sub" id="arenaIntro">Các chiến thuật trên thị trường Việt Nam. Mỗi bot bắt đầu với 100 triệu đồng ảo.</p>
   <p class="note" id="universeNotice" style="margin:-12px 0 15px"></p>
+  <div class="card live-card" id="liveCard" aria-live="polite">
+    <div class="row"><strong>📡 Paper Trading — trong phiên</strong><span id="livePill" class="live-stamp">Chưa kết nối</span></div>
+    <p id="liveMessage" class="note" style="margin-top:8px">Mô phỏng theo bid/ask thật cần một server cloud và dữ liệu DNSE được cấp quyền. Paper cuối ngày vẫn hoạt động riêng.</p>
+    <div id="liveDetail" style="display:none">
+      <div class="row" style="margin-top:12px"><div><span class="label">11 tài khoản live độc lập</span><div style="font-weight:830;font-size:18px" id="liveNav">—</div></div><div style="text-align:right"><span class="label">Dữ liệu cuối</span><div class="note" id="liveAsOf">—</div></div></div>
+      <div id="liveBots"></div><div class="live-fills" id="liveFills"></div>
+      <p class="note" style="margin-top:11px">Không phải giao dịch thật. Lệnh mô phỏng có thể khớp khác thực tế; không lấy kết quả live trộn với backtest cuối ngày.</p>
+    </div>
+  </div>
   <div class="switch"><button id="modePaper" class="active" onclick="setMode('paper')">📅 Thi đấu mỗi ngày</button><button id="modeBacktest" onclick="setMode('backtest')">⏳ Thử lại quá khứ</button></div>
   <div id="backtestTimePicker" style="display:none">
     <div class="eyebrow" style="margin-bottom:8px">Chọn thời gian backtest</div>
@@ -166,6 +183,7 @@ let DATA=DEMO, mode='paper', page='home', selected='Minervini', tradeFilter='ALL
 let expandedBot=null;
 let period='ALL', stockSymbol='',stockWindow='3M',stockSelectedBar=null;
 let hiddenBots={};try{hiddenBots=JSON.parse(localStorage.getItem('arena-hidden-bots-v1')||'{}')||{};}catch(_){hiddenBots={};}
+let liveApiBase='',livePoll=null;
 const activeKeys=()=>IDS.filter(k=>!hiddenBots[k]);
 const periodData=()=>DATA.backtest_periods?.[period]||DATA.backtests;
 function selectPeriod(p){if(!DATA.backtest_periods?.[p]&&p!=='ALL')return;period=p;render();}
@@ -378,6 +396,70 @@ async function pollLive(){
     details.style.display='none';
   }
 }
+function liveFormat(ts){
+  if(!ts)return 'Chưa có';
+  const d=new Date(ts);
+  return Number.isNaN(d.getTime())?'Không rõ':d.toLocaleTimeString('vi-VN',{hour12:false,timeZone:'Asia/Ho_Chi_Minh'});
+}
+function renderLiveSnapshot(value){
+  const pill=$('livePill'),message=$('liveMessage'),detail=$('liveDetail');
+  const source=value?.feed;
+  if(!source||!value?.bots){
+    pill.className='live-stamp error';pill.textContent='Chưa có dữ liệu';
+    message.textContent='Máy chủ live chưa trả dữ liệu. Các bot cuối ngày vẫn chạy độc lập.';
+    detail.style.display='none';
+    return;
+  }
+  const fresh=source.claims_realtime===true;
+  pill.className='live-stamp '+(fresh?'connected':'error');
+  pill.textContent=fresh?'● LIVE · DNSE':'Không có quote mới';
+  message.textContent=fresh
+    ?'Đang nhận bid/ask G1 trong phiên; lệnh được mô phỏng bằng giá mới sau tín hiệu. Độ trễ và trượt giá thực tế có thể khác.'
+    :source.configured===false?'Server đã chạy, chưa kết nối khóa dữ liệu DNSE.'
+    :source.connected===true?'WebSocket đã kết nối, nhưng chưa có giá đủ mới để xác nhận live.'
+    :'Dữ liệu intraday chưa hoạt động (có thể đang ngoài giờ giao dịch).';
+  detail.style.display='block';
+  const entries=Object.entries(value.bots);
+  const total=entries.reduce((sum,[,b])=>sum+Number(b.nav||0),0);
+  $('liveNav').textContent=vnd(total);
+  $('liveAsOf').textContent=liveFormat(value.as_of);
+  $('liveBots').innerHTML=entries.slice().sort((a,b)=>(Number(b[1].return_pct)||0)-(Number(a[1].return_pct)||0))
+    .map(([key,b])=>`<div class="live-line"><span><strong>${safe(SHORT[key]||key)}</strong><small style="display:block">${(b.positions||[]).length} mã · ${(b.orders||[]).filter(o=>o.status==='pending').length} lệnh chờ</small></span><span class="gain ${color(b.return_pct)}">${pct(b.return_pct)}</span></div>`).join('');
+  $('liveFills').innerHTML=(value.recent_fills||[]).slice(0,8).map(e=>
+    `<div class="live-fill">${safe(liveFormat(e.quote_at))} · ${safe(SHORT[e.bot]||e.bot)} · ${e.side==='BUY'?'MUA':'BÁN'} <strong>${safe(e.symbol)}</strong> · ${n(e.qty).toLocaleString('vi-VN')} CP @ ${vnd(e.price)}<br><small>MÔ PHỎNG THEO BID/ASK — KHÔNG PHẢI KHỚP LỆNH THẬT</small></div>`).join('')||
+    '<div class="note">Chưa có lệnh live nào được mô phỏng khớp.</div>';
+}
+async function pollLive(){
+  if(!liveApiBase||document.visibilityState==='hidden')return;
+  try{
+    const res=await fetch(liveApiBase+'/api/live',{cache:'no-store',signal:AbortSignal.timeout(7000)});
+    if(!res.ok)throw new Error('Live bridge unavailable');
+    renderLiveSnapshot(await res.json());
+  }catch(_){
+    $('livePill').className='live-stamp error';
+    $('livePill').textContent='Mất kết nối';
+    $('liveMessage').textContent='Không nhận được dữ liệu live. Kết quả cuối ngày vẫn hoạt động riêng; không tự tạo giao dịch khi mất kết nối.';
+  }
+}
+async function initializeLive(){
+  try{
+    const res=await fetch('./live-config.json?cache='+Date.now(),{cache:'no-store'});
+    if(!res.ok)return;
+    const conf=await res.json();
+    if(conf.enabled!==true||typeof conf.api_base!=='string')return;
+    const url=new URL(conf.api_base);
+    if(url.protocol!=='https:'||!url.hostname||url.username||url.password||url.search||url.hash)
+      throw new Error('Invalid live endpoint');
+    liveApiBase=url.origin;
+    $('livePill').textContent='Đang kết nối…';
+    $('liveMessage').textContent='Đang kiểm tra kết nối server và độ mới của giá trực tiếp.';
+    await pollLive();
+    if(!livePoll)livePoll=setInterval(pollLive,5000);
+  }catch(_){
+    $('livePill').textContent='Chưa cấu hình';
+    $('liveMessage').textContent='Kết nối realtime chưa được cấu hình đúng. Không dùng kết quả giả thay giá thị trường.';
+  }
+}
 async function boot(){
   try{
     // A real cloud deployment publishes dashboard.json after a verified data refresh.
@@ -395,6 +477,7 @@ async function boot(){
   if(demo){note.className='notice demo';note.textContent='🧪 CHẾ ĐỘ DEMO. Tất cả con số trong bản xem thử đều là giả định. Chưa có giá thị trường thật.';}
   else{const latest=new Date(DATA.last_session+'T23:59:59+07:00');const days=Math.max(0,Math.floor((Date.now()-latest.getTime())/86400000));const delayed=days>=4;note.className=delayed?'notice demo':'notice';note.textContent=(delayed?'⚠️ DỮ LIỆU CÓ THỂ ĐÃ CŨ: ':'📡 ĐÃ CÓ DỮ LIỆU THỊ TRƯỜNG: ')+'chốt đến phiên '+DATA.last_session+'. Lệnh và tài khoản vẫn là GIẢ LẬP, không kết nối broker.';}
   render();
+  initializeLive();
 }
 boot();
 startLiveBridge();
