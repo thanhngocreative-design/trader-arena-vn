@@ -11,6 +11,10 @@ from zoneinfo import ZoneInfo
 import json
 import logging
 import os
+import hmac
+import hashlib
+import time
+import secrets
 from urllib.request import Request, urlopen
 
 from live.paper import LivePaper, Book, VN, now_vn
@@ -55,6 +59,33 @@ def sdk_quote_to_book(q) -> Book:
         bid=float(bid.price)*1000,ask=float(ask.price)*1000,
         bid_qty=int(bid.quantity),ask_qty=int(ask.quantity),
         event_at=official_time(q.time),received_at=now_vn())
+
+
+def make_auth(api_key:str,api_secret:str,ts:int|None=None,nonce:str|None=None)->dict:
+    """Official DNSE HMAC-SHA256 auth protocol; secrets never enter a URL."""
+    timestamp=int(time.time()) if ts is None else int(ts)
+    one_time_nonce=nonce or str(int(time.time()*1_000_000))+secrets.token_hex(4)
+    body=f"{api_key}:{timestamp}:{one_time_nonce}".encode("utf-8")
+    signature=hmac.new(api_secret.encode("utf-8"),body,hashlib.sha256).hexdigest()
+    return {"action":"auth","api_key":api_key,"signature":signature,
+            "timestamp":timestamp,"nonce":one_time_nonce}
+
+
+def raw_quote_to_book(data:dict,received_at:datetime|None=None)->Book:
+    """DNSE top_price.G1.json payload. Prices are thousand VND, quantities shares."""
+    if data.get("T")!="q":
+        raise ValueError("Not a quote message")
+    bids=data.get("bid") or []
+    offers=data.get("offer") or []
+    if not bids or not offers:
+        raise ValueError("Incomplete bid/ask book")
+    b,a=bids[0],offers[0]
+    return Book(symbol=str(data["symbol"]).upper(),market_id=str(data["marketId"]),
+        board_id=str(data.get("boardId","")),
+        bid=float(b["price"])*1000,ask=float(a["price"])*1000,
+        bid_qty=int(b["quantity"]),ask_qty=int(a["quantity"]),
+        event_at=official_time(data["time"]),
+        received_at=received_at or now_vn())
 
 
 def fetch_eod_source():
@@ -102,49 +133,72 @@ class DNSEMarketWorker:
         for b in snapshot["bots"].values():
             symbols.update(p["symbol"] for p in b["positions"])
             symbols.update(o["symbol"] for o in b["orders"] if o["status"]=="pending")
-        self.symbols=sorted(s for s in symbols if s.isalpha() and 2<=len(s)<=5)
+        # Always monitor some liquid names to prove the feed is truly live,
+        # even on days when no strategy has a queued order.
+        watch=os.getenv("LIVE_WATCH_SYMBOLS","FPT,HPG,VCB,MBB,SSI,ACB,TCB,MWG,VNM,PNJ,DGC,VHM,STB,CTG,BID,VPB")
+        symbols.update(s.strip().upper() for s in watch.split(","))
+        self.symbols=sorted(s for s in symbols if s.isalpha() and 2<=len(s)<=5)[:120]
         log.info("Loaded EOD plan; status %s; symbols %d",info["reason"],len(self.symbols))
         return info
 
     async def connect_day(self):
-        # Import only the official WebSocket market-data client.
-        from dnse import TradingClient
-        client=TradingClient(api_key=self.api_key,api_secret=self.api_secret,
-                             base_url="wss://ws-openapi.dnse.com.vn",
-                             encoding="json",auto_reconnect=True)
-        def on_quote(q):
-            try:
-                book=sdk_quote_to_book(q)
-                results=self.book.on_quote(book)
-                if results is None:
-                    return  # stale, auction or invalid quote; not live evidence
-                self.book.note_feed(book.received_at)
-                self.processed_books+=1
-                self.fills+=len(results)
-                self.last_received=book.received_at.isoformat()
-            except (ValueError,TypeError,AttributeError) as exc:
-                # Market may send one-sided or malformed books. Do not fill.
-                log.debug("Ignored quote: %s",type(exc).__name__)
-            except Exception:
-                log.exception("Failed to process quote safely")
-        try:
-            await client.connect()
-            for i in range(0,len(self.symbols),30):
-                await client.subscribe_quotes(self.symbols[i:i+30],on_quote=on_quote,
-                                               encoding="json",board_id="G1")
+        """Native DNSE JSON WebSocket; no unverified pip SDK or broker endpoints."""
+        import websockets
+        url="wss://ws-openapi.dnse.com.vn/v1/stream?encoding=json"
+        async with websockets.connect(url,ping_interval=None,
+                                       open_timeout=20,max_size=4_000_000) as ws:
+            first=json.loads(await asyncio.wait_for(ws.recv(),timeout=12))
+            if first.get("action")!="welcome":
+                raise RuntimeError("DNSE WebSocket missing welcome")
+            await ws.send(json.dumps(make_auth(self.api_key,self.api_secret)))
+            reply=json.loads(await asyncio.wait_for(ws.recv(),timeout=15))
+            if reply.get("action")!="auth_success":
+                raise RuntimeError("DNSE WebSocket authentication was rejected")
+            for i in range(0,len(self.symbols),25):
+                await ws.send(json.dumps({"action":"subscribe","channels":[{
+                    "name":"top_price.G1.json","symbols":self.symbols[i:i+25]}]}))
             self.connected=True
             self.last_error=""
-            log.info("Subscribed to %s live quotes, G1",len(self.symbols))
-            while True:
-                now=now_vn()
-                if now.weekday()>4 or now.time()>time(14,38):break
-                await asyncio.sleep(5)
-        finally:
-            self.connected=False
+            log.info("Authenticated to DNSE market data, watching %d symbols",len(self.symbols))
+
+            async def beat():
+                while True:
+                    await asyncio.sleep(25)
+                    await ws.send(json.dumps({"action":"ping",
+                        "timestamp":int(time.time()*1000)}))
+            heartbeat=asyncio.create_task(beat())
             try:
-                await client.disconnect()
-            except Exception:
-                log.exception("DNSE WebSocket disconnect error")
+                while True:
+                    now=now_vn()
+                    if now.weekday()>4 or now.time()>time(14,38):
+                        break
+                    message=json.loads(await asyncio.wait_for(ws.recv(),timeout=65))
+                    action=message.get("action")
+                    if action=="ping":
+                        await ws.send(json.dumps({"action":"pong",
+                            "timestamp":message.get("timestamp")}))
+                    elif action in ("error","connection_expired"):
+                        raise RuntimeError("DNSE stream control: "+str(message.get("code","connection_expired"))[:50])
+                    elif message.get("T")=="q":
+                        try:
+                            book=raw_quote_to_book(message,now_vn())
+                            result=self.book.on_quote(book)
+                            if result is None:
+                                continue
+                            self.book.note_feed(book.received_at)
+                            self.processed_books+=1
+                            self.fills+=len(result)
+                            self.last_received=book.received_at.isoformat()
+                        except (ValueError,TypeError,KeyError,OverflowError):
+                            log.debug("Rejected an invalid or stale quote")
+                    # Other control/data messages cannot generate a fill.
+            finally:
+                heartbeat.cancel()
+                try:
+                    await heartbeat
+                except asyncio.CancelledError:
+                    pass
+                self.connected=False
 
     async def run(self):
         while True:
