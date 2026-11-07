@@ -37,10 +37,17 @@ def market_phase(moment: datetime, market_id: str) -> str:
     if local.weekday() > 4 or market_id not in MARKETS:
         return "closed"
     t = local.time()
-    if time(9,15) <= t < time(11,30) or time(13,0) <= t < time(14,30):
-        return "continuous"
     if time(11,30) <= t < time(13,0):
         return "lunch"
+    if market_id == "UPX":
+        return "continuous" if (time(9,0) <= t < time(11,30) or
+                                time(13,0) <= t < time(15,0)) else "closed"
+    if market_id == "STX":
+        if time(9,0) <= t < time(11,30) or time(13,0) <= t < time(14,30):
+            return "continuous"
+        return "closing_auction_or_other" if time(14,30) <= t < time(15,0) else "closed"
+    if time(9,15) <= t < time(11,30) or time(13,0) <= t < time(14,30):
+        return "continuous"
     if time(9,0) <= t < time(9,15):
         return "opening_auction_or_preopen"
     if time(14,30) <= t < time(14,45):
@@ -166,6 +173,10 @@ class LivePaper:
             return None
         results=[]
         with self.lock,self.db:
+            # Out-of-order or replayed exchange quotes cannot create new fills.
+            prior=self.db.execute("SELECT event_at FROM marks WHERE symbol=?",(q.symbol,)).fetchone()
+            if prior and q.event_at <= datetime.fromisoformat(prior["event_at"]):
+                return None
             current_day=self.get_meta("day")
             if current_day!=now.date().isoformat():
                 seq=int(self.get_meta("session_seq","0"))+1
