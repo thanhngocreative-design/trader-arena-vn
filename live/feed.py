@@ -14,7 +14,6 @@ import os
 import hmac
 import hashlib
 import time
-import secrets
 from urllib.request import Request, urlopen
 
 from live.paper import LivePaper, Book, VN, now_vn
@@ -64,7 +63,7 @@ def sdk_quote_to_book(q) -> Book:
 def make_auth(api_key:str,api_secret:str,ts:int|None=None,nonce:str|None=None)->dict:
     """Official DNSE HMAC-SHA256 auth protocol; secrets never enter a URL."""
     timestamp=int(time.time()) if ts is None else int(ts)
-    one_time_nonce=nonce or str(int(time.time()*1_000_000))+secrets.token_hex(4)
+    one_time_nonce=nonce or str(time.time_ns()//1_000)
     body=f"{api_key}:{timestamp}:{one_time_nonce}".encode("utf-8")
     signature=hmac.new(api_secret.encode("utf-8"),body,hashlib.sha256).hexdigest()
     return {"action":"auth","api_key":api_key,"signature":signature,
