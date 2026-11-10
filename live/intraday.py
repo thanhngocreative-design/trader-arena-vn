@@ -66,8 +66,8 @@ def parse_closed_bar(message:dict,received_at:datetime):
 def _signals(bars):
     """Price/volume-only minute-scale proxies, evaluated on CLOSED bars."""
     c=[float(x["close"]) for x in bars]
-    h=[float(x["high"]) for x in bars]
-    lo=[float(x["low"]) for x in bars]
+    h=[float(x["h"]) for x in bars]
+    lo=[float(x["l"]) for x in bars]
     v=[int(x["volume"]) for x in bars]
     p=c[-1]
     avg_vol=mean(v[-21:-1])
@@ -119,7 +119,7 @@ def _exit_signal(bot, close:float, entry:float, bars) -> bool:
     if bot in ("CIS","ThaiPham"):
         return close<ma10*.994 or close<entry*.93
     if bot=="Darvas":
-        return close<min(float(x["low"]) for x in bars[-20:]) or close<entry*.9
+        return close<min(float(x["l"]) for x in bars[-20:]) or close<entry*.9
     if bot in ("Unger","PThai"):
         return close<ma20*.99 or close<entry*.93
     return close<ma20*.985 or close<entry*.925
