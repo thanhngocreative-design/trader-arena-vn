@@ -6,7 +6,7 @@ with timestamp later than order submission. Displayed liquidity is not a
 guarantee that any actual market order would execute.
 """
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, date, time, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
@@ -81,7 +81,7 @@ def previous_business_day(day: date) -> date:
 
 class LivePaper:
     def __init__(self, path: str|Path, settings:Settings|None=None):
-        self.st=settings or Settings()
+        self.st=settings or replace(Settings(),minimum_hold_sessions=3)
         path=Path(path)
         path.parent.mkdir(parents=True,exist_ok=True)
         self.db=sqlite3.connect(str(path),check_same_thread=False,timeout=10)
@@ -116,6 +116,9 @@ class LivePaper:
                 slippage REAL NOT NULL, note TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS marks(symbol TEXT PRIMARY KEY,
                 bid REAL NOT NULL, ask REAL NOT NULL, event_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS cooldown(
+                bot TEXT NOT NULL,symbol TEXT NOT NULL,sell_seq INTEGER NOT NULL,
+                PRIMARY KEY(bot,symbol));
             """)
             for bot in TRADERS:
                 self.db.execute("INSERT OR IGNORE INTO accounts VALUES(?,?)",(bot,INITIAL_CASH))
@@ -158,6 +161,59 @@ class LivePaper:
             self.set_meta("queued_for",today.isoformat())
         return {"queued":accepted,"reason":"queued from EOD plans"}
 
+    def queue_signal(self,bot:str,symbol:str,side:str,created_at:datetime,
+                     reason:str,source_session:str|None=None):
+        """Queue independent INTRADAY research intent. Never execute at signal price.
+
+        One entry (or exit) attempt per bot/security/day, and no more than
+        four concurrent positions + pending buys. Every fill requires a future
+        quote timestamp and viable observed book depth.
+        """
+        if (bot not in TRADERS or side not in ("BUY","SELL") or
+            not symbol.isalpha() or not 2<=len(symbol)<=5 or
+            created_at.tzinfo is None):
+            return None
+        local=created_at.astimezone(VN)
+        if market_phase(local,"STO")!="continuous":
+            return None
+        day=local.date().isoformat()
+        order_id=f"{day}:INTRADAY:{bot}:{side}:{symbol}"
+        with self.lock,self.db:
+            # Pending orders are only meaningful for this session.
+            self.db.execute("""UPDATE orders SET status='expired'
+                WHERE status='pending' AND substr(created_at,1,10)<?""",(day,))
+            if self.db.execute("""SELECT 1 FROM orders WHERE bot=? AND symbol=? AND status='pending'""",
+                               (bot,symbol)).fetchone():
+                return None
+            pos=self.db.execute("SELECT * FROM positions WHERE bot=? AND symbol=?",
+                                (bot,symbol)).fetchone()
+            seq=int(self.get_meta("session_seq","0"))
+            if side=="SELL":
+                if not pos or seq-int(pos["buy_seq"])<self.st.minimum_hold_sessions:
+                    return None
+            else:
+                if pos:return None
+                if self.db.execute("SELECT 1 FROM orders WHERE id=?",(order_id,)).fetchone():
+                    return None
+                cnt=self.db.execute("SELECT count(*) c FROM positions WHERE bot=?",(bot,)).fetchone()["c"]
+                pending=self.db.execute("""SELECT count(*) c FROM orders
+                    WHERE bot=? AND status='pending' AND side='BUY'""",(bot,)).fetchone()["c"]
+                if cnt+pending>=self.st.max_positions:
+                    return None
+                sold=self.db.execute("SELECT sell_seq FROM cooldown WHERE bot=? AND symbol=?",
+                                     (bot,symbol)).fetchone()
+                if sold and seq-int(sold["sell_seq"])<self.st.cooldown_sessions:
+                    return None
+            cur=self.db.execute("""INSERT OR IGNORE INTO orders
+                (id,bot,symbol,side,source_session,created_at,target_value,reason)
+                VALUES(?,?,?,?,?,?,?,?)""",
+                (order_id,bot,symbol,side,source_session or day,local.isoformat(),
+                 self.st.initial_cash/self.st.max_positions if side=="BUY" else 0.0,
+                 reason[:300]))
+            if not cur.rowcount:return None
+        return {"bot":bot,"symbol":symbol,"side":side,"created_at":local.isoformat(),
+                "source":"INTRADAY_1M_CLOSED"}
+
     def on_quote(self,q:Book):
         now=q.received_at.astimezone(VN)
         market=q.event_at.astimezone(VN)
@@ -173,6 +229,10 @@ class LivePaper:
             return None
         results=[]
         with self.lock,self.db:
+            # Never fill an old order on the next calendar session.
+            self.db.execute("""UPDATE orders SET status='expired'
+                WHERE status='pending' AND substr(created_at,1,10)<?""",
+                (now.date().isoformat(),))
             # Out-of-order or replayed exchange quotes cannot create new fills.
             prior=self.db.execute("SELECT event_at FROM marks WHERE symbol=?",(q.symbol,)).fetchone()
             if prior and q.event_at <= datetime.fromisoformat(prior["event_at"]):
@@ -265,6 +325,9 @@ class LivePaper:
                     else:
                         self.db.execute("DELETE FROM positions WHERE bot=? AND symbol=?",(o["bot"],q.symbol))
                         status="filled"
+                        self.db.execute("""INSERT INTO cooldown(bot,symbol,sell_seq)
+                           VALUES(?,?,?) ON CONFLICT(bot,symbol) DO UPDATE SET sell_seq=excluded.sell_seq""",
+                            (o["bot"],q.symbol,seq))
                 self.db.execute("UPDATE orders SET status=?,last_fill_minute=? WHERE id=?",
                                 (status,minute,o["id"]))
                 self.db.execute("""INSERT INTO fills
