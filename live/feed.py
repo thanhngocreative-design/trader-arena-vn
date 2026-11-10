@@ -17,6 +17,8 @@ import time
 from urllib.request import Request, urlopen
 
 from live.paper import LivePaper, Book, VN, now_vn
+from live.intraday import IntradayScanner, parse_closed_bar
+from datafeed import PUBLIC_CANDIDATES
 
 log=logging.getLogger(__name__)
 STATE_URL=os.getenv(
@@ -107,41 +109,47 @@ def fetch_eod_source():
 class DNSEMarketWorker:
     def __init__(self,book:LivePaper):
         self.book=book
+        self.scanner=IntradayScanner(book)
         self.api_key=os.getenv("DNSE_API_KEY","")
         self.api_secret=os.getenv("DNSE_API_SECRET","")
         self.connected=False
+        self.feed_connected={"quotes":False,"candles":False}
         self.last_received=""
+        self.last_candle_received=""
         self.last_error=""
         self.last_plan_refresh=""
         self.symbols=[]
         self.processed_books=0
         self.fills=0
         self.task=None
+        self.signal_events=0
 
     @property
     def configured(self):
         return bool(self.api_key and self.api_secret)
 
     async def load_plan(self):
+        """Build research universe independent of yesterday's EOD orders."""
         now=now_vn()
-        source=await asyncio.to_thread(fetch_eod_source)
-        info=self.book.queue_eod(source,now)
         self.last_plan_refresh=now.isoformat()
+        symbols=list(PUBLIC_CANDIDATES)
+        # Always continue tracking owned equities and pending orders from
+        # before process restart even if the candidate list changes.
         snapshot=self.book.snapshot()
-        symbols=set()
         for b in snapshot["bots"].values():
-            symbols.update(p["symbol"] for p in b["positions"])
-            symbols.update(o["symbol"] for o in b["orders"] if o["status"]=="pending")
-        # Always monitor some liquid names to prove the feed is truly live,
-        # even on days when no strategy has a queued order.
-        watch=os.getenv("LIVE_WATCH_SYMBOLS","FPT,HPG,VCB,MBB,SSI,ACB,TCB,MWG,VNM,PNJ,DGC,VHM,STB,CTG,BID,VPB")
-        symbols.update(s.strip().upper() for s in watch.split(","))
-        self.symbols=sorted(s for s in symbols if s.isalpha() and 2<=len(s)<=5)[:120]
-        log.info("Loaded EOD plan; status %s; symbols %d",info["reason"],len(self.symbols))
-        return info
+            symbols.extend(p["symbol"] for p in b["positions"])
+            symbols.extend(o["symbol"] for o in b["orders"] if o["status"]=="pending")
+        limit=max(1,min(190,int(os.getenv("LIVE_MAX_SYMBOLS","180"))))
+        self.symbols=list(dict.fromkeys(
+            s.strip().upper() for s in symbols
+            if s.isalpha() and 2<=len(s)<=5))[:limit]
+        log.info("Intraday universe loaded: %d candidates; EOD buy plans disabled",
+                 len(self.symbols))
+        return {"queued":0,"symbols":len(self.symbols),
+                "reason":"intraday discovery from closed 1-minute candles"}
 
-    async def connect_day(self):
-        """Native DNSE JSON WebSocket; no unverified pip SDK or broker endpoints."""
+    async def _stream(self,kind:str,channel:str):
+        """Read-only feed; each socket fits within 200 symbol streams."""
         import websockets
         url="wss://ws-openapi.dnse.com.vn/v1/stream?encoding=json"
         async with websockets.connect(url,ping_interval=None,
@@ -155,15 +163,15 @@ class DNSEMarketWorker:
                 raise RuntimeError("DNSE WebSocket authentication was rejected")
             for i in range(0,len(self.symbols),25):
                 await ws.send(json.dumps({"action":"subscribe","channels":[{
-                    "name":"top_price.G1.json","symbols":self.symbols[i:i+25]}]}))
-            self.connected=True
+                    "name":channel,"symbols":self.symbols[i:i+25]}]}))
+            self.feed_connected[kind]=True
+            self.connected=all(self.feed_connected.values())
             self.last_error=""
-            log.info("Authenticated to DNSE market data, watching %d symbols",len(self.symbols))
-
+            log.info("Authenticated DNSE %s, watching %d equities",kind,len(self.symbols))
             async def beat():
                 while True:
                     await asyncio.sleep(25)
-                    await ws.send(json.dumps({"action":"ping",
+                    await ws.send(json.dumps({"action":"pong",
                         "timestamp":int(time.time()*1000)}))
             heartbeat=asyncio.create_task(beat())
             try:
@@ -177,8 +185,9 @@ class DNSEMarketWorker:
                         await ws.send(json.dumps({"action":"pong",
                             "timestamp":message.get("timestamp")}))
                     elif action in ("error","connection_expired"):
-                        raise RuntimeError("DNSE stream control: "+str(message.get("code","connection_expired"))[:50])
-                    elif message.get("T")=="q":
+                        raise RuntimeError("DNSE "+kind+" stream control: "+
+                                           str(message.get("code","expired"))[:50])
+                    elif kind=="quotes" and message.get("T")=="q":
                         try:
                             book=raw_quote_to_book(message,now_vn())
                             result=self.book.on_quote(book)
@@ -189,16 +198,30 @@ class DNSEMarketWorker:
                             self.fills+=len(result)
                             self.last_received=book.received_at.isoformat()
                         except (ValueError,TypeError,KeyError,OverflowError):
-                            log.debug("Rejected an invalid or stale quote")
-                    # Other control/data messages cannot generate a fill.
+                            log.debug("Ignored stale/malformed quote")
+                    elif kind=="candles" and message.get("T")=="bc":
+                        try:
+                            bar=parse_closed_bar(message,now_vn())
+                            created=self.scanner.on_closed_bar(bar)
+                            self.signal_events+=len(created)
+                            self.last_candle_received=bar.received_at.isoformat()
+                        except (ValueError,TypeError,KeyError,OverflowError):
+                            log.debug("Ignored stale/malformed closed 1m candle")
             finally:
                 heartbeat.cancel()
                 try:
                     await heartbeat
                 except asyncio.CancelledError:
                     pass
+                self.feed_connected[kind]=False
                 self.connected=False
 
+    async def connect_day(self):
+        """Two concurrently authenticated read-only streams; no order API."""
+        await asyncio.gather(
+            self._stream("quotes","top_price.G1.json"),
+            self._stream("candles","ohlc_closed.1.json"))
+    
     async def run(self):
         while True:
             now=now_vn()
@@ -233,6 +256,10 @@ class DNSEMarketWorker:
 
     def status(self):
         return {"configured":self.configured,"connected":self.connected,
+                "feed_connected":dict(self.feed_connected),
+                "intraday_scanner":self.scanner.status(),
+                "last_candle_received":self.last_candle_received,
+                "signal_events_this_process":self.signal_events,
                 "last_received":self.last_received,
                 "last_plan_refresh":self.last_plan_refresh,
                 "subscribed_symbols":len(self.symbols),
