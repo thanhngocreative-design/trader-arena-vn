@@ -182,7 +182,7 @@ class IntradayScanner:
                     "SELECT * FROM positions WHERE bot=? AND symbol=?",
                     (bot,bar.symbol)).fetchone()
                 if pos:
-                    if seq-int(pos["buy_seq"])<3:
+                    if not self.ledger.settled_for_sale(pos,seq,received):
                         continue  # real VN T+2.5 delivery, cannot day-trade same stock
                     should_exit=_exit_signal(bot,bar.close,float(pos["entry_price"]),bars)
                     if should_exit:
