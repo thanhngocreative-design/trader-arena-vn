@@ -81,7 +81,7 @@ def previous_business_day(day: date) -> date:
 
 class LivePaper:
     def __init__(self, path: str|Path, settings:Settings|None=None):
-        self.st=settings or replace(Settings(),minimum_hold_sessions=3)
+        self.st=settings or replace(Settings(),minimum_hold_sessions=2)
         path=Path(path)
         path.parent.mkdir(parents=True,exist_ok=True)
         self.db=sqlite3.connect(str(path),check_same_thread=False,timeout=10)
@@ -161,6 +161,15 @@ class LivePaper:
             self.set_meta("queued_for",today.isoformat())
         return {"queued":accepted,"reason":"queued from EOD plans"}
 
+    def settled_for_sale(self,pos,session_seq:int,local:datetime)->bool:
+        """T+2 afternoon for VN cash equities; session number counts observed sessions.
+
+        Holidays without quotes do not advance session_seq. A security purchased
+        today can never be sold today merely because a minute signal flips.
+        """
+        elapsed=session_seq-int(pos["buy_seq"])
+        return elapsed>2 or (elapsed==2 and local.astimezone(VN).time()>=time(13,0))
+
     def queue_signal(self,bot:str,symbol:str,side:str,created_at:datetime,
                      reason:str,source_session:str|None=None):
         """Queue independent INTRADAY research intent. Never execute at signal price.
@@ -189,7 +198,7 @@ class LivePaper:
                                 (bot,symbol)).fetchone()
             seq=int(self.get_meta("session_seq","0"))
             if side=="SELL":
-                if not pos or seq-int(pos["buy_seq"])<self.st.minimum_hold_sessions:
+                if not pos or not self.settled_for_sale(pos,seq,local):
                     return None
             else:
                 if pos:return None
@@ -251,7 +260,7 @@ class LivePaper:
             # They can be modeled only against a SUBSEQUENT quote, never at the
             # price that created the signal (no same-tick lookahead).
             for held in self.db.execute("SELECT * FROM positions WHERE symbol=?",(q.symbol,)).fetchall():
-                if seq-int(held["buy_seq"])<self.st.minimum_hold_sessions:
+                if not self.settled_for_sale(held,seq,now):
                     continue
                 self.db.execute("UPDATE positions SET high_water=MAX(high_water,?) WHERE bot=? AND symbol=?",
                                 (q.bid,held["bot"],q.symbol))
@@ -281,7 +290,7 @@ class LivePaper:
                 held=self.db.execute("SELECT * FROM positions WHERE bot=? AND symbol=?",
                                      (o["bot"],q.symbol)).fetchone()
                 if o["side"]=="SELL":
-                    if not held or (seq-int(held["buy_seq"]))<self.st.minimum_hold_sessions:
+                    if not held or not self.settled_for_sale(held,seq,now):
                         continue
                     qty=min(int(held["qty"]),int(q.bid_qty*MAX_BOOK_FRACTION))
                     px=q.bid
