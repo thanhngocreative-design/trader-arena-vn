@@ -218,9 +218,9 @@ class DNSEMarketWorker:
 
     async def connect_day(self):
         """Two concurrently authenticated read-only streams; no order API."""
-        await asyncio.gather(
-            self._stream("quotes","top_price.G1.json"),
-            self._stream("candles","ohlc_closed.1.json"))
+        async with asyncio.TaskGroup() as jobs:
+            jobs.create_task(self._stream("quotes","top_price.G1.json"))
+            jobs.create_task(self._stream("candles","ohlc_closed.1.json"))
     
     async def run(self):
         while True:
