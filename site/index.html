@@ -357,8 +357,9 @@ function renderLiveSnapshot(value){
   const fresh=source.claims_realtime===true;
   pill.className='live-stamp '+(fresh?'connected':'error');
   pill.textContent=fresh?'● LIVE · DNSE':'Không có quote mới';
+  const scanner=source.intraday_scanner||{};
   message.textContent=fresh
-    ?'Đang nhận bid/ask G1 trong phiên; lệnh được mô phỏng bằng giá mới sau tín hiệu. Độ trễ và trượt giá thực tế có thể khác.'
+    ?'11 bot đang tự quét '+n(source.subscribed_symbols||0)+' mã; '+n(scanner.closed_bars_received||0)+' nến 1 phút đã đóng, '+n(scanner.signals_queued||0)+' tín hiệu mới. Mô phỏng khớp theo bid/ask SAU tín hiệu; không gửi lệnh thật.'
     :source.configured===false?'Server đã chạy, chưa kết nối khóa dữ liệu DNSE.'
     :source.connected===true?'WebSocket đã kết nối, nhưng chưa có giá đủ mới để xác nhận live.'
     :'Dữ liệu intraday chưa hoạt động (có thể đang ngoài giờ giao dịch).';
