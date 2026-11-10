@@ -267,5 +267,8 @@ class DNSEMarketWorker:
                 "fills_this_process":self.fills,
                 "last_error":self.last_error if not self.configured else
                               (self.last_error if not self.connected else ""),
-                "claims_realtime":bool(self.connected and self.last_received and
-                    (now_vn()-official_time(self.last_received)).total_seconds()<=10)}
+                "claims_realtime":bool(self.connected and self.last_received
+                    and self.last_candle_received
+                    and (now_vn()-official_time(self.last_received)).total_seconds()<=10
+                    and (now_vn()-official_time(self.last_candle_received)).total_seconds()<=150
+                    and self.scanner.bars_received>0)}
