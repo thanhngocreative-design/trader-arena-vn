@@ -1,7 +1,7 @@
 {
   "version": 1,
   "started_at": "2026-11-06T16:03:49+07:00",
-  "last_session": "2026-11-10",
+  "last_session": "2026-11-11",
   "bots": {
     "Minervini": {
       "cash": 100000000,
@@ -26,10 +26,16 @@
           "nav": 100000000,
           "cash": 100000000,
           "return_pct": 0.0
+        },
+        {
+          "date": "2026-11-11",
+          "nav": 100000000,
+          "cash": 100000000,
+          "return_pct": 0.0
         }
       ],
       "latest": {
-        "date": "2026-11-10",
+        "date": "2026-11-11",
         "nav": 100000000,
         "cash": 100000000,
         "return_pct": 0.0,
@@ -60,10 +66,16 @@
           "nav": 100000000,
           "cash": 100000000,
           "return_pct": 0.0
+        },
+        {
+          "date": "2026-11-11",
+          "nav": 100000000,
+          "cash": 100000000,
+          "return_pct": 0.0
         }
       ],
       "latest": {
-        "date": "2026-11-10",
+        "date": "2026-11-11",
         "nav": 100000000,
         "cash": 100000000,
         "return_pct": 0.0,
@@ -81,7 +93,7 @@
           "entry_cost": 24463373.32951204,
           "buy_index": 1455,
           "buy_date": "2026-11-09",
-          "high_water": 13600.0,
+          "high_water": 13650.0,
           "pending_exit": ""
         },
         "CTD": {
@@ -138,13 +150,19 @@
           "nav": 100072400,
           "cash": 54172400,
           "return_pct": 0.072
+        },
+        {
+          "date": "2026-11-11",
+          "nav": 99952400,
+          "cash": 54172400,
+          "return_pct": -0.048
         }
       ],
       "latest": {
-        "date": "2026-11-10",
-        "nav": 100072400,
+        "date": "2026-11-11",
+        "nav": 99952400,
         "cash": 54172400,
-        "return_pct": 0.072,
+        "return_pct": -0.048,
         "holdings": [
           {
             "symbol": "TCH",
@@ -160,10 +178,10 @@
             "symbol": "CTD",
             "qty": 300,
             "buy_price": 71107,
-            "last_price": 71400,
-            "value": 21420000,
-            "pnl": 55773,
-            "pnl_pct": 0.26,
+            "last_price": 71000,
+            "value": 21300000,
+            "pnl": -64227,
+            "pnl_pct": -0.3,
             "buy_date": "2026-11-10"
           }
         ]
@@ -193,10 +211,16 @@
           "nav": 100000000,
           "cash": 100000000,
           "return_pct": 0.0
+        },
+        {
+          "date": "2026-11-11",
+          "nav": 100000000,
+          "cash": 100000000,
+          "return_pct": 0.0
         }
       ],
       "latest": {
-        "date": "2026-11-10",
+        "date": "2026-11-11",
         "nav": 100000000,
         "cash": 100000000,
         "return_pct": 0.0,
@@ -227,10 +251,16 @@
           "nav": 100000000,
           "cash": 100000000,
           "return_pct": 0.0
+        },
+        {
+          "date": "2026-11-11",
+          "nav": 100000000,
+          "cash": 100000000,
+          "return_pct": 0.0
         }
       ],
       "latest": {
-        "date": "2026-11-10",
+        "date": "2026-11-11",
         "nav": 100000000,
         "cash": 100000000,
         "return_pct": 0.0,
@@ -261,10 +291,16 @@
           "nav": 100000000,
           "cash": 100000000,
           "return_pct": 0.0
+        },
+        {
+          "date": "2026-11-11",
+          "nav": 100000000,
+          "cash": 100000000,
+          "return_pct": 0.0
         }
       ],
       "latest": {
-        "date": "2026-11-10",
+        "date": "2026-11-11",
         "nav": 100000000,
         "cash": 100000000,
         "return_pct": 0.0,
@@ -295,10 +331,16 @@
           "nav": 100000000,
           "cash": 100000000,
           "return_pct": 0.0
+        },
+        {
+          "date": "2026-11-11",
+          "nav": 100000000,
+          "cash": 100000000,
+          "return_pct": 0.0
         }
       ],
       "latest": {
-        "date": "2026-11-10",
+        "date": "2026-11-11",
         "nav": 100000000,
         "cash": 100000000,
         "return_pct": 0.0,
@@ -329,10 +371,16 @@
           "nav": 100000000,
           "cash": 100000000,
           "return_pct": 0.0
+        },
+        {
+          "date": "2026-11-11",
+          "nav": 100000000,
+          "cash": 100000000,
+          "return_pct": 0.0
         }
       ],
       "latest": {
-        "date": "2026-11-10",
+        "date": "2026-11-11",
         "nav": 100000000,
         "cash": 100000000,
         "return_pct": 0.0,
@@ -341,7 +389,7 @@
       "last_sold": {}
     },
     "DuongChung": {
-      "cash": 75540993.70728394,
+      "cash": 29522674.332178697,
       "positions": {
         "ELC": {
           "qty": 2300,
@@ -352,30 +400,39 @@
           "buy_date": "2026-11-10",
           "high_water": 10750.0,
           "pending_exit": ""
+        },
+        "LPB": {
+          "qty": 600,
+          "entry_price": 36254.5638788242,
+          "price": 36254.5638788242,
+          "entry_cost": 21785367.434785463,
+          "buy_index": 1457,
+          "buy_date": "2026-11-11",
+          "high_water": 37100.0,
+          "pending_exit": ""
+        },
+        "SSB": {
+          "qty": 1600,
+          "entry_price": 15122.910596804655,
+          "price": 15122.910596804655,
+          "entry_cost": 24232951.940319784,
+          "buy_index": 1457,
+          "buy_date": "2026-11-11",
+          "high_water": 15122.910596804655,
+          "pending_exit": ""
         }
       },
       "orders_next": [
         {
           "side": "BUY",
-          "symbol": "LPB",
+          "symbol": "GAS",
           "reason": "Tín hiệu xác nhận thanh khoản và đủ biên độ so với chi phí",
-          "signal_date": "2026-11-10",
-          "vol20_prev": 1999725.0,
-          "atr14": 1389.2857142857142,
-          "signal_close": 36100.0,
-          "value20_prev": 74962553500.0,
-          "score": 0.0519
-        },
-        {
-          "side": "BUY",
-          "symbol": "SSB",
-          "reason": "Tín hiệu xác nhận thanh khoản và đủ biên độ so với chi phí",
-          "signal_date": "2026-11-10",
-          "vol20_prev": 2235385.0,
-          "atr14": 474.9999999999999,
-          "signal_close": 15100.0,
-          "value20_prev": 34971486250.0,
-          "score": 0.047
+          "signal_date": "2026-11-11",
+          "vol20_prev": 899290.0,
+          "atr14": 2450.0,
+          "signal_close": 74400.0,
+          "value20_prev": 68977021000.0,
+          "score": 0.0354
         }
       ],
       "trades": [
@@ -389,6 +446,28 @@
           "fee": 36634,
           "tax": 0,
           "slippage_rate": 0.001738
+        },
+        {
+          "date": "2026-11-11",
+          "symbol": "LPB",
+          "side": "MUA",
+          "qty": 600,
+          "price": 36255,
+          "reason": "Tín hiệu xác nhận thanh khoản và đủ biên độ so với chi phí",
+          "fee": 32629,
+          "tax": 0,
+          "slippage_rate": 0.001507
+        },
+        {
+          "date": "2026-11-11",
+          "symbol": "SSB",
+          "side": "MUA",
+          "qty": 1600,
+          "price": 15123,
+          "reason": "Tín hiệu xác nhận thanh khoản và đủ biên độ so với chi phí",
+          "fee": 36295,
+          "tax": 0,
+          "slippage_rate": 0.001517
         }
       ],
       "history": [
@@ -409,13 +488,19 @@
           "nav": 100265994,
           "cash": 75540994,
           "return_pct": 0.266
+        },
+        {
+          "date": "2026-11-11",
+          "nav": 100127674,
+          "cash": 29522674,
+          "return_pct": 0.128
         }
       ],
       "latest": {
-        "date": "2026-11-10",
-        "nav": 100265994,
-        "cash": 75540994,
-        "return_pct": 0.266,
+        "date": "2026-11-11",
+        "nav": 100127674,
+        "cash": 29522674,
+        "return_pct": 0.128,
         "holdings": [
           {
             "symbol": "ELC",
@@ -426,6 +511,26 @@
             "pnl": 265994,
             "pnl_pct": 1.09,
             "buy_date": "2026-11-10"
+          },
+          {
+            "symbol": "LPB",
+            "qty": 600,
+            "buy_price": 36255,
+            "last_price": 36200,
+            "value": 21720000,
+            "pnl": -65367,
+            "pnl_pct": -0.3,
+            "buy_date": "2026-11-11"
+          },
+          {
+            "symbol": "SSB",
+            "qty": 1600,
+            "buy_price": 15123,
+            "last_price": 15100,
+            "value": 24160000,
+            "pnl": -72952,
+            "pnl_pct": -0.3,
+            "buy_date": "2026-11-11"
           }
         ]
       },
@@ -454,10 +559,16 @@
           "nav": 100000000,
           "cash": 100000000,
           "return_pct": 0.0
+        },
+        {
+          "date": "2026-11-11",
+          "nav": 100000000,
+          "cash": 100000000,
+          "return_pct": 0.0
         }
       ],
       "latest": {
-        "date": "2026-11-10",
+        "date": "2026-11-11",
         "nav": 100000000,
         "cash": 100000000,
         "return_pct": 0.0,
@@ -488,11 +599,17 @@
           "nav": 100000000,
           "cash": 100000000,
           "return_pct": 0.0
+        },
+        {
+          "date": "2026-11-11",
+          "nav": 100000000,
+          "cash": 100000000,
+          "return_pct": 0.0
         }
       ],
       "started_session": "2026-11-06",
       "latest": {
-        "date": "2026-11-10",
+        "date": "2026-11-11",
         "nav": 100000000,
         "cash": 100000000,
         "return_pct": 0.0,
@@ -507,7 +624,7 @@
     "Nâng cấp luật bot ở phiên 2026-11-06 mà không hồi tố lệnh giao dịch cũ.",
     "Nâng cấp luật bot ở phiên 2026-11-06 mà không hồi tố lệnh giao dịch cũ."
   ],
-  "updated_at": "2026-11-11T00:21:09+07:00",
+  "updated_at": "2026-11-12T00:30:45+07:00",
   "cloud_enabled": {
     "Minervini": true,
     "ONeil": true,
