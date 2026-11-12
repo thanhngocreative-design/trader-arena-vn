@@ -253,6 +253,14 @@ function selectRankBot(id){
   renderHome();
 }
 function openBotProfile(id){if(!IDS.includes(id))return;selected=id;setPage('bots')}
+function botFrame(k){return DATA.bot_timeframes?.[mode]?.bots?.[k]||{label:'Chưa rõ khung',priority:'',detail:'Chưa có mô tả khung giao dịch được xác minh.'};}
+function frameBadge(k){const f=botFrame(k);return safe(f.label)+(mode==='hybrid'&&f.priority==='phút'?' · ưu tiên phút':'');}
+function frameOverview(){
+  const manifest=DATA.bot_timeframes?.[mode];
+  if(!manifest)return '';
+  const c=manifest.counts;
+  return `<div class="card" style="margin:12px 0"><strong>⏱ Khung giao dịch của bot</strong><p class="note" style="margin-top:8px">Trong mục đang xem: <strong>Chỉ phút: ${c.minute_only}</strong> · <strong>Chỉ ngày: ${c.daily_only}</strong> · <strong>Ngày + phút: ${c.daily_and_minute}</strong>.</p><p class="note">${mode==='hybrid'?'BNF và CIS ưu tiên tín hiệu phút nhưng vẫn dùng bộ lọc ngày. Chưa có bot thuần phút.':'Cả 11 bot ở mục này dùng nến ngày. Chọn Kết hợp 1m để xem phiên bản dùng cả ngày và phút.'}</p><details><summary style="cursor:pointer;padding:10px 0">Xem khung của từng bot</summary>${IDS.map(k=>`<div style="padding:8px 0;border-top:1px solid #334155"><strong>${safe(SHORT[k])}</strong><span style="display:block;font-size:13px">${frameBadge(k)}</span></div>`).join('')}</details></div>`;
+}
 function rankExtra(k){
   const b=part(k);
   if(!b)return '';
@@ -265,6 +273,7 @@ function rankExtra(k){
     ?`<p class="note" style="margin-top:9px">📣 ${safe(actions[0].action||(actions[0].side==='BUY'?'Dự kiến mua':'Dự kiến bán'))} ${safe(actions[0].symbol)} · ${safe(actions[0].reason||'Theo quy tắc của bot')}</p>`
     :'<p class="note" style="margin-top:9px">📣 Chưa có tín hiệu giao dịch mới.</p>';
   return `<div id="rankdetail-${k}" class="rankdetail-panel">
+    <p class="note"><strong>⏱ ${frameBadge(k)}</strong><br>${safe(botFrame(k).detail)}</p>
     <p class="note">🔎 ${safe(DATA.traders?.[k]?.explain||TEXT[k]||'Bot theo tín hiệu mô phỏng.')}</p>
     ${k==='Hybrid'? `<p class="note" style="margin-top:7px"><strong>🧬 Nhóm được chọn gần nhất:</strong> ${safe(Object.entries(DATA.hybrid_model?.leaders_latest||{}).map(([id,w])=> (SHORT[id]||id)+' '+(w*100).toFixed(0)+'%').join(' · ')||'Đang giữ tiền mặt vì không bot nào vượt bộ lọc 126 phiên.')}</p>`:''}
     <div class="rank-detail-metrics">
@@ -295,6 +304,9 @@ function renderHome(){
   if(!researchNote){researchNote=document.createElement('div');researchNote.id='research146Note';researchNote.className='notice';document.getElementById('backtestTimePicker').after(researchNote);}
   researchNote.style.display=meta&&mode!=='paper'?'block':'none';
   if(meta)researchNote.textContent='146 mã · '+meta.start+' đến '+meta.end+' · Cấu hình vốn ATR. '+(mode==='hybrid'?'Backtest Daily + 1 phút thật; không nội suy khoảng thiếu.':'Backtest nến ngày. Chọn Kết hợp 1m để xem mô phỏng phút.');
+  let timeframeBox=document.getElementById('botTimeframeOverview');
+  if(!timeframeBox){timeframeBox=document.createElement('div');timeframeBox.id='botTimeframeOverview';researchNote.after(timeframeBox);}
+  timeframeBox.innerHTML=frameOverview();
   const opt=DATA.backtest_options?.find(x=>x.key===period);
   $('modePill').textContent=mode==='paper'?'Ghi nối tiếp từng phiên':mode==='hybrid'?'Daily + 1 phút · Thử nghiệm':(opt?.label||'Từ 2023');
   const intr=DATA.hybrid_backtest_audit||{};
@@ -320,7 +332,7 @@ function renderHome(){
   $('leaderboard').innerHTML=(sorted.length?sorted.map((k,i)=>`<div class="rankgroup">
     <button type="button" class="ranker ${k===selected?'selected':''}" aria-expanded="${expandedBot===k}" aria-controls="rankdetail-${k}" onclick="selectRankBot('${k}')">
       <span class="rankicon">${['🥇','🥈','🥉'][i]||('#'+(i+1))}</span>
-      <span class="push"><span class="rankname">${safe(DATA.traders?.[k]?.flag||'')} ${safe(SHORT[k])} Bot</span><span class="rankdetail" style="display:block">${safe(DATA.traders?.[k]?.tag||TEXT[k])} · ${money(nav(k))}</span></span>
+      <span class="push"><span class="rankname">${safe(DATA.traders?.[k]?.flag||'')} ${safe(SHORT[k])} Bot</span><span class="rankdetail" style="display:block">${safe(DATA.traders?.[k]?.tag||TEXT[k])} · ${money(nav(k))}</span><span class="label" style="display:block;margin-top:3px">⏱ ${frameBadge(k)}</span></span>
       <span class="return ${color(ret(k))}">${pct(ret(k))}<small>lãi / lỗ</small></span>
       <span class="rank-chevron" aria-hidden="true">⌄</span>
     </button>
@@ -338,6 +350,7 @@ function renderBots(){
   const b=part(selected),holds=b.holdings||[],plans=b.orders_next||[],acts=b.actions||[];
   const cloud=DATA.cloud_enabled?.[selected]!==false;
   $('botDetail').innerHTML=`<div class="card"><div class="bothead"><div class="avatar">${EMOJI[selected]}</div><div><strong>${safe(DATA.traders?.[selected]?.name||SHORT[selected])}</strong><div class="label">${safe(DATA.traders?.[selected]?.tag||'Chiến thuật công khai')}</div></div></div><p class="note" style="margin:13px 0 4px">${safe(DATA.traders?.[selected]?.explain||TEXT[selected])}</p><p class="note" style="margin:5px 0 4px">${safe(DATA.traders?.[selected]?.detail||'Mô phỏng quy tắc công khai; không phải giao dịch thật của trader.')}</p>
+  <div class="card soft"><strong>⏱ ${frameBadge(selected)}</strong><p class="note" style="margin-top:6px">${safe(botFrame(selected).detail)}</p><p class="note">Paper: chỉ ngày · Backtest ngày: chỉ ngày · Kết hợp 1m: ngày + phút. Đây là khung dữ liệu của engine hiện tại, không phải cam kết về phong cách của trader ngoài đời.</p></div>
   ${selected==='Hybrid'? `<div class="card soft"><strong>🧬 Chiến thuật được chọn gần nhất</strong><p class="note" style="margin-top:6px">${safe(Object.entries(DATA.hybrid_model?.leaders_latest||{}).map(([id,w])=>(SHORT[id]||id)+' · '+(w*100).toFixed(0)+'%').join(', ')||'Không có bot đủ lợi nhuận sau khi xét rủi ro; giữ tiền mặt.')}</p></div>`:''}
   <div class="switchline"><div><strong style="font-size:13px">${hiddenBots[selected]?'Đã tắt theo dõi':'Đang theo dõi bot'}</strong><p class="note">Chỉ ảnh hưởng bảng xếp hạng trên iPhone.</p></div><button class="tog ${hiddenBots[selected]?'off':''}" onclick="toggleBot('${selected}')">${hiddenBots[selected]?'BẬT':'TẮT'}</button></div>
   <p class="note">Cloud: ${cloud?'🟢 đang tính lệnh ảo':'⏸ đã tạm dừng đặt lệnh ảo'}. Muốn thay đổi trạng thái cloud, <a href="https://github.com/thanhngocreative-design/trader-arena-vn/actions/workflows/bot-control.yml" target="_blank" rel="noopener" style="color:#7fe6cb">mở công cụ bật/tắt Cloud</a> (GitHub → Run workflow → chọn bot và on/off) hoặc nhắn ChatGPT yêu cầu đổi.</p>

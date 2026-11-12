@@ -88,6 +88,8 @@ def build(daily_only=False,refresh_benchmark=False):
         (p/'research-coverage.json').write_text(json.dumps(coverage,indent=2),encoding='utf8')
     labels={'3M':'3 tháng','6M':'6 tháng','1Y':'1 năm','2Y':'2 năm','ALL':'3 năm'}
     snapshot={'backtests':by_period['ALL'],'backtest_periods':by_period,'backtest_options':[{'key':k,'label':labels[k],'start':str(v.date()),'end':u['end']} for k,v in periods.items()],'portfolio_comparison':{},'portfolio_policy':{'revision':'atr_v1','risk_fraction':settings.risk_fraction,'atr_multiple':settings.atr_multiple},'hybrid_backtests':minute_payload,'hybrid_backtest_audit':minute_audit,'hybrid_model':hybrid_info,'universe':symbols,'universe_audit':{'candidate_count':u['original_symbols'],'tradable_history_count':146,'excluded_count':len(u['excluded_symbols']),'universe_asof':u['end'],'note':meta['universe_selection'],'skipped_examples':{s:'Thiếu phiên/ngày giao dịch trong cửa sổ 3 năm' for s in u['excluded_symbols']}},'start_date':u['start'],'research_meta':meta}
+    from bot_timeframes import timeframe_manifest
+    snapshot['bot_timeframes']=timeframe_manifest()
     dest=ROOT/'site/research-146.json';temp=dest.with_suffix('.tmp');temp.write_text(json.dumps(snapshot,ensure_ascii=False,allow_nan=False,separators=(',',':')),encoding='utf8');temp.replace(dest)
     payload=apply_research_snapshot(existing,dest)
     payload['warnings']=[w for w in payload.get('warnings',[]) if '167' not in w and '126' not in w]+['146 mã được chọn sau khi đã biết dữ liệu liên tục đủ 3 năm: kết quả có sai lệch chọn mẫu.','Backtest mới thay thế toàn bộ kết quả cũ; paper-forward được giữ nguyên.']

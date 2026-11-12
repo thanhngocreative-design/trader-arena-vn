@@ -43,3 +43,8 @@ ITC daily inputs are fetched from Vietcap because the cached DNSE daily series
 differed from the actual Vietcap minute/session close on 28 August, 3 September
 and 4 September 2026. No prices are manually rescaled to fit; the source daily
 candles are preserved and their hash is disclosed in research metadata.
+
+Bot timeframe labels describe the implemented engines. All 11 bots are Daily-only
+in Paper and Daily backtest modes; all 11 use Daily + 1m in the hybrid research.
+BNF/CIS prioritize minute triggers but retain prior-day filters, so neither is
+a minute-only bot. The UI shows counts, per-bot labels and a mode explanation.

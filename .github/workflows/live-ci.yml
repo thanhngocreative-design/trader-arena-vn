@@ -7,6 +7,8 @@ on:
       - 'live/**'
       - 'tests/**'
       - 'engine.py'
+      - 'bot_timeframes.py'
+      - 'research_snapshot.py'
       - 'execution.py'
       - 'fast_engine.py'
       - 'hybrid_backtest.py'

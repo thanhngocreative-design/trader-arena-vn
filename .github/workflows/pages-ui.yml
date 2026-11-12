@@ -49,6 +49,13 @@ jobs:
               assert len(set(value['universe']))==146
               assert len(value['backtests'])==11
               assert value['portfolio_comparison']=={}
+              for mode in ('paper','backtest','hybrid'):
+                  frames=value['bot_timeframes'][mode]
+                  assert set(frames['bots'])==set(value['backtests'])
+                  assert frames['counts']['minute_only']==0
+                  expected='daily_and_minute' if mode=='hybrid' else 'daily_only'
+                  assert frames['counts'][expected]==11
+                  assert all(b['category']==expected for b in frames['bots'].values())
               audit=value['hybrid_backtest_audit']
               if audit['status']=='verified_1m_146':
                   assert audit['symbols']==146
