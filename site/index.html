@@ -356,14 +356,25 @@ function renderHome(){
     $('marketDay').textContent=meta.end.split('-').reverse().join('/');
     $('chartNote').textContent=mode==='backtest_minute'?'Chỉ nến phút đã đóng tạo tín hiệu; lệnh ở nến sau. Hybrid phút là đồng thuận các tín hiệu phút. NAV dùng nến phút cuối quan sát.':'NAV cuối phiên và VN-Index; tín hiệu theo khung đã ghi trên tab.';
   }
+  if(isPaper()&&DATA.paper_contest_start){
+    const start=DATA.paper_contest_start.split('-').reverse().join('/');
+    $('universeNotice').textContent='Mùa paper mới: cả 3 chế độ bắt đầu ngày '+start+', mỗi bot 100 triệu đồng. Lịch sử trước reset được lưu riêng.';
+    if(mode==='paper'){
+      $('modePill').textContent='Paper ngày · từ '+start;
+      if(!(part(chartBot).history||[]).length){
+        $('marketDay').textContent='Chờ phiên '+start;
+        $('simpleMessage').textContent='Đã reset về vốn ban đầu. Lệnh mới chỉ được ghi từ phiên '+start+'. Tín hiệu ngày trước được chuẩn bị cho phiên mở màn.';
+      }
+    }
+  }
   if(mode==='paper_minute'||mode==='paper_combo'){
     const p=DATA.intraday_paper_status||{};
     const observed=p.last_observed_at?new Date(p.last_observed_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'Chưa có nến mới sau khởi tạo';
     const stale=!p.last_observed_at||Date.now()-new Date(p.last_observed_at).getTime()>180000;
-    $('hybridCoverage').textContent=(p.status==='market_closed'?'Ngoài giờ giao dịch. ':stale?'Đang chờ nến phút mới. ':'Đã quan sát nến mới. ')+'Khởi tạo: '+(p.started_at?new Date(p.started_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'—')+' · Quan sát gần nhất: '+observed+' · '+(p.symbols_observed||[]).length+'/146 mã đã có nến mới. Cập nhật bảng khoảng 5 phút; tín hiệu xét trên nến phút thực nhận. Không chạy bù lịch sử.'+(mode==='paper_combo'?' Bộ lọc ngày: '+(p.combo_gate_date||'chưa có')+'.':'')+(p.errors?.length?' Có lỗi nguồn: '+p.errors.join('; '):'');
+    $('hybridCoverage').textContent=(p.status==='scheduled_start'?'Đã hẹn bắt đầu mùa mới. ':p.status==='market_closed'?'Ngoài giờ giao dịch. ':stale?'Đang chờ nến phút mới. ':'Đã quan sát nến mới. ')+'Khởi tạo: '+(p.started_at?new Date(p.started_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'—')+' · Quan sát gần nhất: '+observed+' · '+(p.symbols_observed||[]).length+'/146 mã đã có nến mới. Cập nhật bảng khoảng 5 phút; tín hiệu xét trên nến phút thực nhận. Không chạy bù lịch sử.'+(mode==='paper_combo'?' Bộ lọc ngày: '+(p.combo_gate_date||'chưa có')+'.':'')+(p.errors?.length?' Có lỗi nguồn: '+p.errors.join('; '):'');
     if(mode==='paper_combo'&&p.status!=='market_closed'&&!p.combo_gate_valid)$('hybridCoverage').textContent+=' Đang tạm dừng xét lệnh kết hợp vì bộ lọc ngày chưa hợp lệ.';
     $('marketDay').textContent=observed;
-    $('universeNotice').textContent='Sổ paper mới, tách khỏi Paper ngày cũ. 0 giao dịch có nghĩa chưa có lệnh khớp được quan sát; không phải kết quả backtest.';
+    $('universeNotice').textContent=DATA.paper_contest_start?'Mùa paper mới: cả 3 chế độ bắt đầu ngày '+DATA.paper_contest_start.split('-').reverse().join('/')+', mỗi bot 100 triệu đồng. Lịch sử trước reset được lưu riêng.':'Sổ paper riêng. Chỉ ghi nhận giao dịch từ nến mới thực nhận.';
     $('chartNote').textContent='NAV ghi từ những nến mới thực nhận sau khởi tạo. Các khoảng gián đoạn không được chạy bù.';
     if(mode==='paper_combo')$('chartNote').textContent+=' Biến thể paper này dùng bộ lọc ngày và ATR/thoát phút; backtest kết hợp còn dùng stop ngày.';
     if(!p.last_observed_at)$('simpleMessage').textContent='Đã mở sổ, chưa có giao dịch mới. Chờ phiên giao dịch tiếp theo và dữ liệu phút đủ mới.';

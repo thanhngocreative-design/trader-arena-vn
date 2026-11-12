@@ -45,6 +45,8 @@ def publish(state,status,errors=None):
     public={k:state[k] for k in ('started_at','updated_at','status','last_observed_at','sessions','symbols_observed','combo_gate_date','combo_gate_valid')}
     public['errors']=(errors or [])[:8]
     public['provider_verified_at']=state.get('provider_verified_at')
+    for key in ('contest_start_session','reset_id','reset_at'):
+        if key in state: public[key]=state[key]
     public['note']='Paper theo nến đã đóng; khớp ảo ở nến tương lai sau khi lệnh đã được lưu, có phí/T+ và giới hạn khối lượng. Không phải khớp broker. Không chạy bù quá khứ. GitHub Actions có thể khởi động trễ; khoảng gián đoạn được bỏ qua.'
     for mode in ('paper_minute','paper_combo'): public[mode]=snapshot(state[mode],state['marks'])
     atomic(ROOT/'state/paper_intraday.json',state); atomic(ROOT/'site/paper-intraday.json',public)
@@ -114,7 +116,7 @@ def run(minutes=0):
             if sym not in state['symbols_observed']:state['symbols_observed'].append(sym)
             fresh+=1
         # Freshness/status are explicit; no invented observations or daily NAV.
-        status='observing_fresh_minutes' if fresh else ('waiting_fresh_minutes' if market else 'market_closed')
+        status='scheduled_start' if pd.Timestamp(now)<pd.Timestamp(state['started_at']) else 'observing_fresh_minutes' if fresh else ('waiting_fresh_minutes' if market else 'market_closed')
         state['combo_gate_date']=gates.get('date'); state['combo_gate_valid']=valid_gates
         if fresh:
             values={m:snapshot(state[m],state['marks']) for m in ('paper_minute','paper_combo')}

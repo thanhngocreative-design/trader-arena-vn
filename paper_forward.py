@@ -183,6 +183,20 @@ def update_paper(prices, benchmark, state_path=DEFAULT_STATE, settings=None,
     added=[key for key in TRADERS if key not in state['bots']]
     for key in added:
         state['bots'][key]=_base_bot(settings)
+    start=state.get('contest_start_session')
+    if start and str(session.date())<start:
+        # Pre-season signals may be recorded for tomorrow, but no fills or
+        # performance history can exist before the common contest start.
+        for key,bot in state['bots'].items():
+            if bot['positions'] or bot['trades'] or bot['history']:
+                raise ValueError('Pre-start paper account must be empty')
+            st=for_bot(settings,key)
+            bot['orders_next']=_plans(bot,key,rows,features,session,st) if key in active_ids else []
+            bot['latest']={'date':None,'nav':settings.initial_cash,'cash':settings.initial_cash,'return_pct':0,'holdings':[]}
+        state.update(last_session=str(session.date()),updated_at=_now(),rules_revision=RULES_REVISION)
+        tmp=state_path.with_suffix('.tmp')
+        tmp.write_text(json.dumps(state,ensure_ascii=False,indent=2,default=str),encoding='utf8');tmp.replace(state_path)
+        return state,True
     last=state['last_session']
     today=str(session.date())
     migrated=state.get('rules_revision') != RULES_REVISION

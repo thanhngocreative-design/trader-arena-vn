@@ -241,13 +241,15 @@ def build(symbols, history_start, out_path):
          'stock_symbols':sorted(prices),
          'stocks':{},  # loaded on demand from ./stocks/<symbol>.json
          'paper':{k:{'cash':round(b['cash']),
-                     'nav':b['history'][-1]['nav'],'return_pct':b['history'][-1]['return_pct'],
+                     'nav':b['latest']['nav'],'return_pct':b['latest']['return_pct'],
                      'holdings':b.get('latest',{}).get('holdings',[]),
                      'orders_next':b['orders_next'][:10],
                      'trades':list(reversed(b['trades'][-30:])),
                      'history':b['history'][-150:]}
                   for k,b in paper_state['bots'].items()},
          'paper_started_at':paper_state['started_at'],
+         'paper_contest_start':paper_state.get('contest_start_session'),
+         'paper_reset_id':paper_state.get('reset_id'),
          'warnings':paper_state.get('warnings',[])[-5:]+[
              'Tín hiệu là mô hình đơn giản lấy cảm hứng từ phương pháp được thảo luận bởi các trader Mỹ, Nhật, châu Âu và Việt Nam; không phải lệnh thực tế của họ.',
              'Kết quả backtest chưa phản ánh đầy đủ cổ tức, chia tách, mất thanh khoản và hủy niêm yết.',

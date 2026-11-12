@@ -1,6 +1,9 @@
 {
   "version": 1,
-  "started_at": "2026-11-06T16:03:49+07:00",
+  "started_at": "2026-11-13T00:00:00+07:00",
+  "contest_start_session": "2026-11-13",
+  "reset_id": "paper-2026-11-13",
+  "reset_at": "2026-11-12T23:26:55.364991+07:00",
   "last_session": "2026-11-12",
   "bots": {
     "Minervini": {
@@ -8,118 +11,44 @@
       "positions": {},
       "orders_next": [],
       "trades": [],
-      "history": [
-        {
-          "date": "2026-11-06",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-09",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-10",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-11",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-12",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        }
-      ],
+      "history": [],
       "latest": {
-        "date": "2026-11-12",
+        "date": null,
         "nav": 100000000,
         "cash": 100000000,
-        "return_pct": 0.0,
+        "return_pct": 0,
         "holdings": []
-      },
-      "last_sold": {}
+      }
     },
     "ONeil": {
       "cash": 100000000,
       "positions": {},
       "orders_next": [],
       "trades": [],
-      "history": [
-        {
-          "date": "2026-11-06",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-09",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-10",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-11",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-12",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        }
-      ],
+      "history": [],
       "latest": {
-        "date": "2026-11-12",
+        "date": null,
         "nav": 100000000,
         "cash": 100000000,
-        "return_pct": 0.0,
+        "return_pct": 0,
         "holdings": []
-      },
-      "last_sold": {}
+      }
     },
     "Darvas": {
-      "cash": 54172399.84859143,
-      "positions": {
-        "TCH": {
-          "qty": 1800,
-          "entry_price": 13570.4073498153,
-          "price": 13570.4073498153,
-          "entry_cost": 24463373.32951204,
-          "buy_index": 1455,
-          "buy_date": "2026-11-09",
-          "high_water": 13750.0,
-          "pending_exit": ""
-        },
-        "CTD": {
-          "qty": 300,
-          "entry_price": 71107.42826392586,
-          "price": 71107.42826392586,
-          "entry_cost": 21364226.821896527,
-          "buy_index": 1456,
-          "buy_date": "2026-11-10",
-          "high_water": 73700.0,
-          "pending_exit": ""
-        }
-      },
+      "cash": 100000000,
+      "positions": {},
       "orders_next": [
+        {
+          "side": "BUY",
+          "symbol": "CTD",
+          "reason": "Tín hiệu xác nhận thanh khoản và đủ biên độ so với chi phí",
+          "signal_date": "2026-11-12",
+          "vol20_prev": 643135.0,
+          "atr14": 2335.7142857142862,
+          "signal_close": 73500.0,
+          "value20_prev": 43073290500.0,
+          "score": 0.1909
+        },
         {
           "side": "BUY",
           "symbol": "DPG",
@@ -143,577 +72,130 @@
           "score": 0.0781
         }
       ],
-      "trades": [
-        {
-          "date": "2026-11-09",
-          "symbol": "TCH",
-          "side": "MUA",
-          "qty": 1800,
-          "price": 13570,
-          "reason": "Tín hiệu xác nhận thanh khoản và đủ biên độ so với chi phí",
-          "fee": 36640,
-          "tax": 0,
-          "slippage_rate": 0.001506
-        },
-        {
-          "date": "2026-11-10",
-          "symbol": "CTD",
-          "side": "MUA",
-          "qty": 300,
-          "price": 71107,
-          "reason": "Tín hiệu xác nhận thanh khoản và đủ biên độ so với chi phí",
-          "fee": 31998,
-          "tax": 0,
-          "slippage_rate": 0.001513
-        }
-      ],
-      "history": [
-        {
-          "date": "2026-11-06",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-09",
-          "nav": 99386627,
-          "cash": 75536627,
-          "return_pct": -0.613
-        },
-        {
-          "date": "2026-11-10",
-          "nav": 100072400,
-          "cash": 54172400,
-          "return_pct": 0.072
-        },
-        {
-          "date": "2026-11-11",
-          "nav": 99952400,
-          "cash": 54172400,
-          "return_pct": -0.048
-        },
-        {
-          "date": "2026-11-12",
-          "nav": 100522400,
-          "cash": 54172400,
-          "return_pct": 0.522
-        }
-      ],
+      "trades": [],
+      "history": [],
       "latest": {
-        "date": "2026-11-12",
-        "nav": 100522400,
-        "cash": 54172400,
-        "return_pct": 0.522,
-        "holdings": [
-          {
-            "symbol": "TCH",
-            "qty": 1800,
-            "buy_price": 13570,
-            "last_price": 13500,
-            "value": 24300000,
-            "pnl": -163373,
-            "pnl_pct": -0.67,
-            "buy_date": "2026-11-09"
-          },
-          {
-            "symbol": "CTD",
-            "qty": 300,
-            "buy_price": 71107,
-            "last_price": 73500,
-            "value": 22050000,
-            "pnl": 685773,
-            "pnl_pct": 3.21,
-            "buy_date": "2026-11-10"
-          }
-        ]
-      },
-      "last_sold": {}
+        "date": null,
+        "nav": 100000000,
+        "cash": 100000000,
+        "return_pct": 0,
+        "holdings": []
+      }
     },
     "BNF": {
       "cash": 100000000,
       "positions": {},
       "orders_next": [],
       "trades": [],
-      "history": [
-        {
-          "date": "2026-11-06",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-09",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-10",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-11",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-12",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        }
-      ],
+      "history": [],
       "latest": {
-        "date": "2026-11-12",
+        "date": null,
         "nav": 100000000,
         "cash": 100000000,
-        "return_pct": 0.0,
+        "return_pct": 0,
         "holdings": []
-      },
-      "last_sold": {}
+      }
     },
     "CIS": {
       "cash": 100000000,
       "positions": {},
       "orders_next": [],
       "trades": [],
-      "history": [
-        {
-          "date": "2026-11-06",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-09",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-10",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-11",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-12",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        }
-      ],
+      "history": [],
       "latest": {
-        "date": "2026-11-12",
+        "date": null,
         "nav": 100000000,
         "cash": 100000000,
-        "return_pct": 0.0,
+        "return_pct": 0,
         "holdings": []
-      },
-      "last_sold": {}
+      }
     },
     "Qullamaggie": {
       "cash": 100000000,
       "positions": {},
       "orders_next": [],
       "trades": [],
-      "history": [
-        {
-          "date": "2026-11-06",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-09",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-10",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-11",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-12",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        }
-      ],
+      "history": [],
       "latest": {
-        "date": "2026-11-12",
+        "date": null,
         "nav": 100000000,
         "cash": 100000000,
-        "return_pct": 0.0,
+        "return_pct": 0,
         "holdings": []
-      },
-      "last_sold": {}
+      }
     },
     "Unger": {
       "cash": 100000000,
       "positions": {},
       "orders_next": [],
       "trades": [],
-      "history": [
-        {
-          "date": "2026-11-06",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-09",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-10",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-11",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-12",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        }
-      ],
+      "history": [],
       "latest": {
-        "date": "2026-11-12",
+        "date": null,
         "nav": 100000000,
         "cash": 100000000,
-        "return_pct": 0.0,
+        "return_pct": 0,
         "holdings": []
-      },
-      "last_sold": {}
+      }
     },
     "ThaiPham": {
       "cash": 100000000,
       "positions": {},
       "orders_next": [],
       "trades": [],
-      "history": [
-        {
-          "date": "2026-11-06",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-09",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-10",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-11",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-12",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        }
-      ],
+      "history": [],
       "latest": {
-        "date": "2026-11-12",
+        "date": null,
         "nav": 100000000,
         "cash": 100000000,
-        "return_pct": 0.0,
+        "return_pct": 0,
         "holdings": []
-      },
-      "last_sold": {}
+      }
     },
     "DuongChung": {
-      "cash": 29522674.332178697,
-      "positions": {
-        "ELC": {
-          "qty": 2300,
-          "entry_price": 10618.422927658972,
-          "price": 10618.422927658972,
-          "entry_cost": 24459006.29271606,
-          "buy_index": 1456,
-          "buy_date": "2026-11-10",
-          "high_water": 10750.0,
-          "pending_exit": ""
-        },
-        "LPB": {
-          "qty": 600,
-          "entry_price": 36254.5638788242,
-          "price": 36254.5638788242,
-          "entry_cost": 21785367.434785463,
-          "buy_index": 1457,
-          "buy_date": "2026-11-11",
-          "high_water": 37100.0,
-          "pending_exit": ""
-        },
-        "SSB": {
-          "qty": 1600,
-          "entry_price": 15122.910596804655,
-          "price": 15122.910596804655,
-          "entry_cost": 24232951.940319784,
-          "buy_index": 1457,
-          "buy_date": "2026-11-11",
-          "high_water": 15122.910596804655,
-          "pending_exit": ""
-        }
-      },
+      "cash": 100000000,
+      "positions": {},
       "orders_next": [],
-      "trades": [
-        {
-          "date": "2026-11-10",
-          "symbol": "ELC",
-          "side": "MUA",
-          "qty": 2300,
-          "price": 10618,
-          "reason": "Tín hiệu xác nhận thanh khoản và đủ biên độ so với chi phí",
-          "fee": 36634,
-          "tax": 0,
-          "slippage_rate": 0.001738
-        },
-        {
-          "date": "2026-11-11",
-          "symbol": "LPB",
-          "side": "MUA",
-          "qty": 600,
-          "price": 36255,
-          "reason": "Tín hiệu xác nhận thanh khoản và đủ biên độ so với chi phí",
-          "fee": 32629,
-          "tax": 0,
-          "slippage_rate": 0.001507
-        },
-        {
-          "date": "2026-11-11",
-          "symbol": "SSB",
-          "side": "MUA",
-          "qty": 1600,
-          "price": 15123,
-          "reason": "Tín hiệu xác nhận thanh khoản và đủ biên độ so với chi phí",
-          "fee": 36295,
-          "tax": 0,
-          "slippage_rate": 0.001517
-        }
-      ],
-      "history": [
-        {
-          "date": "2026-11-06",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-09",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-10",
-          "nav": 100265994,
-          "cash": 75540994,
-          "return_pct": 0.266
-        },
-        {
-          "date": "2026-11-11",
-          "nav": 100127674,
-          "cash": 29522674,
-          "return_pct": 0.128
-        },
-        {
-          "date": "2026-11-12",
-          "nav": 99822674,
-          "cash": 29522674,
-          "return_pct": -0.177
-        }
-      ],
+      "trades": [],
+      "history": [],
       "latest": {
-        "date": "2026-11-12",
-        "nav": 99822674,
-        "cash": 29522674,
-        "return_pct": -0.177,
-        "holdings": [
-          {
-            "symbol": "ELC",
-            "qty": 2300,
-            "buy_price": 10618,
-            "last_price": 10600,
-            "value": 24380000,
-            "pnl": -79006,
-            "pnl_pct": -0.32,
-            "buy_date": "2026-11-10"
-          },
-          {
-            "symbol": "LPB",
-            "qty": 600,
-            "buy_price": 36255,
-            "last_price": 36400,
-            "value": 21840000,
-            "pnl": 54633,
-            "pnl_pct": 0.25,
-            "buy_date": "2026-11-11"
-          },
-          {
-            "symbol": "SSB",
-            "qty": 1600,
-            "buy_price": 15123,
-            "last_price": 15050,
-            "value": 24080000,
-            "pnl": -152952,
-            "pnl_pct": -0.63,
-            "buy_date": "2026-11-11"
-          }
-        ]
-      },
-      "last_sold": {}
+        "date": null,
+        "nav": 100000000,
+        "cash": 100000000,
+        "return_pct": 0,
+        "holdings": []
+      }
     },
     "PThai": {
       "cash": 100000000,
       "positions": {},
       "orders_next": [],
       "trades": [],
-      "history": [
-        {
-          "date": "2026-11-06",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-09",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-10",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-11",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-12",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        }
-      ],
+      "history": [],
       "latest": {
-        "date": "2026-11-12",
+        "date": null,
         "nav": 100000000,
         "cash": 100000000,
-        "return_pct": 0.0,
+        "return_pct": 0,
         "holdings": []
-      },
-      "last_sold": {}
+      }
     },
     "Hybrid": {
       "cash": 100000000,
       "positions": {},
       "orders_next": [],
       "trades": [],
-      "history": [
-        {
-          "date": "2026-11-06",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-09",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-10",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-11",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        },
-        {
-          "date": "2026-11-12",
-          "nav": 100000000,
-          "cash": 100000000,
-          "return_pct": 0.0
-        }
-      ],
-      "started_session": "2026-11-06",
+      "history": [],
       "latest": {
-        "date": "2026-11-12",
+        "date": null,
         "nav": 100000000,
         "cash": 100000000,
-        "return_pct": 0.0,
+        "return_pct": 0,
         "holdings": []
-      },
-      "last_sold": {}
+      }
     }
   },
-  "warnings": [
-    "Đã thêm BNF, CIS, Qullamaggie, Unger vào cuộc thi kể từ phiên 2026-11-06; không tạo lệnh ảo cho thời gian trước.",
-    "Đã thêm ThaiPham, DuongChung, PThai vào cuộc thi kể từ phiên 2026-11-06; không tạo lệnh ảo cho thời gian trước.",
-    "Nâng cấp luật bot ở phiên 2026-11-06 mà không hồi tố lệnh giao dịch cũ.",
-    "Nâng cấp luật bot ở phiên 2026-11-06 mà không hồi tố lệnh giao dịch cũ."
-  ],
-  "updated_at": "2026-11-12T16:15:21+07:00",
-  "cloud_enabled": {
-    "Minervini": true,
-    "ONeil": true,
-    "Darvas": true,
-    "BNF": true,
-    "CIS": true,
-    "Qullamaggie": true,
-    "Unger": true,
-    "ThaiPham": true,
-    "DuongChung": true,
-    "PThai": true,
-    "Hybrid": true
-  },
-  "rules_revision": 4
+  "warnings": [],
+  "rules_revision": 4,
+  "updated_at": "2026-11-12T23:27:05+07:00"
 }

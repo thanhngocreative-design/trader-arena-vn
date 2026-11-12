@@ -44,6 +44,18 @@ def test_baseline_snapshot_keeps_original_ledger():
     root=Path(__file__).resolve().parents[1]
     baseline=json.loads((root/'state/paper_baseline.json').read_text(encoding='utf8'))
     current=json.loads((root/'state/paper_state.json').read_text(encoding='utf8'))
+    if current.get('reset_id'):
+        # A user-authorized season reset preserves the original ledger in its
+        # immutable archive, rather than mixing it into the new competition.
+        import hashlib
+        archive=root/'state/paper_archive'/('before-'+current['contest_start_session'])
+        saved=archive/'state__paper_state.json'
+        manifest=json.loads((archive/'manifest.json').read_text(encoding='utf8'))
+        assert hashlib.sha256(saved.read_bytes()).hexdigest()==manifest['sha256']['state/paper_state.json']
+        for bot in current['bots'].values():
+            assert all(h['date']>=current['contest_start_session'] for h in bot['history'])
+            assert all(t['date']>=current['contest_start_session'] for t in bot['trades'])
+        current=json.loads(saved.read_text(encoding='utf8'))
     for k,b in baseline['bots'].items():
         assert current['bots'][k]['trades'][:len(b['trades'])]==b['trades']
         assert current['bots'][k]['history'][:len(b['history'])]==b['history']

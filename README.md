@@ -8,11 +8,13 @@ Dashboard có **6 tab và 11 bot trong mỗi tab**:
 | Tab | Dữ liệu và sổ giao dịch |
 | --- | --- |
 | Paper phút | Sổ mới `state/paper_intraday.json`, tín hiệu và ATR chỉ từ phút mới thực nhận. |
-| Paper ngày | Giữ nguyên sổ `state/paper_state.json`; xử lý lệnh ngày đã ghi trước phiên. |
+| Paper ngày | Sổ mùa hiện tại `state/paper_state.json`; xử lý lệnh ngày đã ghi trước phiên. |
 | Paper kết hợp ngày + phút | Sổ mới riêng; bộ lọc ngày đã đóng + xác nhận, ATR và thoát theo phút. |
 | Backtest phút | 146 mã, 747 phiên, Vietcap 1 phút thật; không dùng bộ lọc/ATR ngày. |
 | Backtest ngày | Kết quả nghiên cứu 146 mã đã xác minh; 5 khoảng thời gian. |
 | Backtest kết hợp ngày + phút | Kết quả 146 mã: bộ lọc và stop ngày + xác nhận/khớp theo phút. |
+
+**Mùa paper mới bắt đầu chung ngày 13/11/2026 theo yêu cầu reset**: cả 33 tài khoản (11 bot × 3 chế độ) về 100 triệu đồng, không có vị thế hay giao dịch mang sang. Lịch sử trước đó nằm trong `state/paper_archive/before-2026-11-13/`, có manifest kiểm tra hash; backtest giữ nguyên. Paper ngày được chuẩn bị tín hiệu thật đã đóng ngày 12/11 để có thể xét khớp phiên 13/11, nhưng chưa ghi giao dịch hoặc điểm NAV nào trước mùa mới. Nến phút trước ngày bắt đầu không được tạo lệnh.
 
 Ba backtest là ba mô hình khác nhau, không đổi tên cùng một kết quả. Các chiến thuật là mô hình nghiên cứu lấy cảm hứng từ trader, không phải chiến thuật riêng được xác thực. **Hybrid thuần phút là đồng thuận tín hiệu phút**, còn Hybrid ngày/kết hợp dùng bộ chọn ngày theo quá khứ. Biến thể paper kết hợp quản trị ATR/thoát phút; giả định này khác stop ngày của backtest kết hợp, được ghi trên dashboard.
 
