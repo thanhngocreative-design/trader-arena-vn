@@ -262,6 +262,8 @@ def build(symbols, history_start, out_path):
          ],'is_new_session':bool(changed)}
     from research_snapshot import apply_research_snapshot
     out=apply_research_snapshot(out,ROOT/'site/research-146.json')
+    from sector_analytics import attach_paper_sectors
+    attach_paper_sectors(out,ROOT)
     out_path=Path(out_path);out_path.parent.mkdir(parents=True,exist_ok=True)
     tmp=out_path.with_suffix('.tmp')
     tmp.write_text(json.dumps(out,ensure_ascii=False,allow_nan=False,separators=(',',':'),default=str),encoding='utf-8')

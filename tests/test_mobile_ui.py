@@ -75,3 +75,27 @@ delete DATA.capital_each;assert.equal(comparisonMetric(DATA.paper.Bot).profit,nu
     path=tmp_path/'comparison.cjs';path.write_text(script,encoding='utf8')
     result=subprocess.run([node,str(path)],capture_output=True,text=True,encoding='utf8')
     assert result.returncode==0,result.stderr
+
+
+def test_sector_filters_use_buy_turnover_and_distinguish_missing_from_empty(tmp_path):
+    node=shutil.which('node')
+    if not node:pytest.skip('Node.js unavailable')
+    html=SITE.read_text(encoding='utf8')
+    functions='function sectorBookStats'+html.split('function sectorBookStats',1)[1].split('function render(){',1)[0]
+    script=functions+'''
+const assert=require('node:assert/strict');
+const stats={outside_146_fills:0,buy_fills:4,buy_value:100,sectors:[{icb_code:'A',sector:'Ngành A',buy_fills:3,sell_fills:8,buy_value:30,realized_pnl:-10,symbols:['AAA']},{icb_code:'B',sector:'Ngành B',buy_fills:1,sell_fills:0,buy_value:70,realized_pnl:0,symbols:['BBB']}]};
+let sectorMode='backtest_minute',sectorMetric='value',sectorBot='ALL',sectorRefreshError='';
+const DATA={paper_contest_start:'2026-11-13',paper:{Bot:{sector_stats:{buy_fills:0,sectors:[]}}}},IDS=['Bot'],SHORT={Bot:'Bot'},MODE_LABEL={backtest_minute:'Phút',backtest:'Ngày',hybrid:'Kết hợp',paper:'Paper ngày',paper_minute:'Paper phút',paper_combo:'Paper kết hợp'};
+const SECTOR_DATA={universe_count:146,icb_level:2,classification_asof:'2026-11-13',market_count:1518,universe:[{count:146,market_count:1518,sector:'Ngành A',sample_share_pct:100,market_share_pct:100,symbols:['AAA']}],period:{start:'2023-11-13',end:'2026-11-12'},books:{backtest_minute:{Bot:stats}}};
+const target={innerHTML:''},$=()=>target,safe=x=>String(x??''),n=x=>Number(x||0),money=String,color=x=>x>=0?'green':'red';
+const combined=combineSectorStats([stats,stats]);assert.equal(combined.buy_value,200);assert.equal(combined.buy_fills,8);
+assert.equal(sectorRank(combined)[0].sector,'Ngành B');
+sectorMetric='count';assert.equal(sectorRank(combined)[0].sector,'Ngành A');assert.equal(sectorShare(sectorRank(combined)[0]),75);
+renderSectors();assert.ok(target.innerHTML.includes('4 lần mua'));
+sectorMode='paper';renderSectors();assert.ok(target.innerHTML.includes('Chưa có lệnh mua đã khớp'));
+delete DATA.paper.Bot.sector_stats;renderSectors();assert.ok(target.innerHTML.includes('Chưa đủ sổ giao dịch'));
+'''
+    path=tmp_path/'sector.cjs';path.write_text(script,encoding='utf8')
+    result=subprocess.run([node,str(path)],capture_output=True,text=True,encoding='utf8')
+    assert result.returncode==0,result.stderr

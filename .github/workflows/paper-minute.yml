@@ -6,7 +6,7 @@ on:
     - cron: '10 2 * * 1-5'
   push:
     branches: [main]
-    paths: ['paper_intraday.py', 'minute_arena.py', '.github/workflows/paper-minute.yml']
+    paths: ['paper_intraday.py', 'minute_arena.py', 'sector_analytics.py', 'config/market-classification.json', '.github/workflows/paper-minute.yml']
 permissions:
   contents: write
   pages: write

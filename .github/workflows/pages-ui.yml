@@ -9,6 +9,8 @@ on:
       - site/research-146.json
       - site/live-config.json
       - site/paper-intraday.json
+      - site/sectors.json
+      - site/expansion-audit.json
       - .github/workflows/pages-ui.yml
 permissions:
   contents: read
@@ -69,6 +71,17 @@ jobs:
               assert len(paper[mode])==11
           assert data['backtests']==snapshot['backtests']
           assert data['hybrid_backtests']==snapshot['hybrid_backtests']
+          sectors=json.loads(Path('site/sectors.json').read_text(encoding='utf-8'))
+          metadata=json.loads(Path('config/market-classification.json').read_text(encoding='utf-8'))
+          assert sectors['classification_asof']==metadata['asof']
+          assert sum(g['count'] for g in sectors['universe'])==146
+          assert {s for g in sectors['universe'] for s in g['symbols']}==set(data['universe'])
+          for mode,key in [('backtest','backtests'),('backtest_minute','minute_backtests'),('hybrid','hybrid_backtests')]:
+              assert len(sectors['books'][mode])==11
+              for bot,stats in sectors['books'][mode].items():
+                  assert stats['buy_fills']==data[key][bot]['buy_count']
+                  assert stats['sell_fills']==data[key][bot]['closed_trades']
+                  assert stats['outside_146_fills']==0
           assert not Path('site/baseline-v1/dashboard.json').exists()
           print('Verified active research; old published backtests absent')
           PY

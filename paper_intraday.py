@@ -50,6 +50,8 @@ def publish(state,status,errors=None):
         if key in state: public[key]=state[key]
     public['note']='Paper theo nến đã đóng; khớp ảo ở nến tương lai sau khi lệnh đã được lưu, có phí/T+ và giới hạn khối lượng. Không phải khớp broker. Không chạy bù quá khứ. GitHub Actions có thể khởi động trễ; khoảng gián đoạn được bỏ qua.'
     for mode in ('paper_minute','paper_combo'): public[mode]=snapshot(state[mode],state['marks'])
+    from sector_analytics import attach_paper_sectors
+    attach_paper_sectors(public,ROOT,{mode:state[mode] for mode in ('paper_minute','paper_combo')})
     atomic(ROOT/'state/paper_intraday.json',state); atomic(ROOT/'site/paper-intraday.json',public)
 
 def run(minutes=0):
