@@ -87,6 +87,24 @@ if __name__=="__main__":
     ap.add_argument("--bank-only",action="store_true")
     args=ap.parse_args()
     audit=pilot(parse_symbols(args.symbols),Path(args.output),args.bank_only)
+    # Metadata is public; raw licensed 1-minute candles are NOT.
+    coverage={
+        "status":"verified_1m_pilot" if audit.get("dashboard_updated") else "banking",
+        "session_count":int(audit.get("available_sessions",0)),
+        "required_sessions":5,
+        "symbols_banked_last_run":sorted(audit.get("banked",{})),
+        "last_banked_session":max((x.get("date","") for x in audit.get("banked",{}).values()),default=""),
+        "last_checked_at":datetime.now(VN).isoformat(),
+        "feed":"KBS matched-trade tape, sampled once after market",
+        "paper_only":True,
+        "note":"Missing historical sessions cannot be retroactively invented. Do not compare 8-stock hybrid pilot to full Daily universe."
+    }
+    output_dir=Path(args.output).parent
+    output_dir.mkdir(parents=True,exist_ok=True)
+    coverage_file=output_dir/"hybrid-coverage.json"
+    temporary=coverage_file.with_suffix(".tmp")
+    temporary.write_text(json.dumps(coverage,ensure_ascii=False,indent=2),encoding="utf-8")
+    temporary.replace(coverage_file)
     print("HYBRID BANKING REPORT:",json.dumps(audit,ensure_ascii=False,default=str))
     if args.status_path:
         Path(args.status_path).write_text(json.dumps(audit,ensure_ascii=False,default=str),encoding="utf-8")
