@@ -1,0 +1,11 @@
+{
+  "status": "banking",
+  "session_count": 1,
+  "required_sessions": 5,
+  "symbols_banked_last_run": [],
+  "last_banked_session": "2026-11-12",
+  "last_checked_at": "2026-11-12T15:54:37.983178+07:00",
+  "feed": "KBS matched-trade tape, sampled once after market",
+  "paper_only": true,
+  "note": "Missing historical sessions cannot be retroactively invented. Do not compare 8-stock hybrid pilot to full Daily universe."
+}
