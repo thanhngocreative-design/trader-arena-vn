@@ -44,3 +44,8 @@ def test_onsite_javascript_parses_under_node():
         p.write_text(scripts[0],encoding="utf-8")
         result=subprocess.run([node,"--check",str(p)],capture_output=True,text=True)
         assert result.returncode==0, result.stderr
+
+def test_failed_market_fetch_has_no_fabricated_fallback():
+    html=SITE.read_text(encoding='utf-8')
+    assert 'mkDemo' not in html and 'const DEMO=' not in html
+    assert 'Không tải được dữ liệu thị trường thật' in html

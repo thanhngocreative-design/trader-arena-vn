@@ -98,7 +98,7 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
 <body>
 <div class="shell">
 <header class="top"><div class="brand"><span class="brand-mark">↗</span><span>Trader Arena <span style="color:#62e8ca">VN</span></span></div><div class="date" id="dateLabel">Đang kiểm tra dữ liệu…</div></header>
-<div id="dataNotice" class="notice demo">DEMO — dữ liệu chỉ để xem giao diện, không phải kết quả thị trường thật.</div>
+<div id="dataNotice" class="notice demo">Đang tải dữ liệu thị trường thật…</div>
 <section id="homePage" class="page on">
   <div class="eyebrow">Cuộc thi tiền ảo</div><h1>Ai đang giao dịch giỏi nhất? 🏆</h1>
   <p class="sub" id="arenaIntro">Các chiến thuật trên thị trường Việt Nam. Mỗi bot bắt đầu với 100 triệu đồng ảo.</p>
@@ -172,9 +172,7 @@ const REGION={ALL:'🌍 Tất cả',US:'🇺🇸 Mỹ',JP:'🇯🇵 Nhật',EU:'
 const EMOJI={Minervini:'🚀',ONeil:'🔎',Darvas:'📦',BNF:'🎯',CIS:'⚡',Qullamaggie:'🏄',Unger:'🧠',ThaiPham:'🌊',DuongChung:'🪃',PThai:'🧮',Hybrid:'🧬'};
 const SHORT={Minervini:'Minervini',ONeil:'O’Neil',Darvas:'Darvas',BNF:'BNF',CIS:'CIS',Qullamaggie:'Kullamägi',Unger:'Unger',ThaiPham:'Thái Phạm',DuongChung:'D.V. Chung',PThai:'P.Thai Quant',Hybrid:'Arena Hybrid'};
 const TEXT={Minervini:'Tìm cổ phiếu đang tăng rất khỏe. Chỉ mua khi giá vượt đỉnh cũ.',ONeil:'Săn cổ phiếu bứt phá với nhiều người mua, khi thị trường chung thuận lợi.',Darvas:'Tìm cổ phiếu thoát khỏi chiếc “hộp giá”, giữ đến khi xu hướng yếu đi.',BNF:'Săn cổ phiếu đã giảm sâu rồi bắt đầu hồi phục.',CIS:'Bám theo hướng tăng của giá, không cố bắt đáy.',Qullamaggie:'Chọn cổ phiếu tăng mạnh, nghỉ lấy sức rồi vượt đỉnh.',Unger:'Mua tín hiệu breakout khi biến động nằm trong mức chấp nhận.',ThaiPham:'Đọc giá và khối lượng để tìm dấu hiệu dòng tiền quay lại.',DuongChung:'Bắt nhịp hồi từ vùng giảm sâu.',PThai:'Xếp hạng đà tăng và kiểm soát rủi ro bằng dữ liệu.',Hybrid:'Đánh giá 126 phiên quá khứ để trộn tối đa ba chiến thuật thắng, cập nhật mỗi 21 phiên.'};
-const mkDemo=(r,i)=>{let seq=Array.from({length:25},(_,k)=>({date:'Mốc '+(k+1),bot:+(r*k/24+Math.sin(k*.7+i)*1.35*(k/24)).toFixed(2),index:+(5*k/24+Math.sin(k*.25)*1.8).toFixed(2),nav:Math.round(100000000*(1+(r*k/24)/100))}));return {nav:Math.round(100000000*(1+r/100)),cash:35500000,return_pct:r,benchmark_return_pct:5,max_drawdown_pct:-4.7-i*1.3,win_rate:55+i*2,closed_trades:13+i,buy_count:17+i,curve:seq,holdings:[{symbol:['FPT','HPG','MBB'][i],qty:300,buy_price:88000,last_price:92500,pnl:1350000,pnl_pct:5.1,value:27750000}],actions:[{symbol:['FPT','HPG','MBB'][i],action:'TIẾP TỤC GIỮ',reason:'Giá chưa giảm xuống ngưỡng bán'}],trades:[{date:'VÍ DỤ',symbol:['FPT','HPG','MBB'][i],side:'MUA',qty:300,price:88000,reason:'Mua giả định khi giá vượt đỉnh'}]}};
-const DEMO={mode:'demo',generated_at:'',last_session:'VÍ DỤ',start_date:'VÍ DỤ',capital_each:100000000,market:{index:'VN-Index',level:null,return_since_backtest_start:5},traders:{Minervini:{name:'Mark Minervini',tag:'Săn cổ phiếu tăng mạnh'},ONeil:{name:'William O’Neil',tag:'Săn cú bứt phá'},Darvas:{name:'Nicolas Darvas',tag:'Vượt hộp giá'}},backtests:{Minervini:mkDemo(12.4,0),ONeil:mkDemo(3.1,1),Darvas:mkDemo(6.8,2)},paper:{Minervini:{nav:100000000,return_pct:0,cash:100000000,holdings:[],orders_next:[],history:[{date:'VÍ DỤ',nav:100000000,return_pct:0}],trades:[]},ONeil:{nav:100000000,return_pct:0,cash:100000000,holdings:[],orders_next:[],history:[{date:'VÍ DỤ',nav:100000000,return_pct:0}],trades:[]},Darvas:{nav:100000000,return_pct:0,cash:100000000,holdings:[],orders_next:[],history:[{date:'VÍ DỤ',nav:100000000,return_pct:0}],trades:[]}},warnings:[]};
-let DATA=DEMO, mode='paper', page='home', selected='Minervini', tradeFilter='ALL', demo=true;
+let DATA={traders:{},paper:{},backtests:{},stocks:{},warnings:[]}, mode='paper', page='home', selected='Minervini', tradeFilter='ALL', demo=true;
 let expandedBot=null;
 let period='ALL', stockSymbol='',stockWindow='3M',stockSelectedBar=null;
 let hiddenBots={};try{hiddenBots=JSON.parse(localStorage.getItem('arena-hidden-bots-v1')||'{}')||{};}catch(_){hiddenBots={};}
@@ -434,10 +432,15 @@ async function boot(){
     IDS=Object.keys(DATA.traders||{}).filter(k=>DATA.paper?.[k]&&DATA.backtests?.[k]);
     if(!IDS.length)throw new Error('No valid trader profiles');
     if(!IDS.includes(selected))selected=IDS[0];
-  }catch(e){DATA=DEMO;demo=true;}
+  }catch(e){
+    $('dateLabel').textContent='CHƯA TẢI ĐƯỢC DỮ LIỆU';
+    $('dataNotice').textContent='Không tải được dữ liệu thị trường thật. Hãy tải lại trang; chưa có kết quả để hiển thị.';
+    document.querySelectorAll('button').forEach(b=>b.disabled=true);
+    return;
+  }
   $('dateLabel').textContent=demo?'CHƯA KẾT NỐI DATA':'Phiên: '+DATA.last_session.split('-').reverse().join('/')+'\n'+DATA.source;
   const note=$('dataNotice');
-  if(demo){note.className='notice demo';note.textContent='🧪 CHẾ ĐỘ DEMO. Tất cả con số trong bản xem thử đều là giả định. Chưa có giá thị trường thật.';}
+  if(demo){return;}
   else{const latest=new Date(DATA.last_session+'T23:59:59+07:00');const days=Math.max(0,Math.floor((Date.now()-latest.getTime())/86400000));const delayed=days>=4;note.className=delayed?'notice demo':'notice';note.textContent=(delayed?'⚠️ DỮ LIỆU CÓ THỂ ĐÃ CŨ: ':'📡 ĐÃ CÓ DỮ LIỆU THỊ TRƯỜNG: ')+'chốt đến phiên '+DATA.last_session+'. Lệnh và tài khoản vẫn là GIẢ LẬP, không kết nối broker.';}
   if(!demo){try{const response=await fetch('./hybrid-coverage.json?cache='+Date.now(),{cache:'no-store'});if(response.ok){const c=await response.json();if(Number.isInteger(c?.session_count)&&c.session_count>=0&&c.required_sessions===5)hybridBankProgress=c;}}catch(_){/* no published banking counters yet */}}
   render();
