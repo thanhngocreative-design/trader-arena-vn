@@ -15,6 +15,8 @@ from datafeed import update_prices, load_prices, parse_symbols, DEFAULT_TICKERS,
 from engine import TRADERS, Settings, backtest
 from fast_engine import FastContext, CORE, build_hybrid_signals
 from paper_forward import update_paper
+from intraday_data import load_minute
+from hybrid_backtest import build_hybrid_backtests
 
 ROOT=Path(__file__).resolve().parent
 
@@ -142,6 +144,11 @@ def build(symbols, history_start, out_path):
             for k in TRADERS
         }
     results=by_period['ALL']
+    # A missing real minute feed never silently falls back to Daily candles.
+    minute_frames,minute_errors=load_minute(accepted,daily=prices)
+    minute_results,minute_audit=build_hybrid_backtests(context,minute_frames,settings)
+    minute_audit['rejected_symbols']=minute_errors
+    minute_payload={k:summary_backtest(v) for k,v in minute_results.items()}
     last_idx=len(context.dates)-1
     prepared_rows={
         symbol:pd.Series({
@@ -190,6 +197,8 @@ def build(symbols, history_start, out_path):
          'market':{'index':'VN-Index','level':round(now_index/1000,2),
                    'return_since_backtest_start':round((now_index/base_index-1)*100,2)},
          'traders':TRADERS,'backtests':results,
+          'hybrid_backtests':minute_payload,
+          'hybrid_backtest_audit':minute_audit,
          'backtest_periods':by_period,
          'backtest_options':[{ 'key': key, 'label': PERIOD_LABELS[key],
                                'start':str(date.date()), 'end':str(last.date())}
@@ -210,7 +219,8 @@ def build(symbols, history_start, out_path):
              'Kết quả backtest chưa phản ánh đầy đủ cổ tức, chia tách, mất thanh khoản và hủy niêm yết.',
              'Paper-forward là giao dịch giả lập tại giá mở cửa có trượt giá/phí; không chứng minh lệnh thật khớp được.',
              'Vũ trụ chỉ gồm các ứng viên còn niêm yết trong năm 2026, không có thành phần lịch sử đúng từng thời điểm: survivorship bias vẫn tồn tại.',
-             'Arena Hybrid chỉ chọn mô hình theo kết quả 126 phiên đã qua; không dùng thành tích tương lai để tạo tín hiệu.'
+             'Arena Hybrid chỉ chọn mô hình theo kết quả 126 phiên đã qua; không dùng thành tích tương lai để tạo tín hiệu.',
+              'Backtest kết hợp thử nghiệm chỉ dùng nến 1 phút thật đã xác minh, giới hạn mã/phiên; không trộn với Daily và paper.'
          ],'is_new_session':bool(changed)}
     out_path=Path(out_path);out_path.parent.mkdir(parents=True,exist_ok=True)
     tmp=out_path.with_suffix('.tmp')
