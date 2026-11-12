@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'live/**'
+      - '.gitattributes'
+      - 'state/paper_archive/**'
       - 'minute_arena.py'
       - 'paper_intraday.py'
       - 'run_minute_research.py'
