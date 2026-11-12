@@ -179,6 +179,7 @@ let expandedBot=null;
 let period='ALL', stockSymbol='',stockWindow='3M',stockSelectedBar=null;
 let hiddenBots={};try{hiddenBots=JSON.parse(localStorage.getItem('arena-hidden-bots-v1')||'{}')||{};}catch(_){hiddenBots={};}
 let liveApiBase='',livePoll=null;
+let hybridBankProgress=null;
 const activeKeys=()=>IDS.filter(k=>!hiddenBots[k]);
 const periodData=()=>DATA.backtest_periods?.[period]||DATA.backtests;
 function selectPeriod(p){if(!DATA.backtest_periods?.[p]&&p!=='ALL')return;period=p;render();}
@@ -240,7 +241,7 @@ const ret=k=>n(part(k)?.return_pct);
 function setPage(p){page=p;document.querySelectorAll('.page').forEach(x=>x.classList.toggle('on',x.id===p+'Page'));document.querySelectorAll('.bottom button').forEach(x=>x.classList.toggle('selected',x.id==='nav-'+p));window.scrollTo({top:0,behavior:'smooth'});render()}
 function setMode(m){
   if(m==='hybrid'&&!Object.keys(DATA.hybrid_backtests||{}).length){
-    $('hybridCoverage').textContent='⚠️ Chưa có nến 1 phút thật được xác minh. Backtest kết hợp chưa có kết quả; không dùng số Daily thay thế.';
+    $('hybridCoverage').textContent=hybridBankProgress?.session_count?'📦 Đã thu thập '+n(hybridBankProgress.session_count)+'/'+n(hybridBankProgress.required_sessions)+' phiên nến 1 phút thật. Chưa đủ để tính lợi nhuận Hybrid.':'⚠️ Chưa có nến 1 phút thật được xác minh. Backtest kết hợp chưa có kết quả; không dùng số Daily thay thế.';
     return;
   }
   mode=m;document.querySelectorAll('.switch button').forEach(x=>x.classList.toggle('active',x.id===({paper:'modePaper',backtest:'modeBacktest',hybrid:'modeHybrid'}[m])));render();
@@ -295,7 +296,7 @@ function renderHome(){
   const intr=DATA.hybrid_backtest_audit||{};
   $('hybridCoverage').textContent=intr.status==='verified_1m_pilot'
     ?'🧪 Backtest kết hợp: '+n(intr.symbols)+' mã · '+n(intr.sessions)+' phiên có nến 1 phút thật ('+safe(intr.first)+'–'+safe(intr.last)+'). KHÔNG so trực tiếp với Daily toàn thị trường.'
-    :'⚠️ Backtest kết hợp đang chờ nến 1 phút thật. Kết quả đang xem là '+(mode==='paper'?'paper cuối ngày':'backtest Daily')+'; không phải dữ liệu phút.';
+    :hybridBankProgress?.session_count?'📦 Đã lưu '+n(hybridBankProgress.session_count)+'/'+n(hybridBankProgress.required_sessions)+' phiên nến 1 phút thật (mới nhất '+safe(hybridBankProgress.last_banked_session||'—')+'). Đang xem '+(mode==='paper'?'paper Daily':'backtest Daily')+'. Chưa có kết quả Hybrid.' : '⚠️ Backtest kết hợp đang chờ nến 1 phút thật; chỉ đang hiển thị kết quả Daily.';
   $('backtestPeriods').innerHTML=(DATA.backtest_options||[{key:'ALL',label:'Từ 2023'}]).map(x=>`<button class="${period===x.key?'selected':''}" onclick="selectPeriod('${x.key}')">${safe(x.label)}</button>`).join('');
   $('rangeDetail').textContent=mode==='backtest'&&opt?'Mỗi bot bắt đầu lại với 100 triệu đồng ảo từ '+opt.start+' đến '+opt.end+'.':'Mỗi khoảng thời gian được chạy lại thành một backtest riêng.';
   const included=activeKeys();
@@ -433,6 +434,7 @@ async function boot(){
   const note=$('dataNotice');
   if(demo){note.className='notice demo';note.textContent='🧪 CHẾ ĐỘ DEMO. Tất cả con số trong bản xem thử đều là giả định. Chưa có giá thị trường thật.';}
   else{const latest=new Date(DATA.last_session+'T23:59:59+07:00');const days=Math.max(0,Math.floor((Date.now()-latest.getTime())/86400000));const delayed=days>=4;note.className=delayed?'notice demo':'notice';note.textContent=(delayed?'⚠️ DỮ LIỆU CÓ THỂ ĐÃ CŨ: ':'📡 ĐÃ CÓ DỮ LIỆU THỊ TRƯỜNG: ')+'chốt đến phiên '+DATA.last_session+'. Lệnh và tài khoản vẫn là GIẢ LẬP, không kết nối broker.';}
+  if(!demo){try{const response=await fetch('./hybrid-coverage.json?cache='+Date.now(),{cache:'no-store'});if(response.ok){const c=await response.json();if(Number.isInteger(c?.session_count)&&c.session_count>=0&&c.required_sessions===5)hybridBankProgress=c;}}catch(_){/* no published banking counters yet */}}
   render();
   initializeLive();
 }
