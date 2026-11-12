@@ -1,0 +1,75 @@
+name: Trader Arena VN hybrid Daily plus 1m pilot
+on:
+  workflow_dispatch:
+    inputs:
+      symbols:
+        description: '2–20 stock symbols; limited free 1m history sample'
+        required: false
+        default: 'FPT,HPG,ACB,MBB,SSI,MWG,STB,TCB,VCB,VNM,CTG,VIC'
+        type: string
+      days:
+        description: 'Calendar days of 1m history to sample, 7–28'
+        required: false
+        default: '21'
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/hybrid-pilot.yml'
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: trader-arena-daily
+  cancel-in-progress: false
+jobs:
+  hybrid-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install Daily engine + official current Vnstock v6 community
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install 'vnstock>=6,<7'
+      - name: Run deterministic regression tests before data fetch
+        run: python -m pytest -q
+      - name: Download small REAL 1m history privately and compute 11 pilot backtests
+        env:
+          PILOT_SYMBOLS: ${{ inputs.symbols || 'FPT,HPG,ACB,MBB,SSI,MWG,STB,TCB,VCB,VNM,CTG,VIC' }}
+          PILOT_DAYS: ${{ inputs.days || '21' }}
+        run: |
+          python run_hybrid_pilot.py --symbols "$PILOT_SYMBOLS" --days "$PILOT_DAYS"
+      - name: Publish ONLY derived audited bot statistics (never raw minute bars)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+            echo "main changed during pilot: refuse to overwrite newer dashboard"
+            exit 1
+          fi
+          git add site/dashboard.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Verified Daily plus 1m hybrid pilot backtest [skip ci]"
+            git push origin HEAD:main
+          fi
+          test ! -n "$(git ls-files data/minute/)" || (echo 'ERROR minute CSV leaked to git' && exit 1)
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+      - uses: actions/deploy-pages@v4
+        id: deploy
