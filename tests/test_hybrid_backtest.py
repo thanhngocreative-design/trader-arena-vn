@@ -152,12 +152,12 @@ def test_true_trade_tape_aggregates_ohlc_without_auction_or_synthetic_interpolat
 
 
 def test_banker_refuses_stale_tape_or_incomplete_last_print(monkeypatch):
-    from vn_market_data import get_trade_tape
+    from vn_market_data.sources.kbs import KBSSource
     session="2026-11-11"
     tape={"symbol":"FPT","date":session,"trades":[
        {"date":session,"time":"09:15:01","price":25000,"volume":100,
         "accumulated_volume":100}]}
-    monkeypatch.setattr("vn_market_data.get_trade_tape",lambda s:("kbs",tape))
+    monkeypatch.setattr(KBSSource,"get_trade_tape",lambda self,s:tape)
     with TemporaryDirectory() as d:
         info=bank_trade_tapes(["FPT"],Path(d),expected_session="2026-11-12")
         assert info["success"]=={}
