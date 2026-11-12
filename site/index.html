@@ -556,7 +556,7 @@ async function boot(){
   if(!demo){try{const response=await fetch('./hybrid-coverage.json?cache='+Date.now(),{cache:'no-store'});if(response.ok){const c=await response.json();if(Number.isInteger(c?.session_count)&&c.session_count>=0&&c.required_sessions===5)hybridBankProgress=c;}}catch(_){/* no published banking counters yet */}}
   const requested=new URLSearchParams(location.search).get('mode');
   if(MODE_ID[requested])setMode(requested);else if(requested==='minute')setMode('hybrid');
-  setInterval(async()=>{try{await loadIntradayPaper(true);if(isPaper())render();}catch(_){}},60000);
+  setInterval(async()=>{try{await loadIntradayPaper(true);if(isPaper()||page==='bots')render();}catch(_){}},60000);
   render();
   initializeLive();
 }
