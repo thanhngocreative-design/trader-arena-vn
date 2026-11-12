@@ -37,7 +37,23 @@ def features(f):
     p['Hybrid']=p[['Minervini','ONeil','CIS','Qullamaggie','PThai']].sum(axis=1)>=2
     p['atr']=pd.concat([h-l,(h-before).abs(),(l-before).abs()],axis=1).max(axis=1).rolling(14).mean()
     p['adv']=(c*v).rolling(20).mean()*225
-    p['ma10']=ma10; p['ma20']=ma20; p['low20']=l.rolling(20).min()
+    p['ma10']=ma10; p['ma20']=ma20; p['low20']=l.shift(1).rolling(20).min()
+    return p
+
+
+def darvas_features(f):
+    """Same Darvas features, without calculating ten unused entry proxies."""
+    c=f.close;h=f.high;l=f.low;v=f.volume;before=c.shift()
+    p=f.copy()
+    hi20=h.shift().rolling(20).max(); hi30=h.shift().rolling(30).max()
+    low30=l.shift().rolling(30).min(); ma20=c.rolling(20).mean()
+    valid=(c>=5000)&(c.rolling(30).std(ddof=0)/c).between(.0002,.12)&((c/before-1).abs()<.075)&(f.index.to_series().diff().dt.total_seconds().rolling(10).max()<=120)
+    p['Darvas']=(valid&(hi30/low30-1<.095)&(c>hi20)&(c>ma20)&(v/v.shift().rolling(20).mean()>1.10)&(pd.Series(range(len(f)),index=f.index)>=30)).fillna(False)
+    p['atr']=pd.concat([h-l,(h-before).abs(),(l-before).abs()],axis=1).max(axis=1).rolling(14).mean()
+    p['adv']=(c*v).rolling(20).mean()*225
+    p['ma10']=c.rolling(10).mean();p['ma20']=ma20
+    # The current bar may BREAK the prior floor; it cannot define that floor.
+    p['low20']=l.shift(1).rolling(20).min()
     return p
 
 

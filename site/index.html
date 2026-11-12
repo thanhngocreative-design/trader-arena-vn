@@ -421,6 +421,7 @@ function renderBookComparison(k){
     <table><caption class="note">Chạm tên sổ để xem chi tiết bên dưới.</caption><thead><tr><th scope="col">Sổ / Tài sản</th><th scope="col">Lãi/lỗ</th><th scope="col"><abbr title="Mức giảm sâu nhất từ đỉnh NAV đã ghi nhận">DD</abbr></th><th scope="col">Khớp</th></tr></thead><tbody>${rows}</tbody></table>
     <p class="note">DD: mức giảm sâu nhất từ đỉnh tài sản đã ghi nhận; paper tính cả vốn ban đầu. Khớp: số lần mua + bán, có thể gồm bán một phần. “—”: chưa có số liệu; paper chưa ghi NAV thì chưa tính DD.</p>
     <p class="note">Paper kết hợp dùng bộ lọc ngày và ATR/thoát phút; backtest kết hợp còn dùng stop ngày. Hybrid thuần phút dùng đồng thuận tín hiệu phút.</p>
+    ${k==='Darvas'&&DATA.minute_backtest_audit?.bot_revisions?.Darvas?.revision==='darvas_prior_low20_v2'?'<p class="note">Darvas phút đã được tính lại sau khi sửa luật thoát: đáy của 20 nến trước không chứa nến đang xét. Paper phút và Paper kết hợp của Darvas áp dụng cùng bản sửa.</p>':''}
   </section>`;
 }
 function renderBots(){
