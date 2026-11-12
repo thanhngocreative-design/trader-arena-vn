@@ -389,9 +389,9 @@ function renderHome(){
   $('totalLabel').textContent=MODE_LABEL[mode]+' · '+included.length+' bot';
   $('arenaIntro').textContent='Mỗi bot có 100 triệu đồng vốn ảo ban đầu. Mỗi chế độ có tài khoản và giao dịch riêng; lệnh không được gửi đến broker.';
   if(!isPaper()){
-    researchNote.textContent='146 mã · '+meta.start+' đến '+meta.end+' · '+MODE_LABEL[mode]+'. '+(mode==='backtest_minute'?'Chỉ tín hiệu và ATR phút; NAV theo nến phút cuối quan sát.':'')+' Phí, thuế, trượt giá, T+ và khoảng thiếu dữ liệu được giữ trong mô phỏng. Nhóm mã được chọn sau kỳ nghiên cứu, có sai lệch chọn mẫu.';
+    researchNote.textContent='146 mã · '+meta.start+' đến '+meta.end+' · '+MODE_LABEL[mode]+'. '+(mode==='backtest_minute'?'11 bot gốc dùng tín hiệu/ATR phút; Buffett và Munger dùng thêm chất lượng báo cáo năm, phân bổ theo NAV. NAV theo nến phút cuối quan sát.':'')+' Phí, thuế, trượt giá, T+ và khoảng thiếu dữ liệu được giữ trong mô phỏng. Nhóm mã được chọn sau kỳ nghiên cứu, có sai lệch chọn mẫu.';
     $('marketDay').textContent=meta.end.split('-').reverse().join('/');
-    $('chartNote').textContent=mode==='backtest_minute'?'Chỉ nến phút đã đóng tạo tín hiệu; lệnh ở nến sau. Hybrid phút là đồng thuận các tín hiệu phút. NAV dùng nến phút cuối quan sát.':'NAV cuối phiên và VN-Index; tín hiệu theo khung đã ghi trên tab.';
+    $('chartNote').textContent=mode==='backtest_minute'?(DATA.traders?.[chartBot]?.supported_modes?'Bộ lọc báo cáo năm đã biết từ phiên trước, điểm vào/thoát phút thử nghiệm. Lệnh ở nến quan sát sau; NAV dùng nến phút cuối quan sát.':'Chỉ nến phút đã đóng tạo tín hiệu; lệnh ở nến sau. Hybrid phút là đồng thuận các tín hiệu phút. NAV dùng nến phút cuối quan sát.'):'NAV cuối phiên và VN-Index; tín hiệu theo khung đã ghi trên tab.';
   }
   if(isPaper()&&DATA.paper_contest_start){
     const start=DATA.paper_contest_start.split('-').reverse().join('/');
@@ -405,7 +405,8 @@ function renderHome(){
     }
   }
   if(mode==='paper_minute'||mode==='paper_combo'){
-    const p=DATA.intraday_paper_status||{};
+    const raw=DATA.traders?.[chartBot]?.supported_modes?DATA.value_intraday_status||{}:DATA.intraday_paper_status||{};
+    const p=DATA.traders?.[chartBot]?.supported_modes?{...raw,combo_gate_date:raw.gate_date,combo_gate_valid:raw.gate_valid}:raw;
     const observed=p.last_observed_at?new Date(p.last_observed_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'Chưa có nến mới sau khởi tạo';
     const stale=!p.last_observed_at||Date.now()-new Date(p.last_observed_at).getTime()>180000;
     $('hybridCoverage').textContent=(p.status==='scheduled_start'?'Đã hẹn bắt đầu mùa mới. ':p.status==='market_closed'?'Ngoài giờ giao dịch. ':stale?'Đang chờ nến phút mới. ':'Đã quan sát nến mới. ')+'Khởi tạo: '+(p.started_at?new Date(p.started_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'—')+' · Quan sát gần nhất: '+observed+' · '+(p.symbols_observed||[]).length+'/146 mã đã có nến mới. Cập nhật bảng khoảng 5 phút; tín hiệu xét trên nến phút thực nhận. Không chạy bù lịch sử.'+(mode==='paper_combo'?' Bộ lọc ngày: '+(p.combo_gate_date||'chưa có')+'.':'')+(p.errors?.length?' Có lỗi nguồn: '+p.errors.join('; '):'');
@@ -413,7 +414,7 @@ function renderHome(){
     $('marketDay').textContent=observed;
     $('universeNotice').textContent=DATA.paper_contest_start?'Mùa paper mới: cả 3 chế độ bắt đầu ngày '+DATA.paper_contest_start.split('-').reverse().join('/')+', mỗi bot 100 triệu đồng. Lịch sử trước reset được lưu riêng.':'Sổ paper riêng. Chỉ ghi nhận giao dịch từ nến mới thực nhận.';
     $('chartNote').textContent='NAV ghi từ những nến mới thực nhận sau khởi tạo. Các khoảng gián đoạn không được chạy bù.';
-    if(mode==='paper_combo')$('chartNote').textContent+=' Biến thể paper này dùng bộ lọc ngày và ATR/thoát phút; backtest kết hợp còn dùng stop ngày.';
+    if(mode==='paper_combo')$('chartNote').textContent+=DATA.traders?.[chartBot]?.supported_modes?' Hai bot giá trị dùng báo cáo năm, giá/MA200 và thanh khoản ngày trước; điểm vào/thoát phút thử nghiệm, phân bổ theo NAV.':' Biến thể paper này dùng bộ lọc ngày và ATR/thoát phút; backtest kết hợp còn dùng stop ngày.';
     if(!p.last_observed_at)$('simpleMessage').textContent='Đã mở sổ, chưa có giao dịch mới. Chờ phiên giao dịch tiếp theo và dữ liệu phút đủ mới.';
   }
 
