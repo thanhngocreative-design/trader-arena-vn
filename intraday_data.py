@@ -136,7 +136,8 @@ def bank_trade_tapes(symbols: list[str], output: Path = MINUTE_DIR,
     KBS trade tape does NOT support requests for past dates. This function does
     not pretend historical 1m backfill is possible. Source access can fail.
     """
-    from vn_market_data import get_trade_tape
+    from vn_market_data.sources.kbs import KBSSource
+    reader=KBSSource()
     output.mkdir(parents=True,exist_ok=True)
     now=datetime.now(VN)
     report={"source":"KBS matched prints via pinned vn-market-data v0.4.0",
@@ -146,7 +147,7 @@ def bank_trade_tapes(symbols: list[str], output: Path = MINUTE_DIR,
         try:
             if not re.fullmatch(r"[A-Z]{3,5}",sym):
                 raise ValueError("Unsupported ticker")
-            source,tape=get_trade_tape(sym)
+            source,tape='kbs',reader.get_trade_tape(sym)
             if tape is None:
                 raise ValueError("No verified trades returned")
             session=str(tape.get("date",""))
