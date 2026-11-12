@@ -55,7 +55,7 @@ jobs:
         env:
           PILOT_SYMBOLS: ${{ inputs.symbols || 'FPT,HPG,ACB,MBB,SSI,MWG,STB,TCB' }}
         run: |
-          python run_hybrid_pilot.py --symbols "$PILOT_SYMBOLS" --status-path "$RUNNER_TEMP/hybrid-result.json"
+          python run_hybrid_pilot.py --bank-only --symbols "$PILOT_SYMBOLS" --status-path "$RUNNER_TEMP/hybrid-result.json"
           python - <<'PY'
           import json,os
           from pathlib import Path

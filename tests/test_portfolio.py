@@ -42,7 +42,7 @@ def test_fast_flexible_respects_limit_lots_cash_and_past_atr():
 
 def test_baseline_snapshot_keeps_original_ledger():
     root=Path(__file__).resolve().parents[1]
-    baseline=json.loads((root/'site/baseline-v1/paper_state.json').read_text(encoding='utf8'))
+    baseline=json.loads((root/'state/paper_baseline.json').read_text(encoding='utf8'))
     current=json.loads((root/'state/paper_state.json').read_text(encoding='utf8'))
     for k,b in baseline['bots'].items():
         assert current['bots'][k]['trades'][:len(b['trades'])]==b['trades']

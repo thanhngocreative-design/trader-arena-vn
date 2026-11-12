@@ -21,6 +21,9 @@ from generate_dashboard import summary_backtest
 
 
 def pilot(symbols:list[str],output_path:Path,bank_only:bool=False) -> dict:
+    # A pilot must never replace the user-selected 146-stock research.
+    existing=json.loads(output_path.read_text(encoding='utf-8')) if output_path.exists() else {}
+    bank_only=bank_only or existing.get('research_meta',{}).get('revision')=='continuous146_v1'
     banked=bank_trade_tapes(symbols,output=MINUTE_DIR)
     all_sessions=set()
     for sym in symbols:

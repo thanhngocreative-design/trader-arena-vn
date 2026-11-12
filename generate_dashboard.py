@@ -254,6 +254,8 @@ def build(symbols, history_start, out_path):
              'Arena Hybrid chỉ chọn mô hình theo kết quả 126 phiên đã qua; không dùng thành tích tương lai để tạo tín hiệu.',
               'Backtest kết hợp thử nghiệm chỉ dùng nến 1 phút thật đã xác minh, giới hạn mã/phiên; không trộn với Daily và paper.'
          ],'is_new_session':bool(changed)}
+    from research_snapshot import apply_research_snapshot
+    out=apply_research_snapshot(out,ROOT/'site/research-146.json')
     out_path=Path(out_path);out_path.parent.mkdir(parents=True,exist_ok=True)
     tmp=out_path.with_suffix('.tmp')
     tmp.write_text(json.dumps(out,ensure_ascii=False,allow_nan=False,separators=(',',':'),default=str),encoding='utf-8')

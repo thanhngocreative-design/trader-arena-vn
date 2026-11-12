@@ -239,6 +239,7 @@ const ret=k=>n(part(k)?.return_pct);
 function setPage(p){page=p;document.querySelectorAll('.page').forEach(x=>x.classList.toggle('on',x.id===p+'Page'));document.querySelectorAll('.bottom button').forEach(x=>x.classList.toggle('selected',x.id==='nav-'+p));window.scrollTo({top:0,behavior:'smooth'});render()}
 function setMode(m){
   if(m==='hybrid'&&!Object.keys(DATA.hybrid_backtests||{}).length){
+    if(DATA.research_meta){$('hybridCoverage').textContent='Đang tải và kiểm tra lịch sử phút 146 mã. Chưa có kết quả phút để hiển thị.';return;}
     $('hybridCoverage').textContent=hybridBankProgress?.session_count?'📦 Đã thu thập '+n(hybridBankProgress.session_count)+'/'+n(hybridBankProgress.required_sessions)+' phiên nến 1 phút thật. Chưa đủ để tính lợi nhuận Hybrid.':'⚠️ Chưa có nến 1 phút thật được xác minh. Backtest kết hợp chưa có kết quả; không dùng số Daily thay thế.';
     return;
   }
@@ -291,27 +292,33 @@ function renderHome(){
   let comparisonBox=document.getElementById('portfolioComparison');
   if(!comparisonBox){comparisonBox=document.createElement('div');comparisonBox.id='portfolioComparison';document.getElementById('backtestTimePicker').after(comparisonBox);}
   const cmp=DATA.portfolio_comparison?.[period];
-  comparisonBox.innerHTML=mode==='backtest'&&cmp?`<div class="card"><h3>4 mã vs linh hoạt + ATR</h3><p>Rủi ro dự kiến 0,75% NAV/lệnh, khoảng cách 2,5 ATR. Cùng dữ liệu Daily và chi phí. Các giới hạn là giả định nghiên cứu.</p>${Object.entries(cmp).map(([k,v])=>`<div style="padding:12px 0;border-bottom:1px solid #ddd"><strong>${safe(k)} · tối đa ${v.max_positions} mã</strong><p>4 mã: ${pct(v.baseline.return_pct)} · DD ${pct(v.baseline.max_drawdown_pct)} · ${v.baseline.buy_count+v.baseline.closed_trades} lệnh</p><p>ATR: ${pct(v.flexible.return_pct)} · DD ${pct(v.flexible.max_drawdown_pct)} · ${v.flexible.buy_count+v.flexible.closed_trades} lệnh</p></div>`).join('')}<p><a href="baseline-v1/dashboard.json">Backtest cũ</a> · <a href="baseline-v1/paper_state.json">Lịch sử paper gốc</a></p></div>`:'';
+  comparisonBox.innerHTML=mode==='backtest'&&cmp?`<div class="card"><h3>4 mã vs linh hoạt + ATR</h3><p>Rủi ro dự kiến 0,75% NAV/lệnh, khoảng cách 2,5 ATR. Cùng dữ liệu Daily và chi phí. Các giới hạn là giả định nghiên cứu.</p>${Object.entries(cmp).map(([k,v])=>`<div style="padding:12px 0;border-bottom:1px solid #ddd"><strong>${safe(k)} · tối đa ${v.max_positions} mã</strong><p>4 mã: ${pct(v.baseline.return_pct)} · DD ${pct(v.baseline.max_drawdown_pct)} · ${v.baseline.buy_count+v.baseline.closed_trades} lệnh</p><p>ATR: ${pct(v.flexible.return_pct)} · DD ${pct(v.flexible.max_drawdown_pct)} · ${v.flexible.buy_count+v.flexible.closed_trades} lệnh</p></div>`).join('')}</div>`:'';
 
   $('backtestTimePicker').style.display=mode==='backtest'?'block':'none';
+  const meta=DATA.research_meta;
+  let researchNote=document.getElementById('research146Note');
+  if(!researchNote){researchNote=document.createElement('div');researchNote.id='research146Note';researchNote.className='notice';document.getElementById('backtestTimePicker').after(researchNote);}
+  researchNote.style.display=meta&&mode!=='paper'?'block':'none';
+  if(meta)researchNote.textContent='146 mã · '+meta.start+' đến '+meta.end+' · Cấu hình vốn ATR. '+(mode==='hybrid'?'Backtest Daily + 1 phút thật; không nội suy khoảng thiếu.':'Backtest nến ngày. Chọn Kết hợp 1m để xem mô phỏng phút.');
   const opt=DATA.backtest_options?.find(x=>x.key===period);
   $('modePill').textContent=mode==='paper'?'Ghi nối tiếp từng phiên':mode==='hybrid'?'Daily + 1 phút · Thử nghiệm':(opt?.label||'Từ 2023');
   const intr=DATA.hybrid_backtest_audit||{};
-  $('hybridCoverage').textContent=intr.status==='verified_1m_pilot'
-    ?'🧪 Backtest kết hợp: '+n(intr.symbols)+' mã · '+n(intr.sessions)+' phiên có nến 1 phút thật ('+safe(intr.first)+'–'+safe(intr.last)+'). KHÔNG so trực tiếp với Daily toàn thị trường.'
-    :hybridBankProgress?.session_count?'📦 Đã lưu '+n(hybridBankProgress.session_count)+'/'+n(hybridBankProgress.required_sessions)+' phiên nến 1 phút thật (mới nhất '+safe(hybridBankProgress.last_banked_session||'—')+'). Đang xem '+(mode==='paper'?'paper Daily':'backtest Daily')+'. Chưa có kết quả Hybrid.' : '⚠️ Backtest kết hợp đang chờ nến 1 phút thật; chỉ đang hiển thị kết quả Daily.';
-  $('backtestPeriods').innerHTML=(DATA.backtest_options||[{key:'ALL',label:'Từ 2023'}]).map(x=>`<button class="${period===x.key?'selected':''}" onclick="selectPeriod('${x.key}')">${safe(x.label)}</button>`).join('');
+  $('hybridCoverage').textContent=intr.status==='verified_1m_146'
+    ?'🧪 Đã backtest 146 mã trên nến phút thật, '+n(intr.sessions)+' phiên trong khoảng '+safe(intr.first)+'–'+safe(intr.last)+'. Có khoảng thiếu nến; không nội suy, không tạo lệnh khi thiếu nến.'
+    :DATA.research_meta?'⏳ Đang tải và kiểm tra lịch sử phút của 146 mã. Kết quả đang xem là Daily; chưa công bố lợi nhuận phút.'
+    :intr.status==='verified_1m_pilot'?'🧪 Kết quả phút thử nghiệm '+n(intr.symbols)+' mã.':'Chưa có kết quả phút được xác minh.';
+  $('backtestPeriods').innerHTML=(DATA.backtest_options||[{key:'ALL',label:'3 năm'}]).map(x=>`<button class="${period===x.key?'selected':''}" onclick="selectPeriod('${x.key}')">${safe(x.label)}</button>`).join('');
   $('rangeDetail').textContent=mode==='backtest'&&opt?'Mỗi bot bắt đầu lại với 100 triệu đồng ảo từ '+opt.start+' đến '+opt.end+'.':'Mỗi khoảng thời gian được chạy lại thành một backtest riêng.';
   const included=activeKeys();
-  $('totalLabel').textContent=mode==='paper'?('Tổng tiền ảo của '+included.length+' bot đang theo dõi'):(mode==='hybrid'?'Thử nghiệm Daily + 1m · '+included.length+' bot':'Tổng backtest Daily của '+included.length+' bot');
-  $('arenaIntro').textContent=mode==='hybrid'?'Thử nghiệm 1 phút trên NHÓM MÃ CÓ DATA, các lệnh chỉ khớp từ nến kế tiếp, có phí/T+; không so sánh trực tiếp với Daily.':IDS.length+' bot từ Mỹ, Nhật, châu Âu và Việt Nam + Arena Hybrid. Mỗi bot bắt đầu với 100 triệu đồng tiền ảo.';
+  $('totalLabel').textContent=mode==='paper'?('Tổng tiền ảo của '+included.length+' bot đang theo dõi'):(mode==='hybrid'?'Thử nghiệm Daily + 1m · '+included.length+' bot':'Backtest Daily · 146 mã · '+included.length+' bot');
+  $('arenaIntro').textContent=mode==='hybrid'?'Backtest 146 mã trên nến 1 phút thật; lệnh khớp từ nến kế tiếp, có phí/T+ và giới hạn thanh khoản.':IDS.length+' bot từ Mỹ, Nhật, châu Âu và Việt Nam + Arena Hybrid. Mỗi bot bắt đầu với 100 triệu đồng tiền ảo.';
   const audit=DATA.universe_audit;
   $('universeNotice').textContent=audit
       ?'📊 Đã xác minh '+audit.tradable_history_count+'/'+audit.candidate_count+' mã ứng viên có dữ liệu phù hợp · Lọc thanh khoản tại từng phiên. Vẫn có sai lệch chọn mẫu lịch sử.'
       : '📊 Vũ trụ cổ phiếu được xác nhận sau khi kết nối dữ liệu.';
   const total=included.reduce((sum,k)=>sum+nav(k),0),capital=n(DATA.capital_each)*included.length,change=capital?(total/capital-1)*100:0;
   $('totalNav').textContent=vnd(total);$('totalDelta').innerHTML=`<span class="${color(change)}">${pct(change)}</span> <span class="muted">so với ${money(capital)} ban đầu</span>`;
-  $('totalInitial').textContent=money(capital);$('marketDay').textContent=mode==='hybrid'?String(DATA.hybrid_backtest_audit?.last||'—').split('-').reverse().join('/'):(DATA.last_session==='VÍ DỤ'?'Số liệu ví dụ':DATA.last_session.split('-').reverse().join('/'));
+  $('totalInitial').textContent=money(capital);$('marketDay').textContent=mode==='hybrid'?String(DATA.hybrid_backtest_audit?.last||'—').split('-').reverse().join('/'):(mode==='backtest'&&opt?opt.end.split('-').reverse().join('/'):DATA.last_session.split('-').reverse().join('/'));
   const available=included.filter(k=>regionFilter==='ALL'||DATA.traders?.[k]?.region===regionFilter);
   const sorted=available.sort((a,b)=>ret(b)-ret(a));
   $('regionChips').innerHTML=Object.entries(REGION).map(([k,label])=>`<button class="chip ${regionFilter===k?'active':''}" onclick="setRegionFilter('${k}')">${label} · ${k==='ALL'?IDS.length:IDS.filter(t=>DATA.traders?.[t]?.region===k).length}</button>`).join('');

@@ -6,3 +6,7 @@ data/minute/
 data/update_status.json
 *.pyc
 .env
+
+data/minute_history/
+vn_market_data.db
+site/stocks/

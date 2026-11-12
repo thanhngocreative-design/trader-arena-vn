@@ -105,16 +105,23 @@ def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
         day=date.date()
         prev=t-1
         day_rows={}
+        had_observations=False
         for sym,f in candles.items():
             if sym not in inv:
                 continue
-            rows=f.loc[f.index.normalize()==date]
+            lo=f.index.searchsorted(date,side="left")
+            hi=f.index.searchsorted(date+pd.Timedelta(days=1),side="left")
+            rows=f.iloc[lo:hi]
             if rows.empty:
                 continue
-            day_rows[sym]=_recent(rows)
+            had_observations=True
             observed_symbols.add(sym)
             minute_bars+=len(rows)
-        if day_rows:
+            # Eligibility depends only on yesterday's daily facts; symbols that
+            # cannot enter and are not held have no state-changing minute events.
+            if inv[sym] in positions or _eligible_daily(context,bot,inv[sym],prev):
+                day_rows[sym]=_recent(rows)
+        if had_observations:
             eligible_dates+=1
         # Full previous daily candle is already observable at the start of t.
         for i,p in positions.items():
@@ -130,12 +137,14 @@ def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
         rows_by_sym={sym:rows.reset_index().to_dict("records") for sym,rows in day_rows.items()}
         events=sorted((bars[j]["time"],sym,j)
                       for sym,bars in rows_by_sym.items() for j in range(len(bars)))
+        prior_facts={sym:context.stop_row(inv[sym],prev) if prev>=0 else {} for sym in day_rows}
+        daily_eligible={sym:_eligible_daily(context,bot,inv[sym],prev) for sym in day_rows}
         pending={}  # sym -> fill request made strictly at a prior observed minute
         for ts,sym,j in events:
             values=rows_by_sym[sym]
             row=values[j]
             i=inv[sym]
-            daily_prev=context.stop_row(i,prev) if prev>=0 else {}
+            daily_prev=prior_facts[sym]
             # First fill the request that was created at a prior completed
             # minute (using this observed bar OPEN, not a future close/high).
             req=pending.pop(sym,None)
@@ -224,7 +233,7 @@ def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
                 i in closed_at and t-closed_at[i]<settings.cooldown_sessions
             ):
                 continue
-            if not _eligible_daily(context,bot,i,prev):
+            if not daily_eligible[sym]:
                 continue
             if not _minute_enter(bot,row,None,j):
                 continue
@@ -300,7 +309,10 @@ def build_hybrid_backtests(context:FastContext,minute:dict[str,pd.DataFrame],
                    "reason":"Cần ít nhất 5 phiên có dữ liệu phút thật"}
     first=int(context.dates.get_loc(valid_dates.min()))
     last=int(context.dates.get_loc(valid_dates.max()))
-    results={key:_walk_one(context,key,minute,first,last,settings) for key in TRADERS}
+    results={}
+    for key in TRADERS:
+        results[key]=_walk_one(context,key,minute,first,last,settings)
+        print(f"Minute research completed: {key}",flush=True)
     audit={"status":"verified_1m_pilot","symbols":len(minute),
            "sessions":len(valid_dates),"first":valid_dates.min().date().isoformat(),
            "last":valid_dates.max().date().isoformat(),
