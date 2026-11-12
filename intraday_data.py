@@ -87,6 +87,106 @@ def load_minute(symbols: list[str], directory: Path = MINUTE_DIR, daily: dict | 
     return result, errors
 
 
+def tape_to_minute(tape: dict, required_session: str | None = None) -> pd.DataFrame:
+    """Aggregate an actual provider-verified exchange trade tape to 1m OHLCV.
+
+    This is a LOSSLESS per-minute aggregation of *existing matched prints*, not
+    a historic quote API. Bars with no matched prints are missing, never padded.
+    """
+    if not isinstance(tape,dict) or not tape.get("trades"):
+        raise ValueError("Empty verified trade tape")
+    session=str(tape.get("date",""))
+    parsed=pd.Timestamp(session)
+    if parsed.strftime("%Y-%m-%d")!=session:
+        raise ValueError("Invalid tape session date")
+    if required_session and required_session!=session:
+        raise ValueError("Provider tape session does not match requested date")
+    trades=tape["trades"]
+    output={}
+    previous_acc=0
+    for p in trades:
+        if p.get("date")!=session:
+            raise ValueError("Mixed session tape")
+        vol=int(p.get("volume",0))
+        acc=int(p.get("accumulated_volume",0))
+        price=float(p.get("price",0))
+        if vol<=0 or acc!=previous_acc+vol or price<=0:
+            raise ValueError("Missing/repeated trade prints or price mismatch")
+        previous_acc=acc
+        ts=pd.Timestamp(session+" "+str(p.get("time","")))
+        minute=ts.floor("min")
+        if minute not in output:
+            output[minute]=[price,price,price,price,0]
+        bar=output[minute]
+        bar[1]=max(bar[1],price)
+        bar[2]=min(bar[2],price)
+        bar[3]=price
+        bar[4]+=vol
+    data=pd.DataFrame([
+        {"time":timestamp,"open":v[0],"high":v[1],"low":v[2],
+         "close":v[3],"volume":v[4]}
+        for timestamp,v in sorted(output.items())])
+    return normalize_minute(data,"vnd")
+
+
+def bank_trade_tapes(symbols: list[str], output: Path = MINUTE_DIR,
+                     expected_session: str | None = None) -> dict:
+    """Append only today's/last session true trade prints with no credentials.
+
+    KBS trade tape does NOT support requests for past dates. This function does
+    not pretend historical 1m backfill is possible. Source access can fail.
+    """
+    from vn_market_data import get_trade_tape
+    output.mkdir(parents=True,exist_ok=True)
+    now=datetime.now(VN)
+    report={"source":"KBS matched prints via pinned vn-market-data v0.4.0",
+            "run_at":now.isoformat(),"success":{},"skipped":{},
+            "raw_prices_public":False}
+    for sym in symbols:
+        try:
+            if not re.fullmatch(r"[A-Z]{3,5}",sym):
+                raise ValueError("Unsupported ticker")
+            source,tape=get_trade_tape(sym)
+            if tape is None:
+                raise ValueError("No verified trades returned")
+            session=str(tape.get("date",""))
+            if expected_session and session!=expected_session:
+                raise ValueError("Trade tape belongs to "+session+", not "+expected_session)
+            if session>now.date().isoformat():
+                raise ValueError("Future tape session")
+            # Require a late-session print to avoid banking incomplete real-time
+            # snapshots. The schedule runs after close; auction prints are
+            # present in the tape but excluded from continuous 1-minute bars.
+            last_print=str(tape["trades"][-1]["time"]) if tape.get("trades") else ""
+            if last_print<"14:25:00":
+                raise ValueError("Tape incomplete: last matched print "+last_print)
+            minute=tape_to_minute(tape,required_session=session)
+            if len(minute)<65:
+                raise ValueError("Too few matched minutes to treat as a complete session")
+            path=output/(sym+".csv")
+            if path.exists():
+                old=normalize_minute(pd.read_csv(path),"vnd")
+                prev=old.loc[old.index.normalize()==pd.Timestamp(session)]
+                if not prev.empty:
+                    # Avoid overwriting different results from a later provider
+                    # replay or accidentally mixing data collection windows.
+                    if not prev.equals(minute):
+                        raise ValueError("Existing 1m bars disagree with provider; quarantined")
+                    report["skipped"][sym]="Session already banked and identical"
+                    continue
+                combined=pd.concat([old,minute]).sort_index()
+            else:
+                combined=minute
+            tmp=path.with_suffix(".tmp")
+            combined.reset_index().to_csv(tmp,index=False)
+            tmp.replace(path)
+            report["success"][sym]={"date":session,"source":source,
+                "bars":len(minute),"prints":len(tape["trades"])}
+        except Exception as exc:
+            report["skipped"][sym]=(type(exc).__name__+": "+str(exc))[:190]
+    return report
+
+
 def fetch_vnstock_community(symbols: list[str], start: str, end: str, output: Path = MINUTE_DIR):
     """Optional manually authorized data acquisition; vnstock v6 community, not daily CI.
 
