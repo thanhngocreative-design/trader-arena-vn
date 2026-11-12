@@ -38,3 +38,8 @@ of preceding minute volume, past daily participation limits, fees, sell tax,
 slippage, cooldown and a conservative minimum holding period. Stops are not
 promises of execution. Missing liquidity and gaps can cause larger losses than
 the ATR sizing proxy. Published trades are simulations, not actual broker fills.
+
+ITC daily inputs are fetched from Vietcap because the cached DNSE daily series
+differed from the actual Vietcap minute/session close on 28 August, 3 September
+and 4 September 2026. No prices are manually rescaled to fit; the source daily
+candles are preserved and their hash is disclosed in research metadata.

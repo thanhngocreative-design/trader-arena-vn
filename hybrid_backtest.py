@@ -85,6 +85,24 @@ def _minute_enter(bot:str,now,prior,day_bar_index:int) -> bool:
             and float(now["volume"])>float(now["volume_mean10_before"])*.8)
 
 
+def _minute_entry_mask(bot, frame):
+    """Vector form of the same completed-minute predicate; no future rows."""
+    a={k:frame[k].to_numpy(dtype=float) for k in (
+        'close','vwap','ma5','close_before','high10_before','volume',
+        'volume_mean10_before','high20_before')}
+    valid=(np.arange(len(frame))>=MIN_BARS_FOR_SIGNAL)
+    for k in ('close','vwap','ma5','close_before','high10_before'):
+        valid &= np.isfinite(a[k])
+    c=a['close'];v=a['volume']
+    if bot=='BNF':
+        return valid&(c>a['ma5'])&(c>a['close_before'])&(c>=a['vwap']*.995)&(v>=a['volume_mean10_before']*.6)
+    if bot=='DuongChung':
+        return valid&(c>a['ma5'])&(c>a['vwap'])&(c>a['close_before'])
+    if bot=='CIS':
+        return valid&(c>a['high20_before'])&(c>a['vwap'])&(v>a['volume_mean10_before']*1.15)
+    return valid&(c>a['high10_before'])&(c>a['vwap'])&(v>a['volume_mean10_before']*.8)
+
+
 def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
               first:int, last:int, settings:Settings):
     cash=float(settings.initial_cash)
@@ -134,6 +152,7 @@ def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
         # One shared chronological tape for all symbols: no symbol is allowed
         # to consume cash based on a later minute before another symbol's
         # earlier-minute signal has been evaluated.
+        entry_masks={sym:_minute_entry_mask(bot,rows) for sym,rows in day_rows.items()}
         rows_by_sym={sym:rows.reset_index().to_dict("records") for sym,rows in day_rows.items()}
         events=sorted((bars[j]["time"],sym,j)
                       for sym,bars in rows_by_sym.items() for j in range(len(bars)))
@@ -235,7 +254,7 @@ def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
                 continue
             if not daily_eligible[sym]:
                 continue
-            if not _minute_enter(bot,row,None,j):
+            if not entry_masks[sym][j]:
                 continue
             # Budget uses yesterday's observable closes for holdings; today's
             # future EOD prices are never visible to this calculation.

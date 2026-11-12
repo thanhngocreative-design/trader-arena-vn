@@ -43,7 +43,7 @@ def download(config=None,output=None):
                     if r.status_code!=200:raise RuntimeError(f'Provider HTTP {r.status_code}; stop instead of bypassing limits')
                     raw=r.content;parsed=json.loads(raw)
                     if not isinstance(parsed,list) or len(parsed)!=1:raise RuntimeError(f'{symbol}: empty/unexpected response')
-                    path.write_bytes(raw);time.sleep(1)
+                    path.write_bytes(raw);time.sleep(.25)
                 j=json.loads(raw);f=validate_wire(j[0],symbol);first=int(f.time.min().timestamp());last=int(f.time.max().timestamp())
                 if first in seen or last>cursor or first>=cursor:raise RuntimeError('Pagination failed')
                 seen.add(first);frames.append(f);pages.append({'to':cursor,'countBack':20000,'rows':len(f),'sha256':hashlib.sha256(raw).hexdigest()})

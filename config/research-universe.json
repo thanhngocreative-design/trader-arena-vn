@@ -4,7 +4,7 @@
   "first_session": "2023-11-13",
   "last_session": "2026-11-12",
   "calendar_sessions": 747,
-  "calendar_method": "Dates present in at least 80% of 164 existing research equity datasets; not an independent exchange calendar. Includes 2024-08-12 missing in cached VNINDEX.",
+  "calendar_method": "747 sessions first found across the accepted daily equity histories, then confirmed against actual Vietcap VNINDEX daily data; no interpolated benchmark dates.",
   "original_symbols": 164,
   "eligible_symbols": [
     "ACB",
@@ -174,11 +174,5 @@
     "AST",
     "KLB"
   ],
-  "definition": "Valid OHLCV with positive volume on every reference session; transfer across exchanges allowed if data uninterrupted; not a legal listing-status certificate.",
-  "minute_sample_verified_count": 146,
-  "minute_verification": "Actual valid 1m samples retrieved near November 2023 and November 2026 for each eligible symbol; not a full three-year minute coverage audit.",
-  "full_minute_3y_downloaded_count": 1,
-  "full_minute_3y_downloaded_symbols": [
-    "FPT"
-  ]
+  "definition": "Valid OHLCV with positive volume on every reference session; transfer across exchanges allowed if data uninterrupted; not a legal listing-status certificate."
 }

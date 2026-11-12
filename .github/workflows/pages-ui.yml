@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - site/index.html
+      - site/dashboard.json
+      - site/research-146.json
       - site/live-config.json
       - .github/workflows/pages-ui.yml
 permissions:
@@ -34,6 +36,28 @@ jobs:
           for token in ("DNSE_API_SECRET","DNSE_API_KEY","api_secret","api_key"):
               assert token not in obj
           print("Read-only live URL config valid")
+          PY
+      - name: Validate the active 146-stock research and minute coverage
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('site/dashboard.json').read_text(encoding='utf-8'))
+          snapshot=json.loads(Path('site/research-146.json').read_text(encoding='utf-8'))
+          for value in (data,snapshot):
+              assert value['research_meta']['revision']=='continuous146_v1'
+              assert len(set(value['universe']))==146
+              assert len(value['backtests'])==11
+              assert value['portfolio_comparison']=={}
+              audit=value['hybrid_backtest_audit']
+              if audit['status']=='verified_1m_146':
+                  assert audit['symbols']==146
+                  assert len(value['hybrid_backtests'])==11
+                  assert set(audit['coverage_by_symbol'])==set(value['universe'])
+          assert data['backtests']==snapshot['backtests']
+          assert data['hybrid_backtests']==snapshot['hybrid_backtests']
+          assert not Path('site/baseline-v1/dashboard.json').exists()
+          print('Verified active research; old published backtests absent')
           PY
       - uses: actions/configure-pages@v5
         with:

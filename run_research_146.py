@@ -18,6 +18,18 @@ def build(daily_only=False,refresh_benchmark=False):
     symbols=u['eligible_symbols'];assert len(symbols)==len(set(symbols))==146
     prices,original_benchmark,missing=load_prices(symbols)
     if missing:raise RuntimeError(f'Missing daily histories: {missing}')
+    daily_overrides={}
+    # The cached DNSE ITC daily series disagreed with Vietcap on three sessions;
+    # use actual Vietcap daily candles for ITC to match its minute source.
+    for sym in ('ITC',):
+        override=ROOT/'data/prices_research_vietcap'/f'{sym}.csv'
+        if not override.exists():
+            from vn_market_data.sources.vietcap import VietcapSource
+            override.parent.mkdir(parents=True,exist_ok=True)
+            pd.DataFrame(VietcapSource().get_ohlcv(sym,'2021-01-01',u['end'])).to_csv(override,index=False)
+        f=pd.read_csv(override);f['date']=pd.to_datetime(f.date)
+        prices[sym]=f.set_index('date')[['open','high','low','close','volume']].astype(float)
+        daily_overrides[sym]={'source':'Vietcap historical daily OHLCV (VND)','sha256':hashlib.sha256(override.read_bytes()).hexdigest()}
     benchmark_path=ROOT/'data/prices/VNINDEX_research.csv'
     if refresh_benchmark or not benchmark_path.exists():
         from vn_market_data.sources.vietcap import VietcapSource
@@ -43,7 +55,10 @@ def build(daily_only=False,refresh_benchmark=False):
         by_period[label]={k:summary_backtest(backtest(prices,benchmark,k,str(begin.date()),end_date=u['end'],settings=settings,features_cache=ctx)) for k in TRADERS}
         print('New Daily research complete:',label,flush=True)
     existing=json.loads((ROOT/'site/dashboard.json').read_text(encoding='utf8'))
-    meta={'revision':'continuous146_v1','start':u['start'],'end':u['end'],'daily_reference_sessions':len(dates),'universe_selection':'Survivors with complete daily trading data across the full three-year window, including uninterrupted exchange transfers. This is an intentional ex-post continuity filter, not an unbiased point-in-time universe.','policy':'atr_v1','source_daily':'DNSE/Vietcap via vn-market-data 0.4.0; benchmark Vietcap historical index','source_minute':'Vietcap public chart, actual observed ONE_MINUTE candles; no interpolation','created_at':datetime.now(VN).isoformat(),'paper_ledger_changed':False}
+    meta={'revision':'continuous146_v1','start':u['start'],'end':u['end'],'daily_reference_sessions':len(dates),'universe_selection':'Survivors with complete daily trading data across the full three-year window, including uninterrupted exchange transfers. This is an intentional ex-post continuity filter, not an unbiased point-in-time universe.','policy':'atr_v1','source_daily':'DNSE/Vietcap via vn-market-data 0.4.0; benchmark Vietcap historical index','daily_overrides':daily_overrides,'source_minute':'Vietcap public chart, actual observed ONE_MINUTE candles; no interpolation','created_at':datetime.now(VN).isoformat(),'paper_ledger_changed':False}
+    meta['trading_window_common']='09:15–11:29 and 13:00–14:29 Asia/Ho_Chi_Minh for every stock; excludes auctions/PLO and the first 15 minutes on venues opening at 09:00.'
+    meta['benchmark_sha256']=hashlib.sha256(benchmark_path.read_bytes()).hexdigest()
+    meta['daily_input_sha256']={s:daily_overrides[s]['sha256'] if s in daily_overrides else hashlib.sha256((ROOT/'data/prices'/f'{s}.csv').read_bytes()).hexdigest() for s in symbols}
     minute_payload={};minute_audit={'status':'loading_146_history','symbols':0,'sessions':0,'reason':'Chưa xuất kết quả phút khi chưa tải và kiểm tra đủ 146 mã'}
     if not daily_only:
         p=ROOT/'data/minute_history';audit=json.loads((p/'audit.json').read_text(encoding='utf8'));frames={};coverage={}
@@ -51,9 +66,12 @@ def build(daily_only=False,refresh_benchmark=False):
         for n,sym in enumerate(symbols,1):
             source=p/f'{sym}.csv.gz'
             if hashlib.sha256(source.read_bytes()).hexdigest()!=audit['symbols'][sym]['sha256']:raise RuntimeError(f'{sym}: history hash mismatch')
-            f=normalize_minute(pd.read_csv(source),'vnd');sessions=f.index.normalize().unique();missing_days=dates.difference(sessions)
+            raw_history=pd.read_csv(source)
+            full_times=pd.to_datetime(raw_history.time).dt.tz_convert(VN).dt.tz_localize(None).dt.normalize()
+            full_closes=raw_history.groupby(full_times,sort=True).close.last()
+            f=normalize_minute(raw_history,'vnd');sessions=f.index.normalize().unique();missing_days=dates.difference(sessions)
             if len(sessions)<5:raise RuntimeError(f'{sym}: insufficient actual minute history')
-            observations=f.groupby(f.index.normalize()).close.last();ratios=observations/prices[sym].close.reindex(observations.index)
+            observations=full_closes;ratios=observations/prices[sym].close.reindex(observations.index)
             if ratios.isna().any() or ((ratios<.92)|(ratios>1.08)).any():raise RuntimeError(f'{sym}: minute vs daily price mismatch')
             counts=f.groupby(f.index.normalize()).size().reindex(dates,fill_value=0)
             coverage[sym]={'bars':len(f),'sessions':len(sessions),'missing_continuous_sessions':[str(x.date()) for x in missing_days],'absent_standard_continuous_minutes':int((225-counts).clip(lower=0).sum()),'sha256':audit['symbols'][sym]['sha256']}
@@ -63,7 +81,7 @@ def build(daily_only=False,refresh_benchmark=False):
         minute_results,minute_audit=build_hybrid_backtests(ctx,frames,settings)
         minute_payload={k:summary_backtest(v) for k,v in minute_results.items()}
         if len(minute_payload)!=11:raise RuntimeError('Incomplete bot results')
-        minute_audit.update(status='verified_1m_146',source=meta['source_minute'],coverage_by_symbol=coverage,full_universe=True,requested_symbols=146,price_validation='Prior EOD adjustment/unit consistency checked within 8%; no interpolation',caveat='146-stock ex-post continuity universe; continuous-session observed candles only; gaps remain, next observed bar fills only within 3 minutes; no same-day sale; not actual broker executions.')
+        minute_audit.update(status='verified_1m_146',source=meta['source_minute'],coverage_by_symbol=coverage,full_universe=True,requested_symbols=146,price_validation='Full observed session last price (including auction where provided) vs actual EOD checked within 8% for units/adjustments; trading uses continuous bars only; no interpolation',caveat='146-stock ex-post continuity universe; continuous-session observed candles only; gaps remain, next observed bar fills only within 3 minutes; no same-day sale; not actual broker executions.')
         for bot,r in minute_results.items():
             r['trades'].to_csv(ROOT/'data/minute_history'/f'trades-{bot}.csv',index=False)
             r['curve'].to_csv(ROOT/'data/minute_history'/f'curve-{bot}.csv')

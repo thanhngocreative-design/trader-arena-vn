@@ -289,11 +289,6 @@ function graph(svg,series,showIndex){
   svg.innerHTML='<path class="gridline" d="M10 25 H350 M10 86 H350 M10 145 H350"></path>'+(showIndex?'<path class="index" d="'+path(b)+'"></path>':'')+'<path class="series" d="'+path(a)+'"></path>';
 }
 function renderHome(){
-  let comparisonBox=document.getElementById('portfolioComparison');
-  if(!comparisonBox){comparisonBox=document.createElement('div');comparisonBox.id='portfolioComparison';document.getElementById('backtestTimePicker').after(comparisonBox);}
-  const cmp=DATA.portfolio_comparison?.[period];
-  comparisonBox.innerHTML=mode==='backtest'&&cmp?`<div class="card"><h3>4 mã vs linh hoạt + ATR</h3><p>Rủi ro dự kiến 0,75% NAV/lệnh, khoảng cách 2,5 ATR. Cùng dữ liệu Daily và chi phí. Các giới hạn là giả định nghiên cứu.</p>${Object.entries(cmp).map(([k,v])=>`<div style="padding:12px 0;border-bottom:1px solid #ddd"><strong>${safe(k)} · tối đa ${v.max_positions} mã</strong><p>4 mã: ${pct(v.baseline.return_pct)} · DD ${pct(v.baseline.max_drawdown_pct)} · ${v.baseline.buy_count+v.baseline.closed_trades} lệnh</p><p>ATR: ${pct(v.flexible.return_pct)} · DD ${pct(v.flexible.max_drawdown_pct)} · ${v.flexible.buy_count+v.flexible.closed_trades} lệnh</p></div>`).join('')}</div>`:'';
-
   $('backtestTimePicker').style.display=mode==='backtest'?'block':'none';
   const meta=DATA.research_meta;
   let researchNote=document.getElementById('research146Note');
@@ -313,7 +308,7 @@ function renderHome(){
   $('totalLabel').textContent=mode==='paper'?('Tổng tiền ảo của '+included.length+' bot đang theo dõi'):(mode==='hybrid'?'Thử nghiệm Daily + 1m · '+included.length+' bot':'Backtest Daily · 146 mã · '+included.length+' bot');
   $('arenaIntro').textContent=mode==='hybrid'?'Backtest 146 mã trên nến 1 phút thật; lệnh khớp từ nến kế tiếp, có phí/T+ và giới hạn thanh khoản.':IDS.length+' bot từ Mỹ, Nhật, châu Âu và Việt Nam + Arena Hybrid. Mỗi bot bắt đầu với 100 triệu đồng tiền ảo.';
   const audit=DATA.universe_audit;
-  $('universeNotice').textContent=audit
+  $('universeNotice').textContent=mode==='paper'&&DATA.research_meta?'📊 Lịch sử paper giữ nguyên; nhóm backtest mới gồm 146 mã liên tục đủ 3 năm.':audit
       ?'📊 Đã xác minh '+audit.tradable_history_count+'/'+audit.candidate_count+' mã ứng viên có dữ liệu phù hợp · Lọc thanh khoản tại từng phiên. Vẫn có sai lệch chọn mẫu lịch sử.'
       : '📊 Vũ trụ cổ phiếu được xác nhận sau khi kết nối dữ liệu.';
   const total=included.reduce((sum,k)=>sum+nav(k),0),capital=n(DATA.capital_each)*included.length,change=capital?(total/capital-1)*100:0;
@@ -450,6 +445,7 @@ async function boot(){
   if(demo){return;}
   else{const latest=new Date(DATA.last_session+'T23:59:59+07:00');const days=Math.max(0,Math.floor((Date.now()-latest.getTime())/86400000));const delayed=days>=4;note.className=delayed?'notice demo':'notice';note.textContent=(delayed?'⚠️ DỮ LIỆU CÓ THỂ ĐÃ CŨ: ':'📡 ĐÃ CÓ DỮ LIỆU THỊ TRƯỜNG: ')+'chốt đến phiên '+DATA.last_session+'. Lệnh và tài khoản vẫn là GIẢ LẬP, không kết nối broker.';}
   if(!demo){try{const response=await fetch('./hybrid-coverage.json?cache='+Date.now(),{cache:'no-store'});if(response.ok){const c=await response.json();if(Number.isInteger(c?.session_count)&&c.session_count>=0&&c.required_sessions===5)hybridBankProgress=c;}}catch(_){/* no published banking counters yet */}}
+  if(new URLSearchParams(location.search).get('mode')==='minute'&&Object.keys(DATA.hybrid_backtests||{}).length){mode='hybrid';document.querySelectorAll('.switch button').forEach(x=>x.classList.toggle('active',x.id==='modeHybrid'));}
   render();
   initializeLive();
 }
