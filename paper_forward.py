@@ -15,7 +15,8 @@ from engine import Settings, TRADERS, make_features, stop_signal
 from execution import modeled_slippage, pass_cost_gate
 
 DEFAULT_STATE = Path(__file__).resolve().parent / 'state' / 'paper_state.json'
-RULES_REVISION = 3
+RULES_REVISION = 4
+from portfolio import for_bot, allocation as position_budget
 
 
 def _now():
@@ -130,7 +131,7 @@ def _execute(bot, date, index_pos, rows, settings):
             held_row=rows.get(held)
             held_px=float(held_row['open']) if held_row is not None and pd.notna(held_row['open']) else p['entry_price']
             gross_nav+=held_px*p['qty']
-        allocation=min(bot['cash'],gross_nav/settings.max_positions)
+        allocation=position_budget(settings,bot['cash'],gross_nav,price,o.get('atr14',float('nan')))
         max_qty_by_liquidity=int(o['vol20_prev']*settings.max_daily_participation)
         max_qty_by_budget=int(allocation/(price*(1+settings.fee_rate)))
         qty=(min(max_qty_by_liquidity,max_qty_by_budget)//settings.lot)*settings.lot
@@ -191,6 +192,7 @@ def update_paper(prices, benchmark, state_path=DEFAULT_STATE, settings=None,
         if today != last:
             raise ValueError('State có ngày phiên mới hơn dữ liệu; không thể nâng cấp an toàn')
         for key in TRADERS:
+            settings=for_bot(settings,key)
             bot=state['bots'][key]
             # On rule migration, discard yesterday's pending signals; do not
             # retroactively create fills or delete any historical transactions.
@@ -219,6 +221,7 @@ def update_paper(prices, benchmark, state_path=DEFAULT_STATE, settings=None,
         if missed>0:
             state['warnings'].append(f'Bỏ lỡ {missed} phiên giữa {last} và {today}; không tự tạo giao dịch cho các phiên đó.')
     for key in TRADERS:
+        settings=for_bot(settings,key)
         bot=state['bots'][key]
         if last is None or missed>0 or migrated or key in added or key not in active_ids:
             # Do NOT backdate orders. Disabled bots neither trade nor queue new orders.
@@ -229,7 +232,7 @@ def update_paper(prices, benchmark, state_path=DEFAULT_STATE, settings=None,
         summary=_summary(bot,session,rows,settings)
         bot['latest']=summary
         bot['history'].append({k:summary[k] for k in ('date','nav','cash','return_pct')})
-        bot['history']=bot['history'][-800:]
+        # Keep the complete forward ledger; never truncate baseline history.
     state['last_session']=today
     state['rules_revision']=RULES_REVISION
     state['cloud_enabled']={key: key in active_ids for key in TRADERS}

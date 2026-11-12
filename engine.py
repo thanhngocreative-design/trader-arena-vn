@@ -94,6 +94,9 @@ class Settings:
     sell_tax: float = 0.001              # 0.1% on gross selling value
     slippage: float = 0.0015             # conservative base per side, not a waived fee
     max_positions: int = 4
+    portfolio_policy: str = 'baseline'
+    risk_fraction: float = .0075
+    atr_multiple: float = 2.5
     lot: int = 100
     min_average_value: float = 3_000_000_000  # liquidity gate, point-in-time
     cooldown_sessions: int = 7           # wait after sale to avoid fee churn
@@ -290,6 +293,8 @@ def backtest(prices: Dict[str, pd.DataFrame], benchmark: pd.DataFrame,
         raise ValueError("Trader không được hỗ trợ")
     if not prices or benchmark is None or benchmark.empty:
         raise ValueError("Cần dữ liệu giá cổ phiếu và VN-Index")
+    from portfolio import for_bot, allocation as position_budget
+    settings = for_bot(settings, trader)
     if not (settings.max_positions > 0 and settings.lot > 0 and settings.initial_cash > 0):
         raise ValueError("Cài đặt vốn hoặc số lượng vị thế không hợp lệ")
 
@@ -378,7 +383,7 @@ def backtest(prices: Dict[str, pd.DataFrame], benchmark: pd.DataFrame,
             nav_open = cash + sum(
                 p["qty"] * float(today_rows[z]["open"] if z in today_rows and pd.notna(today_rows[z]["open"]) else p["price"])
                 for z, p in positions.items())
-            allocation = min(cash, nav_open / settings.max_positions)
+            allocation = position_budget(settings, cash, nav_open, buy_price, row_y["atr14"])
             max_shares = int(float(row_y["vol20_prev"]) * settings.max_daily_participation)
             max_by_budget = int(allocation / (buy_price * (1 + settings.fee_rate)))
             qty = min(max_shares, max_by_budget)

@@ -88,6 +88,8 @@ def _minute_enter(bot:str,now,prior,day_bar_index:int) -> bool:
 def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
               first:int, last:int, settings:Settings):
     cash=float(settings.initial_cash)
+    from portfolio import for_bot, allocation as position_budget
+    settings=for_bot(settings,bot)
     positions:dict[int,dict]={}
     closed_at:dict[int,int]={}
     trades=[]
@@ -231,7 +233,7 @@ def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
             current_nav=cash+sum(
                 h["qty"]*float(a["close"][k,prev]) if prev>=0 and np.isfinite(a["close"][k,prev])
                 else h["qty"]*h["price"] for k,h in positions.items())
-            budget=min(cash,current_nav/max(1,settings.max_positions))
+            budget=position_budget(settings,cash,current_nav,float(row["close"]),daily_prev.get("atr14",float("nan")))
             if not pass_cost_gate(settings,daily_prev,budget):
                 continue
             prev_volume=float(a["vol20_prev"][i,prev])

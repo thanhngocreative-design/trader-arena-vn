@@ -13,6 +13,8 @@ import argparse
 import pandas as pd
 from datafeed import update_prices, load_prices, parse_symbols, DEFAULT_TICKERS, MIN_USABLE
 from engine import TRADERS, Settings, backtest
+from dataclasses import replace
+from portfolio import LIMITS, for_bot
 from fast_engine import FastContext, CORE, build_hybrid_signals
 from paper_forward import update_paper
 from intraday_data import load_minute
@@ -144,6 +146,20 @@ def build(symbols, history_start, out_path):
             for k in TRADERS
         }
     results=by_period['ALL']
+    flexible=replace(settings,portfolio_policy='atr_v1')
+    flex_context=FastContext(prices,benchmark,flexible)
+    flex_reference={k:backtest(prices,benchmark,k,start_date=str(training_start.date()),
+                              settings=flexible,features_cache=flex_context) for k in CORE}
+    build_hybrid_signals(flex_context,{k:v['curve'] for k,v in flex_reference.items()})
+    comparison={}
+    for period,start in periods.items():
+        comparison[period]={}
+        for k in TRADERS:
+            r=summary_backtest(backtest(prices,benchmark,k,start_date=str(start.date()),
+                                       settings=flexible,features_cache=flex_context))
+            comparison[period][k]={'baseline':by_period[period][k], 'flexible':r,
+                                   'max_positions':LIMITS[k]}
+
     # A missing real minute feed never silently falls back to Daily candles.
     minute_frames,minute_errors=load_minute(accepted,daily=prices)
     minute_results,minute_audit=build_hybrid_backtests(context,minute_frames,settings)
@@ -166,13 +182,13 @@ def build(symbols, history_start, out_path):
     last_idx=len(context.dates)-1
     prepared_rows={
         symbol:pd.Series({
-            **{k:float(context.a[k][i,last_idx]) for k in context.a},
-            **{f'buy_{name}':bool(context.buy[name][i,last_idx]) for name in TRADERS},
+            **{k:float(flex_context.a[k][i,last_idx]) for k in context.a},
+            **{f'buy_{name}':bool(flex_context.buy[name][i,last_idx]) for name in TRADERS},
         })
         for i,symbol in enumerate(context.symbols)
     }
     paper_state, changed=update_paper(
-        prices,benchmark,settings=settings,active_ids=active_ids,prepared_rows=prepared_rows)
+        prices,benchmark,settings=flexible,active_ids=active_ids,prepared_rows=prepared_rows)
     # Keep huge chart datasets out of the dashboard's initial network request.
     outdir=Path(out_path).parent/'stocks'
     outdir.mkdir(parents=True,exist_ok=True)
@@ -211,6 +227,8 @@ def build(symbols, history_start, out_path):
          'market':{'index':'VN-Index','level':round(now_index/1000,2),
                    'return_since_backtest_start':round((now_index/base_index-1)*100,2)},
          'traders':TRADERS,'backtests':results,
+         'portfolio_comparison':comparison,
+         'portfolio_policy':{'revision':'atr_v1','limits':LIMITS,'risk_fraction':flexible.risk_fraction,'atr_multiple':flexible.atr_multiple,'note':'Research assumptions; ATR risk is a sizing proxy, not a guaranteed loss cap. Baseline snapshots: baseline-v1/.'},
           'hybrid_backtests':minute_payload,
           'hybrid_backtest_audit':minute_audit,
          'backtest_periods':by_period,

@@ -290,6 +290,11 @@ function graph(svg,series,showIndex){
   svg.innerHTML='<path class="gridline" d="M10 25 H350 M10 86 H350 M10 145 H350"></path>'+(showIndex?'<path class="index" d="'+path(b)+'"></path>':'')+'<path class="series" d="'+path(a)+'"></path>';
 }
 function renderHome(){
+  let comparisonBox=document.getElementById('portfolioComparison');
+  if(!comparisonBox){comparisonBox=document.createElement('div');comparisonBox.id='portfolioComparison';document.getElementById('backtestTimePicker').after(comparisonBox);}
+  const cmp=DATA.portfolio_comparison?.[period];
+  comparisonBox.innerHTML=mode==='backtest'&&cmp?`<div class="card"><h3>4 mã vs linh hoạt + ATR</h3><p>Rủi ro dự kiến 0,75% NAV/lệnh, khoảng cách 2,5 ATR. Cùng dữ liệu Daily và chi phí. Các giới hạn là giả định nghiên cứu.</p>${Object.entries(cmp).map(([k,v])=>`<div style="padding:12px 0;border-bottom:1px solid #ddd"><strong>${safe(k)} · tối đa ${v.max_positions} mã</strong><p>4 mã: ${pct(v.baseline.return_pct)} · DD ${pct(v.baseline.max_drawdown_pct)} · ${v.baseline.buy_count+v.baseline.closed_trades} lệnh</p><p>ATR: ${pct(v.flexible.return_pct)} · DD ${pct(v.flexible.max_drawdown_pct)} · ${v.flexible.buy_count+v.flexible.closed_trades} lệnh</p></div>`).join('')}<p><a href="baseline-v1/dashboard.json">Backtest cũ</a> · <a href="baseline-v1/paper_state.json">Lịch sử paper gốc</a></p></div>`:'';
+
   $('backtestTimePicker').style.display=mode==='backtest'?'block':'none';
   const opt=DATA.backtest_options?.find(x=>x.key===period);
   $('modePill').textContent=mode==='paper'?'Ghi nối tiếp từng phiên':mode==='hybrid'?'Daily + 1 phút · Thử nghiệm':(opt?.label||'Từ 2023');

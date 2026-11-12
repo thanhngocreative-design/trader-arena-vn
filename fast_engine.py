@@ -67,7 +67,8 @@ class FastContext:
 
 def run_backtest(context: FastContext, trader: str, start_date: str,
                  end_date: str | None=None, settings: Settings | None=None) -> dict:
-    st=settings or context.settings
+    from portfolio import for_bot, allocation as position_budget
+    st=for_bot(settings or context.settings, trader)
     if trader not in TRADERS:
         raise ValueError("Trader không được hỗ trợ")
     dates=context.dates
@@ -125,7 +126,7 @@ def run_backtest(context: FastContext, trader: str, start_date: str,
                 current_nav=cash+sum(p["qty"]*(
                     float(a["open"][j,t]) if np.isfinite(a["open"][j,t]) else p["price"])
                     for j,p in positions.items())
-                allocation=min(cash,current_nav/st.max_positions)
+                allocation=position_budget(st,cash,current_nav,float(opening),a["atr14"][i,prev])
                 prev_row=context.stop_row(i,prev)
                 if not pass_cost_gate(st,prev_row,allocation):continue
                 adv=a["value20_prev"][i,prev]
