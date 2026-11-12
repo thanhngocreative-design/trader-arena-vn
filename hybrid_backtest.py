@@ -122,37 +122,29 @@ def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
                 yes,reason=stop_signal(bot,context.stop_row(i,prev),p)
                 if yes:p["exit_pending"]=reason
 
-        for sym,rows in sorted(day_rows.items()):
+        # One shared chronological tape for all symbols: no symbol is allowed
+        # to consume cash based on a later minute before another symbol's
+        # earlier-minute signal has been evaluated.
+        rows_by_sym={sym:rows.reset_index().to_dict("records") for sym,rows in day_rows.items()}
+        events=sorted((bars[j]["time"],sym,j)
+                      for sym,bars in rows_by_sym.items() for j in range(len(bars)))
+        pending={}  # sym -> fill request made strictly at a prior observed minute
+        for ts,sym,j in events:
+            values=rows_by_sym[sym]
+            row=values[j]
             i=inv[sym]
-            prev_row=context.stop_row(i,prev) if prev>=0 else {}
-            # Do not use same-day bars to pass the liquidity/cost filters.
-            daily_ok=prev>=0 and _eligible_daily(context,bot,i,prev)
-            cost_ok=daily_ok and pass_cost_gate(settings,prev_row,
-                        max(0,cash)/max(1,settings.max_positions))
-            values=rows.reset_index().to_dict("records")
-            # Each symbol is processed in time order. Daily allocation rules
-            # use already recorded portfolio state only. Next bar is used
-            # for EXECUTION, not for signal computation.
-            for j in range(len(values)-1):
-                row,nxt=values[j],values[j+1]
-                ts,nxt_ts=row["time"],nxt["time"]
-                if nxt_ts-ts>MINUTE_MAX_GAP or int(row["volume"])<=0:
-                    continue
-                p=positions.get(i)
-                if p is not None:
-                    can_exit=t-int(p["buy_index"])>=max(3,settings.minimum_hold_sessions)
-                    if can_exit:
-                        if not p.get("exit_pending"):
-                            entry=float(p["price"])
-                            stop={"BNF":.94,"CIS":.94,"Darvas":.88}.get(bot,.93)
-                            trigger=float(row["close"]) < max(entry*stop,
-                                                float(p["high_water"])*.88 if bot=="Darvas" else 0)
-                            if trigger:p["exit_pending"]="Phá stop sau nến phút đã đóng"
-                        if p.get("exit_pending"):
-                            qty_cap=(int(row["volume"]*MINUTE_VOLUME_PARTICIPATION)//settings.lot)*settings.lot
-                            qty=min(p["qty"],qty_cap)
-                            if qty < settings.lot:continue
-                            px0=float(nxt["open"])
+            daily_prev=context.stop_row(i,prev) if prev>=0 else {}
+            # First fill the request that was created at a prior completed
+            # minute (using this observed bar OPEN, not a future close/high).
+            req=pending.pop(sym,None)
+            if req and req["fill_at"]==ts:
+                px0=float(row["open"])
+                if req["side"]=="SELL":
+                    p=positions.get(i)
+                    if p and t-p["buy_index"]>=max(3,settings.minimum_hold_sessions):
+                        qty=min(p["qty"],req["max_qty"])
+                        qty=(qty//settings.lot)*settings.lot
+                        if qty>=settings.lot:
                             adv=float(a["value20_prev"][i,prev])
                             slip=modeled_slippage(settings,adv,qty*px0)
                             price=px0*(1-slip)
@@ -162,54 +154,94 @@ def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
                             portion=p["buy_cost"]*qty/p["qty"]
                             cash+=gross-fee-tax
                             pnl=gross-fee-tax-portion
-                            trades.append({"date":day.isoformat(),"time":nxt_ts.isoformat(),
-                                "signal_time":ts.isoformat(),"trader":bot,"symbol":sym,
-                                "side":"BÁN","qty":qty,"price":round(price),
+                            trades.append({"date":day.isoformat(),"time":ts.isoformat(),
+                                "signal_time":req["signal_time"].isoformat(),"trader":bot,
+                                "symbol":sym,"side":"BÁN","qty":qty,"price":round(price),
                                 "gross":round(gross),"fees":round(fee),"tax":round(tax),
                                 "pnl":round(pnl),"slippage_rate":round(slip,6),
-                                "reason":p["exit_pending"],"buy_date":p["date"].date().isoformat()})
+                                "reason":req["reason"],"buy_date":p["date"].date().isoformat()})
                             p["qty"]-=qty
                             p["buy_cost"]-=portion
                             if p["qty"]<=0:
                                 del positions[i]
                                 closed_at[i]=t
+                elif req["side"]=="BUY" and i not in positions:
+                    if len(positions)<settings.max_positions and (
+                        i not in closed_at or t-closed_at[i]>=settings.cooldown_sessions
+                    ):
+                        budget=min(cash,req["allocation"])
+                        adv=float(a["value20_prev"][i,prev])
+                        slip=modeled_slippage(settings,adv,budget)
+                        projected=px0*(1+slip)
+                        qty_budget=(int(budget/(projected*(1+settings.fee_rate)))//settings.lot)*settings.lot
+                        qty=min(req["max_qty"],qty_budget)
+                        if qty>=settings.lot:
+                            slip=modeled_slippage(settings,adv,qty*px0)
+                            price=px0*(1+slip)
+                            cost=qty*price*(1+settings.fee_rate)
+                            if cost<=cash and cost<=budget*1.001:
+                                cash-=cost
+                                positions[i]={"qty":qty,"price":price,"buy_cost":cost,
+                                    "date":date,"buy_index":t,"high_water":price,
+                                    "exit_pending":""}
+                                trades.append({"date":day.isoformat(),"time":ts.isoformat(),
+                                    "signal_time":req["signal_time"].isoformat(),
+                                    "signal_date":context.dates[prev].date().isoformat(),
+                                    "trader":bot,"symbol":sym,"side":"MUA","qty":qty,
+                                    "price":round(price),"gross":round(qty*price),
+                                    "fees":round(cost-qty*price),"tax":0,"pnl":np.nan,
+                                    "slippage_rate":round(slip,6),
+                                    "reason":"Previous Daily screen + completed 1m signal; next-bar open fill"})
+            # Now evaluate current completed minute. The order can only fill
+            # on the next OBSERVED continuous bar, never this same minute.
+            if j==len(values)-1 or int(row["volume"])<=0:
+                continue
+            next_ts=values[j+1]["time"]
+            if next_ts-ts>MINUTE_MAX_GAP:
+                continue
+            max_minute=(int(row["volume"]*MINUTE_VOLUME_PARTICIPATION)//settings.lot)*settings.lot
+            if max_minute<settings.lot:
+                continue
+            p=positions.get(i)
+            if p is not None:
+                if t-p["buy_index"]<max(3,settings.minimum_hold_sessions):
                     continue
-
-                if not (daily_ok and cost_ok and len(positions)<settings.max_positions
-                    and (i not in closed_at or t-closed_at[i]>=settings.cooldown_sessions)):
-                    continue
-                if not _minute_enter(bot,row,None,j):
-                    continue
-                # Signal at completed t minute, fill at NEXT minute open.
-                current_nav=cash+sum(
-                    h["qty"]*float(a["close"][k,prev]) if prev>=0 and np.isfinite(a["close"][k,prev])
-                    else h["qty"]*h["price"] for k,h in positions.items())
-                budget=min(cash,current_nav/max(1,settings.max_positions))
-                adv=float(a["value20_prev"][i,prev])
-                prior_day_volume=float(a["vol20_prev"][i,prev])
-                if not np.isfinite(prior_day_volume) or not np.isfinite(adv):continue
-                px0=float(nxt["open"])
-                slip=modeled_slippage(settings,adv,budget)
-                projected=px0*(1+slip)
-                qty_cap=(int(row["volume"]*MINUTE_VOLUME_PARTICIPATION)//settings.lot)*settings.lot
-                day_cap=(int(prior_day_volume*settings.max_daily_participation)//settings.lot)*settings.lot
-                qty_budget=(int(budget/(projected*(1+settings.fee_rate)))//settings.lot)*settings.lot
-                qty=min(qty_cap,day_cap,qty_budget)
-                if qty<settings.lot:continue
-                slip=modeled_slippage(settings,adv,qty*px0)
-                price=px0*(1+slip)
-                cost=qty*price*(1+settings.fee_rate)
-                if cost>cash or cost>budget*1.001:continue
-                cash-=cost
-                positions[i]={"qty":qty,"price":price,"buy_cost":cost,
-                    "date":date,"buy_index":t,"high_water":price,"exit_pending":""}
-                trades.append({"date":day.isoformat(),"time":nxt_ts.isoformat(),
-                    "signal_time":ts.isoformat(),"signal_date":context.dates[prev].date().isoformat(),
-                    "trader":bot,"symbol":sym,"side":"MUA","qty":qty,
-                    "price":round(price),"gross":round(qty*price),
-                    "fees":round(cost-qty*price),"tax":0,"pnl":np.nan,
-                    "slippage_rate":round(slip,6),
-                    "reason":"Daily prior-session screen + confirmed minute signal (next minute fill)"})
+                if not p.get("exit_pending"):
+                    entry=float(p["price"])
+                    stop={"BNF":.94,"CIS":.94,"Darvas":.88}.get(bot,.93)
+                    trigger=float(row["close"]) < max(entry*stop,
+                                float(p["high_water"])*.88 if bot=="Darvas" else 0)
+                    if trigger:
+                        p["exit_pending"]="Stop phát sinh từ nến phút đã đóng"
+                p["high_water"]=max(float(p["high_water"]),float(row["high"]))
+                if p.get("exit_pending"):
+                    pending[sym]={"side":"SELL","max_qty":max_minute,"fill_at":next_ts,
+                                  "signal_time":ts,"reason":p["exit_pending"]}
+                continue
+            if len(positions)>=settings.max_positions or (
+                i in closed_at and t-closed_at[i]<settings.cooldown_sessions
+            ):
+                continue
+            if not _eligible_daily(context,bot,i,prev):
+                continue
+            if not _minute_enter(bot,row,None,j):
+                continue
+            # Budget uses yesterday's observable closes for holdings; today's
+            # future EOD prices are never visible to this calculation.
+            current_nav=cash+sum(
+                h["qty"]*float(a["close"][k,prev]) if prev>=0 and np.isfinite(a["close"][k,prev])
+                else h["qty"]*h["price"] for k,h in positions.items())
+            budget=min(cash,current_nav/max(1,settings.max_positions))
+            if not pass_cost_gate(settings,daily_prev,budget):
+                continue
+            prev_volume=float(a["vol20_prev"][i,prev])
+            if not np.isfinite(prev_volume):
+                continue
+            daily_cap=(int(prev_volume*settings.max_daily_participation)//settings.lot)*settings.lot
+            qty_cap=min(max_minute,daily_cap)
+            if qty_cap<settings.lot:continue
+            pending[sym]={"side":"BUY","max_qty":qty_cap,"allocation":budget,
+                          "fill_at":next_ts,"signal_time":ts}
         invested=0.
         for i,p in positions.items():
             # EOD marks do not generate same-day execution signals.
