@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 from engine import Settings
 from fast_engine import FastContext
-from intraday_data import normalize_minute,load_minute
+from intraday_data import normalize_minute,load_minute,tape_to_minute,bank_trade_tapes
 from hybrid_backtest import build_hybrid_backtests, _recent
 
 
@@ -128,3 +128,38 @@ def test_no_future_bar_used_for_intraday_signal():
     assert np.isnan(p.iloc[0]["high10_before"])
     assert p.iloc[20]["high10_before"]==pytest.approx(f.iloc[10:20]["high"].max())
     assert p.iloc[19]["vwap"]<=f.iloc[19]["high"]
+
+
+def test_true_trade_tape_aggregates_ohlc_without_auction_or_synthetic_interpolation():
+    session="2026-11-12"
+    tape={"symbol":"FPT","date":session,"trades":[
+      {"date":session,"time":"09:15:01","price":100000,"volume":200,"accumulated_volume":200},
+      {"date":session,"time":"09:15:55","price":100200,"volume":300,"accumulated_volume":500},
+      {"date":session,"time":"09:17:01","price":100100,"volume":100,"accumulated_volume":600},
+      {"date":session,"time":"14:45:00","price":100500,"volume":500,"accumulated_volume":1100},
+    ]}
+    bars=tape_to_minute(tape)
+    assert len(bars)==2 # missing 09:16 is NOT invented
+    assert bars.iloc[0]["open"]==100000
+    assert bars.iloc[0]["high"]==100200
+    assert bars.iloc[0]["close"]==100200
+    assert bars.iloc[0]["volume"]==500
+    with pytest.raises(ValueError,match="Missing/repeated"):
+        tape_to_minute({"date":session,"trades":[
+            tape["trades"][0],dict(tape["trades"][1],accumulated_volume=400)]})
+    with pytest.raises(ValueError,match="does not match"):
+        tape_to_minute(tape,required_session="2026-11-11")
+
+
+def test_banker_refuses_stale_tape_or_incomplete_last_print(monkeypatch):
+    from vn_market_data import get_trade_tape
+    session="2026-11-11"
+    tape={"symbol":"FPT","date":session,"trades":[
+       {"date":session,"time":"09:15:01","price":25000,"volume":100,
+        "accumulated_volume":100}]}
+    monkeypatch.setattr("vn_market_data.get_trade_tape",lambda s:("kbs",tape))
+    with TemporaryDirectory() as d:
+        info=bank_trade_tapes(["FPT"],Path(d),expected_session="2026-11-12")
+        assert info["success"]=={}
+        assert "not 2026-11-12" in info["skipped"]["FPT"]
+        assert not list(Path(d).glob("*.csv"))
