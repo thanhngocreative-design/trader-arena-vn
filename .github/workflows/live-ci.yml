@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - 'live/**'
+      - 'minute_arena.py'
+      - 'paper_intraday.py'
+      - 'run_minute_research.py'
       - 'tests/**'
       - 'engine.py'
       - 'bot_timeframes.py'

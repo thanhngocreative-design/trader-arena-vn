@@ -187,6 +187,8 @@ def build(symbols, history_start, out_path):
         })
         for i,symbol in enumerate(context.symbols)
     }
+    from paper_intraday import export_gates
+    export_gates(flex_context,last_idx)
     paper_state, changed=update_paper(
         prices,benchmark,settings=flexible,active_ids=active_ids,prepared_rows=prepared_rows)
     # Keep huge chart datasets out of the dashboard's initial network request.

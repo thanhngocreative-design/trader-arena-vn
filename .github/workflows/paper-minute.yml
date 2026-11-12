@@ -1,0 +1,63 @@
+name: Forward minute and daily-minute paper contest
+on:
+  workflow_dispatch:
+  schedule:
+    # 09:10 Vietnam weekdays; delayed starts never backfill paper orders.
+    - cron: '10 2 * * 1-5'
+  push:
+    branches: [main]
+    paths: ['paper_intraday.py', 'minute_arena.py', '.github/workflows/paper-minute.yml']
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: trader-arena-intraday-paper
+  cancel-in-progress: false
+jobs:
+  forward-paper:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install pandas numpy httpx
+      - name: Run forward-only paper and persist separate ledgers
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          # Commit each ~4 minute window, so paper survives a runner restart.
+          # Daily updater never writes these separate files. Refuse conflicts.
+          python - <<'PY'
+          import os, subprocess, time
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          limit=time.monotonic()+340*60
+          while True:
+              now=datetime.now(ZoneInfo('Asia/Ho_Chi_Minh'))
+              active=now.weekday()<5 and '09:10'<=now.strftime('%H:%M')<'14:35'
+              duration='4' if active else '0'
+              subprocess.run(['python','-u','paper_intraday.py','--minutes',duration],check=True)
+              subprocess.run(['git','add','state/paper_intraday.json','site/paper-intraday.json'],check=True)
+              if subprocess.run(['git','diff','--cached','--quiet']).returncode:
+                  subprocess.run(['git','commit','-m','Persist forward minute paper observations [skip ci]'],check=True)
+                  subprocess.run(['git','fetch','origin','main'],check=True)
+                  subprocess.run(['git','rebase','origin/main'],check=True)
+                  subprocess.run(['git','push','origin','HEAD:main'],check=True)
+              if not active or time.monotonic()>=limit:break
+          PY
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+      - uses: actions/deploy-pages@v4
+        id: deploy

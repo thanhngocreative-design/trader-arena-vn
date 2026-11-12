@@ -3,14 +3,19 @@ from engine import TRADERS
 
 def timeframe_manifest():
     result={}
-    for mode in ('paper','backtest','hybrid'):
+    for mode in ('paper','paper_minute','paper_combo','backtest','backtest_minute','hybrid'):
         bots={}
         for bot in TRADERS:
-            if mode!='hybrid':
+            if mode in ('paper_minute','backtest_minute'):
+                info={'category':'minute_only','label':'Chỉ nến phút','priority':'phút','detail':'Tín hiệu thử nghiệm chỉ từ OHLCV phút đã đóng; ATR phút, lệnh ở nến tương lai, phí/T+ và giới hạn thanh khoản. Hybrid dùng đồng thuận tín hiệu phút.'}
+            elif mode not in ('hybrid','paper_combo'):
                 detail='Tín hiệu từ nến ngày đã đóng; mô phỏng khớp ở giá mở cửa phiên tiếp theo. Không dùng nến phút.'
                 info={'category':'daily_only','label':'Chỉ nến ngày','priority':'ngày','detail':detail}
             else:
-                if bot=='BNF':
+                if mode=='paper_combo':
+                    detail='Bộ lọc ngày đã đóng chọn mã; nến phút xác nhận tín hiệu, quản trị ATR phút và xét thoát. Hybrid dùng nhóm tín hiệu ngày đã lưu.'
+                    priority='lọc ngày, khớp phút'
+                elif bot=='BNF':
                     detail='Ưu tiên nhịp hồi trên nến 1 phút; vẫn lọc SMA25, RSI và thanh khoản từ ngày hôm trước.'
                     priority='phút'
                 elif bot=='CIS':

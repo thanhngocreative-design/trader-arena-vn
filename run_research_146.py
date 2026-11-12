@@ -90,6 +90,14 @@ def build(daily_only=False,refresh_benchmark=False):
     snapshot={'backtests':by_period['ALL'],'backtest_periods':by_period,'backtest_options':[{'key':k,'label':labels[k],'start':str(v.date()),'end':u['end']} for k,v in periods.items()],'portfolio_comparison':{},'portfolio_policy':{'revision':'atr_v1','risk_fraction':settings.risk_fraction,'atr_multiple':settings.atr_multiple},'hybrid_backtests':minute_payload,'hybrid_backtest_audit':minute_audit,'hybrid_model':hybrid_info,'universe':symbols,'universe_audit':{'candidate_count':u['original_symbols'],'tradable_history_count':146,'excluded_count':len(u['excluded_symbols']),'universe_asof':u['end'],'note':meta['universe_selection'],'skipped_examples':{s:'Thiếu phiên/ngày giao dịch trong cửa sổ 3 năm' for s in u['excluded_symbols']}},'start_date':u['start'],'research_meta':meta}
     from bot_timeframes import timeframe_manifest
     snapshot['bot_timeframes']=timeframe_manifest()
+    # These are a distinct minute-only engine. A daily/combo rerun must not
+    # erase its verified results or substitute combo returns under that tab.
+    prior_path=ROOT/'site/research-146.json'
+    if prior_path.exists():
+        prior=json.loads(prior_path.read_text(encoding='utf8'))
+        if prior.get('universe')==symbols and prior.get('research_meta',{}).get('start')==u['start'] and prior.get('research_meta',{}).get('end')==u['end']:
+            for key in ('minute_backtests','minute_backtest_audit'):
+                if key in prior: snapshot[key]=prior[key]
     dest=ROOT/'site/research-146.json';temp=dest.with_suffix('.tmp');temp.write_text(json.dumps(snapshot,ensure_ascii=False,allow_nan=False,separators=(',',':')),encoding='utf8');temp.replace(dest)
     payload=apply_research_snapshot(existing,dest)
     payload['warnings']=[w for w in payload.get('warnings',[]) if '167' not in w and '126' not in w]+['146 mã được chọn sau khi đã biết dữ liệu liên tục đủ 3 năm: kết quả có sai lệch chọn mẫu.','Backtest mới thay thế toàn bộ kết quả cũ; paper-forward được giữ nguyên.']

@@ -8,6 +8,7 @@ on:
       - site/dashboard.json
       - site/research-146.json
       - site/live-config.json
+      - site/paper-intraday.json
       - .github/workflows/pages-ui.yml
 permissions:
   contents: read
@@ -49,11 +50,10 @@ jobs:
               assert len(set(value['universe']))==146
               assert len(value['backtests'])==11
               assert value['portfolio_comparison']=={}
-              for mode in ('paper','backtest','hybrid'):
+              for mode in ('paper','paper_minute','paper_combo','backtest','backtest_minute','hybrid'):
                   frames=value['bot_timeframes'][mode]
                   assert set(frames['bots'])==set(value['backtests'])
-                  assert frames['counts']['minute_only']==0
-                  expected='daily_and_minute' if mode=='hybrid' else 'daily_only'
+                  expected='minute_only' if mode in ('paper_minute','backtest_minute') else 'daily_and_minute' if mode in ('hybrid','paper_combo') else 'daily_only'
                   assert frames['counts'][expected]==11
                   assert all(b['category']==expected for b in frames['bots'].values())
               audit=value['hybrid_backtest_audit']
@@ -61,6 +61,12 @@ jobs:
                   assert audit['symbols']==146
                   assert len(value['hybrid_backtests'])==11
                   assert set(audit['coverage_by_symbol'])==set(value['universe'])
+          assert len(data['minute_backtests'])==11
+          assert data['minute_backtest_audit']['symbols']==146
+          assert data['minute_backtests']==snapshot['minute_backtests']
+          paper=json.loads(Path('site/paper-intraday.json').read_text())
+          for mode in ('paper_minute','paper_combo'):
+              assert len(paper[mode])==11
           assert data['backtests']==snapshot['backtests']
           assert data['hybrid_backtests']==snapshot['hybrid_backtests']
           assert not Path('site/baseline-v1/dashboard.json').exists()

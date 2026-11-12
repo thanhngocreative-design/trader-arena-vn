@@ -3,8 +3,28 @@
 Bảng xếp hạng **11 bot giao dịch chứng khoán Việt Nam bằng tiền ảo**: 10 mô hình lấy cảm hứng từ trader và 1 mô hình Arena Hybrid. **Không đặt lệnh thật, không đọc thông tin tài khoản chứng khoán.**
 
 - 📱 **Dashboard iPhone**: https://thanhngocreative-design.github.io/trader-arena-vn/
-- 📅 **Paper EOD**: tự cập nhật sau phiên vào ngày giao dịch, có backtest 5 khoảng thời gian, 167 mã ứng viên, phí và quản trị rủi ro.
-- 📡 **Paper intraday** (chỉ khi Cloud và DNSE kết nối): theo dõi giá chào mua/bán WebSocket G1, giả lập khớp **sau thời điểm lệnh được tạo** với kiểm tra độ mới và thanh khoản. Đây là một tài khoản thi đấu khác, không gộp vào EOD.
+Dashboard có **6 tab và 11 bot trong mỗi tab**:
+
+| Tab | Dữ liệu và sổ giao dịch |
+| --- | --- |
+| Paper phút | Sổ mới `state/paper_intraday.json`, tín hiệu và ATR chỉ từ phút mới thực nhận. |
+| Paper ngày | Giữ nguyên sổ `state/paper_state.json`; xử lý lệnh ngày đã ghi trước phiên. |
+| Paper kết hợp ngày + phút | Sổ mới riêng; bộ lọc ngày đã đóng + xác nhận, ATR và thoát theo phút. |
+| Backtest phút | 146 mã, 747 phiên, Vietcap 1 phút thật; không dùng bộ lọc/ATR ngày. |
+| Backtest ngày | Kết quả nghiên cứu 146 mã đã xác minh; 5 khoảng thời gian. |
+| Backtest kết hợp ngày + phút | Kết quả 146 mã: bộ lọc và stop ngày + xác nhận/khớp theo phút. |
+
+Ba backtest là ba mô hình khác nhau, không đổi tên cùng một kết quả. Các chiến thuật là mô hình nghiên cứu lấy cảm hứng từ trader, không phải chiến thuật riêng được xác thực. **Hybrid thuần phút là đồng thuận tín hiệu phút**, còn Hybrid ngày/kết hợp dùng bộ chọn ngày theo quá khứ. Biến thể paper kết hợp quản trị ATR/thoát phút; giả định này khác stop ngày của backtest kết hợp, được ghi trên dashboard.
+
+**Tự động paper phút**: `.github/workflows/paper-minute.yml` khởi động 09:10 giờ Việt Nam các ngày trong tuần, quan sát đến khoảng 14:35, nghỉ ngoài khung liên tục chung 09:15–11:29 và 13:00–14:29. GitHub có thể khởi động trễ. Worker lấy Vietcap công khai (không dùng tài khoản broker), giới hạn tốc độ, lưu sổ và bản công khai mỗi khoảng 5 phút. Dashboard đọc sổ công khai mới mỗi phút. Đây là mô phỏng theo nến, không phải báo giá bid/ask realtime hoặc cam kết khớp thật.
+
+Không phát sinh lệnh từ nến trước thời điểm khởi tạo hoặc nến nhận muộn hơn 75 giây sau đóng. Lệnh phải được lưu trước nến tương lai dùng để khớp; bỏ khoảng thiếu trên 3 phút, không chạy bù lúc mất kết nối. Chỉ dùng khối lượng nến tín hiệu để giới hạn 5% tham gia, có phí/thuế/trượt giá, lô 100, tối thiểu giữ 5 phiên và cooldown 7 phiên. **Trade theo phút không có nghĩa được bán T+0.** Hai paper mới có thể hợp lệ ở trạng thái chưa giao dịch, nhất là khi khởi tạo sau giờ đóng cửa.
+
+Nguồn backtest là lịch sử Vietcap thật đã kiểm tra hash và độ phủ. Không nội suy nến thiếu. 146 mã được chọn sau khi biết có dữ liệu ngày liên tục đủ ba năm, nên có sai lệch chọn mẫu. Nến phút không khẳng định cổ phiếu có giao dịch ở mọi phút. Đầu vào gốc không được commit lên repo; chỉ công bố kết quả mô phỏng và thông tin độ phủ.
+
+Chạy lại nghiên cứu thuần phút từ cache đã xác minh: `python run_minute_research.py`. Kiểm tra/khởi tạo paper tại thời điểm chạy: `python paper_intraday.py`; chạy trong phiên: `python paper_intraday.py --minutes 4`. Chạy này không bao giờ biến lịch sử backtest thành paper.
+
+Nguồn DNSE bid/ask bên dưới là một thành phần tùy chọn riêng, chưa được cấu hình; không phải điều kiện để hai sổ paper theo nến Vietcap hoạt động.
 
 ## Bật server intraday trên Render (1 bước tạo cloud, sau đó cấp quyền dữ liệu)
 

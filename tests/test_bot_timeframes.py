@@ -8,8 +8,11 @@ def test_timeframe_categories_follow_the_active_engine_mode():
     for mode,description in frames.items():
         assert set(description['bots'])==set(TRADERS)
         assert sum(description['counts'].values())==11
-        assert description['counts']['minute_only']==0
-        if mode=='hybrid':
+        if mode in ('paper_minute','backtest_minute'):
+            assert description['counts']['minute_only']==11
+        elif mode=='paper_combo':
+            assert description['counts']['daily_and_minute']==11
+        elif mode=='hybrid':
             assert description['counts']['daily_and_minute']==11
             for name in ('BNF','CIS'):
                 assert description['bots'][name]['category']=='daily_and_minute'

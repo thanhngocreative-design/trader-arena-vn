@@ -20,4 +20,9 @@ def apply_research_snapshot(payload,path):
         raise ValueError("Research snapshot must contain 11 daily bot results")
     if research.get("hybrid_backtest_audit",{}).get("status")=="verified_1m_146" and (len(research.get("hybrid_backtests",{}))!=11 or research["hybrid_backtest_audit"].get("symbols")!=146):
         raise ValueError("Cannot label partial minute results as a full-universe study")
-    return {**payload,**{k:research[k] for k in KEYS},"bot_timeframes":timeframe_manifest()}
+    extra={k:research[k] for k in ('minute_backtests','minute_backtest_audit') if k in research}
+    if extra:
+        audit=extra.get('minute_backtest_audit',{})
+        if len(extra.get('minute_backtests',{}))!=11 or audit.get('symbols')!=146 or audit.get('mode')!='minute_only_experimental_proxies':
+            raise ValueError('Incomplete or mislabeled minute-only research')
+    return {**payload,**extra,**{k:research[k] for k in KEYS},"bot_timeframes":timeframe_manifest()}
