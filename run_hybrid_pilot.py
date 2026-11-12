@@ -33,6 +33,7 @@ def pilot(symbols:list[str],output_path:Path,bank_only:bool=False) -> dict:
                 pass
     info={"banking":"in_progress","banked":banked["success"],
           "skipped":banked["skipped"],"available_sessions":len(all_sessions),
+          "latest_session":max((d.date().isoformat() for d in all_sessions),default=""),
           "provider":banked["source"],"dashboard_updated":False}
     if bank_only or len(all_sessions)<5:
         return info
@@ -93,7 +94,7 @@ if __name__=="__main__":
         "session_count":int(audit.get("available_sessions",0)),
         "required_sessions":5,
         "symbols_banked_last_run":sorted(audit.get("banked",{})),
-        "last_banked_session":max((x.get("date","") for x in audit.get("banked",{}).values()),default=""),
+        "last_banked_session":audit.get("latest_session",""),
         "last_checked_at":datetime.now(VN).isoformat(),
         "feed":"KBS matched-trade tape, sampled once after market",
         "paper_only":True,
