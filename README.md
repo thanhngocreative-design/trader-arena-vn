@@ -16,6 +16,8 @@ Dashboard có **6 tab và 11 bot trong mỗi tab**:
 
 **Mùa paper mới bắt đầu chung ngày 13/11/2026 theo yêu cầu reset**: cả 33 tài khoản (11 bot × 3 chế độ) về 100 triệu đồng, không có vị thế hay giao dịch mang sang. Lịch sử trước đó nằm trong `state/paper_archive/before-2026-11-13/`, có manifest kiểm tra hash; backtest giữ nguyên. Paper ngày được chuẩn bị tín hiệu thật đã đóng ngày 12/11 để có thể xét khớp phiên 13/11, nhưng chưa ghi giao dịch hoặc điểm NAV nào trước mùa mới. Nến phút trước ngày bắt đầu không được tạo lệnh.
 
+Ở trang **Các bot**, mỗi hồ sơ có bảng so sánh đủ 6 sổ: tài sản, lãi/lỗ tiền và %, drawdown đã ghi nhận, số lần mua/bán. Bảng luôn dùng toàn bộ 3 năm cho ba backtest; paper theo mùa hiện tại. Số liệu paper tính từ toàn bộ sổ, không từ danh sách giao dịch rút gọn. Chạm tên sổ để xem chi tiết. Khi chưa có NAV paper, DD hiển thị “—”.
+
 Ba backtest là ba mô hình khác nhau, không đổi tên cùng một kết quả. Các chiến thuật là mô hình nghiên cứu lấy cảm hứng từ trader, không phải chiến thuật riêng được xác thực. **Hybrid thuần phút là đồng thuận tín hiệu phút**, còn Hybrid ngày/kết hợp dùng bộ chọn ngày theo quá khứ. Biến thể paper kết hợp quản trị ATR/thoát phút; giả định này khác stop ngày của backtest kết hợp, được ghi trên dashboard.
 
 **Tự động paper phút**: `.github/workflows/paper-minute.yml` khởi động 09:10 giờ Việt Nam các ngày trong tuần, quan sát đến khoảng 14:35, nghỉ ngoài khung liên tục chung 09:15–11:29 và 13:00–14:29. GitHub có thể khởi động trễ. Worker lấy Vietcap công khai (không dùng tài khoản broker), giới hạn tốc độ, lưu sổ và bản công khai mỗi khoảng 5 phút. Dashboard đọc sổ công khai mới mỗi phút. Đây là mô phỏng theo nến, không phải báo giá bid/ask realtime hoặc cam kết khớp thật.

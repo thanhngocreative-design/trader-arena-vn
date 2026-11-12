@@ -9,6 +9,7 @@ import pandas as pd
 from engine import Settings, TRADERS
 from portfolio import for_bot, allocation
 from execution import modeled_slippage
+from paper_metrics import paper_metrics
 BOT_SETTINGS={k:for_bot(Settings(portfolio_policy='atr_v1'),k) for k in TRADERS}
 
 
@@ -113,6 +114,6 @@ def snapshot(accounts,marks):
         for sym,p in b['positions'].items():
             px=marks.get(sym,p['price']); value=p['qty']*px
             holds.append(dict(symbol=sym,qty=p['qty'],buy_date=p['date'],buy_price=round(p['price']),last_price=round(px),value=round(value),pnl=round(value-p['cost']),pnl_pct=(value/p['cost']-1)*100))
-        nav=b['cash']+sum(h['value'] for h in holds); sells=[x for x in b['trades'] if x['side']=='BÁN']
-        result[bot]=dict(nav=round(nav),cash=round(b['cash']),return_pct=round((nav/100_000_000-1)*100,2),holdings=holds,trades=list(reversed(b['trades'][-40:])),history=deepcopy(b['history']),orders_next=list(b['pending'].values()),buy_count=sum(x['side']=='MUA' for x in b['trades']),closed_trades=len(sells),win_rate=(sum(x['pnl']>0 for x in sells)/len(sells)*100 if sells else None))
+        nav=b['cash']+sum(h['value'] for h in holds)
+        result[bot]=dict(nav=round(nav),cash=round(b['cash']),return_pct=round((nav/100_000_000-1)*100,2),holdings=holds,trades=list(reversed(b['trades'][-40:])),history=deepcopy(b['history']),orders_next=list(b['pending'].values()),**paper_metrics(b['trades'],b['history'],nav))
     return result

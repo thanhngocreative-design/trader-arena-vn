@@ -93,6 +93,8 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
 .live-line strong{font-size:12px}.live-line .gain{font-size:12px;font-weight:800}
 .live-fills{margin-top:12px;display:grid;gap:7px}
 .live-fill{font-size:12px;color:#b7cade;line-height:1.5;background:#0b2033;padding:9px;border-radius:10px}
+
+.book-comparison h3{font-size:16px;margin:0 0 9px}.book-comparison table{border-collapse:collapse;width:100%;font-size:12px;table-layout:fixed}.book-comparison caption{text-align:left;padding:7px 0}.book-comparison th,.book-comparison td{padding:11px 3px;border-bottom:1px solid #2a405b;text-align:right;vertical-align:top;overflow-wrap:anywhere}.book-comparison th:first-child{width:39%;text-align:left}.book-comparison thead th{font-size:11px;color:#b1c8df}.book-comparison small{display:block;font-weight:400;font-size:10px;color:#b1c8df;margin-top:5px;line-height:1.5}.book-comparison .book-status{font-size:9px}.book-current{background:#1b3648}.book-link{border:0;background:transparent;color:#8fe9d3;text-align:left;padding:0;font-size:12px;font-weight:700;cursor:pointer}.book-comparison abbr{text-decoration:none}
 </style>
 </head>
 <body>
@@ -269,7 +271,7 @@ function rankExtra(k){
   const b=part(k);
   if(!b)return '';
   const holdings=b.holdings||[], actions=isPaper()?(b.orders_next||[]):(b.actions||[]);
-  const stop=b.max_drawdown_pct===undefined?'':`<div class="rank-detail-metric"><span class="label">Lỗ sâu nhất (backtest)</span><strong class="red">${pct(b.max_drawdown_pct)}</strong></div>`;
+  const stop=b.max_drawdown_pct==null?'':`<div class="rank-detail-metric"><span class="label">Lỗ sâu nhất đã ghi nhận</span><strong class="red">${pct(b.max_drawdown_pct)}</strong></div>`;
   const holdingsMarkup=holdings.length
     ?`<div class="rank-holdings">${holdings.slice(0,8).map(h=>`<button type="button" onclick="openStock('${safe(h.symbol)}')" aria-label="Xem chart cổ phiếu ${safe(h.symbol)}">📈 ${safe(h.symbol)} · ${n(h.qty).toLocaleString('vi-VN')} CP</button>`).join('')}</div>`
     :'<p class="note" style="margin-top:5px">Hiện bot đang giữ tiền mặt, chưa có cổ phiếu nào.</p>';
@@ -381,11 +383,60 @@ function renderHome(){
   }
 
 }
+function comparisonBooks(k){
+  return [
+    {id:'paper_minute',label:'Paper phút',paper:true,data:DATA.paper_minute?.[k]},
+    {id:'paper',label:'Paper ngày',paper:true,data:DATA.paper?.[k]},
+    {id:'paper_combo',label:'Paper ngày + phút',paper:true,data:DATA.paper_combo?.[k]},
+    {id:'backtest_minute',label:'Backtest phút',data:DATA.minute_backtests?.[k]},
+    {id:'backtest',label:'Backtest ngày',data:DATA.backtests?.[k]},
+    {id:'hybrid',label:'Backtest ngày + phút',data:DATA.hybrid_backtests?.[k]}
+  ];
+}
+function openComparisonBook(id){if(id==='backtest')period='ALL';setMode(id);}
+function comparisonMetric(b){
+  if(!b)return {nav:null,profit:null,ret:null,dd:null,buys:null,sells:null};
+  const finite=x=>x!==null&&x!==undefined&&Number.isFinite(Number(x));
+  return {nav:finite(b.nav)?Number(b.nav):null,
+    profit:finite(b.nav)&&finite(DATA.capital_each)&&Number(DATA.capital_each)>0?Number(b.nav)-Number(DATA.capital_each):null,
+    ret:finite(b.return_pct)?Number(b.return_pct):null,
+    dd:finite(b.max_drawdown_pct)?Number(b.max_drawdown_pct):null,
+    buys:finite(b.buy_count)?Number(b.buy_count):null,
+    sells:finite(b.closed_trades)?Number(b.closed_trades):null};
+}
+function renderBookComparison(k){
+  const shortDate=x=>{const d=String(x||'').slice(0,10);return /^\d{4}-\d{2}-\d{2}$/.test(d)?d.split('-').reverse().join('/'):'—';};
+  const start=shortDate(DATA.paper_contest_start||DATA.paper_started_at);
+  const audit=DATA.minute_backtest_audit||DATA.hybrid_backtest_audit||{};
+  const period=shortDate(audit.first||DATA.research_meta?.start)+' – '+shortDate(audit.last||DATA.research_meta?.end);
+  const rows=comparisonBooks(k).map(book=>{
+    const b=book.data,m=comparisonMetric(b);
+    const history=b?.history||[];
+    const observed=history.length>0;
+    let status=!b?'Chưa có dữ liệu':book.paper?(observed?'Đã ghi nhận '+n(b.observed_history_points||history.length)+' điểm NAV':'Chưa có phiên ghi nhận'):'Toàn bộ 3 năm';
+    if(book.paper&&observed){
+      const last=book.id==='paper'?history[history.length-1]?.date:DATA.intraday_paper_status?.last_observed_at;
+      status+=' · '+shortDate(last);
+    }
+    const cells=!b?'<td colspan="3" class="muted">Chưa có dữ liệu</td>':
+      `<td><strong class="${m.ret===null?'muted':color(m.ret)}">${m.ret===null?'—':pct(m.ret)}</strong><small>${m.profit===null?'—':(m.profit>=0?'+':'')+money(m.profit)}</small></td>
+       <td class="${m.dd===null?'muted':'red'}">${m.dd===null?'—':pct(m.dd)}</td>
+       <td>${m.buys===null||m.sells===null?'—':n(m.buys+m.sells).toLocaleString('vi-VN')}<small>${m.buys===null||m.sells===null?'Chưa có số liệu':m.buys+' mua · '+m.sells+' bán'}</small></td>`;
+    return `<tr data-book="${book.id}" class="${mode===book.id?'book-current':''}"><th scope="row"><button class="book-link" ${b?'':'disabled'} onclick="openComparisonBook('${book.id}')">${safe(book.label)} ↗</button><small>${m.nav===null?'—':money(m.nav)}</small><small class="book-status">${safe(status)}</small></th>${cells}</tr>`;
+  }).join('');
+  return `<section class="card book-comparison" aria-label="So sánh 6 sổ của bot"><h3>So sánh 6 sổ · ${safe(SHORT[k])}</h3>
+    <p class="note">Paper: từ ${safe(start)} · Backtest: ${safe(period)}.</p>
+    <p class="note">Paper theo dõi từ ngày bắt đầu mùa mới; backtest là mô phỏng lịch sử 3 năm. Thời gian và quy tắc khác nhau, không xếp hạng chung. Bảng luôn dùng toàn bộ 3 năm cho cả ba backtest.</p>
+    <table><caption class="note">Chạm tên sổ để xem chi tiết bên dưới.</caption><thead><tr><th scope="col">Sổ / Tài sản</th><th scope="col">Lãi/lỗ</th><th scope="col"><abbr title="Mức giảm sâu nhất từ đỉnh NAV đã ghi nhận">DD</abbr></th><th scope="col">Khớp</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="note">DD: mức giảm sâu nhất từ đỉnh tài sản đã ghi nhận; paper tính cả vốn ban đầu. Khớp: số lần mua + bán, có thể gồm bán một phần. “—”: chưa có số liệu; paper chưa ghi NAV thì chưa tính DD.</p>
+    <p class="note">Paper kết hợp dùng bộ lọc ngày và ATR/thoát phút; backtest kết hợp còn dùng stop ngày. Hybrid thuần phút dùng đồng thuận tín hiệu phút.</p>
+  </section>`;
+}
 function renderBots(){
   $('botChips').innerHTML=IDS.map(k=>`<button class="chip ${selected===k?'active':''}" onclick="selected='${k}';renderBots()">${EMOJI[k]} ${safe(SHORT[k])}${hiddenBots[k]?' · TẮT':''}</button>`).join('');
   const b=part(selected),holds=b.holdings||[],plans=b.orders_next||[],acts=b.actions||[];
   const cloud=DATA.cloud_enabled?.[selected]!==false;
-  $('botDetail').innerHTML=`<div class="card"><div class="bothead"><div class="avatar">${EMOJI[selected]}</div><div><strong>${safe(DATA.traders?.[selected]?.name||SHORT[selected])}</strong><div class="label">${safe(DATA.traders?.[selected]?.tag||'Chiến thuật công khai')}</div></div></div><p class="note" style="margin:13px 0 4px">${safe(DATA.traders?.[selected]?.explain||TEXT[selected])}</p><p class="note" style="margin:5px 0 4px">${safe(DATA.traders?.[selected]?.detail||'Mô phỏng quy tắc công khai; không phải giao dịch thật của trader.')}</p>
+  $('botDetail').innerHTML=renderBookComparison(selected)+`<div class="card"><div class="bothead"><div class="avatar">${EMOJI[selected]}</div><div><strong>${safe(DATA.traders?.[selected]?.name||SHORT[selected])}</strong><div class="label">${safe(DATA.traders?.[selected]?.tag||'Chiến thuật công khai')}</div></div></div><p class="note" style="margin:13px 0 4px">${safe(DATA.traders?.[selected]?.explain||TEXT[selected])}</p><p class="note" style="margin:5px 0 4px">${safe(DATA.traders?.[selected]?.detail||'Mô phỏng quy tắc công khai; không phải giao dịch thật của trader.')}</p>
   <div class="card soft"><strong>⏱ ${frameBadge(selected)}</strong><p class="note" style="margin-top:6px">${safe(botFrame(selected).detail)}</p><p class="note">Mỗi tab có sổ và kết quả riêng: chỉ phút, chỉ ngày hoặc ngày + phút. Đây là khung dữ liệu của engine hiện tại, không phải cam kết về phong cách của trader ngoài đời.</p></div>
   ${selected==='Hybrid'&&mode!=='paper_minute'&&mode!=='backtest_minute'? `<div class="card soft"><strong>🧬 Chiến thuật được chọn gần nhất</strong><p class="note" style="margin-top:6px">${safe(Object.entries(DATA.hybrid_model?.leaders_latest||{}).map(([id,w])=>(SHORT[id]||id)+' · '+(w*100).toFixed(0)+'%').join(', ')||'Không có bot đủ lợi nhuận sau khi xét rủi ro; giữ tiền mặt.')}</p></div>`:''}
   <div class="switchline"><div><strong style="font-size:13px">${hiddenBots[selected]?'Đã tắt theo dõi':'Đang theo dõi bot'}</strong><p class="note">Chỉ ảnh hưởng bảng xếp hạng trên iPhone.</p></div><button class="tog ${hiddenBots[selected]?'off':''}" onclick="toggleBot('${selected}')">${hiddenBots[selected]?'BẬT':'TẮT'}</button></div>

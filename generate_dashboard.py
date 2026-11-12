@@ -17,6 +17,7 @@ from dataclasses import replace
 from portfolio import LIMITS, for_bot
 from fast_engine import FastContext, CORE, build_hybrid_signals
 from paper_forward import update_paper
+from paper_metrics import paper_metrics
 from intraday_data import load_minute
 from hybrid_backtest import build_hybrid_backtests
 
@@ -240,7 +241,8 @@ def build(symbols, history_start, out_path):
          'cloud_enabled':{key:key in active_ids for key in TRADERS},
          'stock_symbols':sorted(prices),
          'stocks':{},  # loaded on demand from ./stocks/<symbol>.json
-         'paper':{k:{'cash':round(b['cash']),
+         'paper':{k:{**paper_metrics(b['trades'],b['history'],b['latest']['nav'],flexible.initial_cash),
+                     'cash':round(b['cash']),
                      'nav':b['latest']['nav'],'return_pct':b['latest']['return_pct'],
                      'holdings':b.get('latest',{}).get('holdings',[]),
                      'orders_next':b['orders_next'][:10],

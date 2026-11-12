@@ -2,7 +2,7 @@ name: Trader Arena VN daily paper contest
 on:
   push:
     branches: [main]
-    paths: ['portfolio.py', 'generate_dashboard.py', 'paper_forward.py', 'fast_engine.py', 'engine.py', '.github/workflows/daily.yml', '.gitattributes', 'state/paper_archive/**']
+    paths: ['portfolio.py', 'paper_metrics.py', 'generate_dashboard.py', 'paper_forward.py', 'fast_engine.py', 'engine.py', '.github/workflows/daily.yml', '.gitattributes', 'state/paper_archive/**']
   workflow_dispatch:
   schedule:
     # 16:47 Vietnam time, weekdays (UTC+7).
