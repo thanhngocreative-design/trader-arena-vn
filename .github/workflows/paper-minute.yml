@@ -6,7 +6,7 @@ on:
     - cron: '10 2 * * 1-5'
   push:
     branches: [main]
-    paths: ['paper_intraday.py', 'minute_arena.py', 'sector_analytics.py', 'config/market-classification.json', '.github/workflows/paper-minute.yml']
+    paths: ['paper_intraday.py', 'minute_arena.py', 'value_intraday.py', 'config/value-bots.json', 'sector_analytics.py', 'config/market-classification.json', '.github/workflows/paper-minute.yml']
 permissions:
   contents: write
   pages: write
@@ -47,7 +47,7 @@ jobs:
               active=now.weekday()<5 and '09:10'<=now.strftime('%H:%M')<'14:35'
               duration='4' if active else '0'
               subprocess.run(['python','-u','paper_intraday.py','--minutes',duration],check=True)
-              subprocess.run(['git','add','state/paper_intraday.json','site/paper-intraday.json'],check=True)
+              subprocess.run(['git','add','state/paper_intraday.json','site/paper-intraday.json','state/value_intraday.json','site/value-intraday.json'],check=True)
               if subprocess.run(['git','diff','--cached','--quiet']).returncode:
                   subprocess.run(['git','commit','-m','Persist forward minute paper observations [skip ci]'],check=True)
                   subprocess.run(['git','fetch','origin','main'],check=True)

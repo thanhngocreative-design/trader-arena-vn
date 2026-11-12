@@ -60,7 +60,7 @@ jobs:
             echo "main advanced while processing: use latest committed site/ledger"
             git reset --hard origin/main
           else
-            git add state/paper_state.json state/paper_daily_gates.json site/dashboard.json state/value_paper.json site/value-investing.json
+            git add state/paper_state.json state/paper_daily_gates.json site/dashboard.json state/value_paper.json site/value-investing.json state/value_daily_gates.json
             if ! git diff --cached --quiet; then
               git commit -m "Daily paper simulation results [skip ci]"
               if ! git push origin HEAD:main; then

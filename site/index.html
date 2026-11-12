@@ -187,15 +187,29 @@ let period='ALL', stockSymbol='',stockWindow='3M',stockSelectedBar=null;
 let hiddenBots={};try{hiddenBots=JSON.parse(localStorage.getItem('arena-hidden-bots-v1')||'{}')||{};}catch(_){hiddenBots={};}
 let liveApiBase='',livePoll=null;
 let hybridBankProgress=null;
-let VALUE_DATA=null;
+let VALUE_DATA=null,VALUE_INTRADAY=null;
+function applyValueIntraday(){
+  if(!VALUE_INTRADAY)return;
+  for(const m of ['paper_minute','paper_combo'])DATA[m]={...DATA[m],...VALUE_INTRADAY[m]};
+  DATA.value_intraday_status=VALUE_INTRADAY;
+}
+async function loadValueIntraday(remote=false){
+  const url=remote?'https://raw.githubusercontent.com/thanhngocreative-design/trader-arena-vn/main/site/value-intraday.json':'./value-intraday.json';
+  const r=await fetch(url+'?v='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('Chưa tải sổ phút của hai bot giá trị');
+  const v=await r.json();if(v.revision!=='value_intraday_v1'||!v.started_at||!v.paper_minute?.Buffett||!v.paper_combo?.Munger)throw new Error('Sổ phút giá trị chưa được xác minh');
+  if(VALUE_INTRADAY?.updated_at>v.updated_at)return;
+  VALUE_INTRADAY=v;applyValueIntraday();
+}
 function applyValueData(){
   if(!VALUE_DATA)return;
   for(const [k,profile] of Object.entries(VALUE_DATA.traders)){
     DATA.traders[k]=profile;EMOJI[k]=profile.emoji;SHORT[k]=k;TEXT[k]=profile.explain;
     DATA.paper[k]=VALUE_DATA.paper[k];DATA.backtests[k]=VALUE_DATA.backtests[k];
+    for(const key of ['minute_backtests','hybrid_backtests'])if(VALUE_DATA[key]?.[k])DATA[key]={...DATA[key],[k]:VALUE_DATA[key][k]};
     for(const [p,books] of Object.entries(VALUE_DATA.backtest_periods)){if(DATA.backtest_periods?.[p])DATA.backtest_periods[p][k]=books[k];}
     DATA.cloud_enabled={...DATA.cloud_enabled,...VALUE_DATA.cloud_enabled};
   }
+  applyValueIntraday();
 }
 async function loadValueData(){
   const response=await fetch('./value-investing.json?v='+Date.now(),{cache:'no-store'});
@@ -204,7 +218,7 @@ async function loadValueData(){
   VALUE_DATA=v;applyValueData();
 }
 const supportsMode=(k,m=mode)=>!DATA.traders?.[k]?.supported_modes||DATA.traders[k].supported_modes.includes(m);
-const activeKeys=()=>IDS.filter(k=>!hiddenBots[k]&&supportsMode(k));
+const activeKeys=()=>IDS.filter(k=>!hiddenBots[k]&&supportsMode(k)&&part(k));
 const periodData=()=>DATA.backtest_periods?.[period]||DATA.backtests;
 function selectPeriod(p){if(!DATA.backtest_periods?.[p]&&p!=='ALL')return;period=p;render();}
 function toggleBot(k){hiddenBots[k]=!hiddenBots[k];try{localStorage.setItem('arena-hidden-bots-v1',JSON.stringify(hiddenBots));}catch(_){};render();}
@@ -282,7 +296,14 @@ function selectRankBot(id){
 }
 function selectProfile(id){if(!IDS.includes(id))return;selected=id;if(!supportsMode(id))setMode(isPaper()?'paper':'backtest');else render();}
 function openBotProfile(id){if(!IDS.includes(id))return;selectProfile(id);setPage('bots')}
-function botFrame(k){return DATA.traders?.[k]?.supported_modes?{label:'Chỉ ngày · dài hạn',priority:'ngày',detail:'Báo cáo năm đã công bố, xét mỗi tháng; dự kiến khớp phiên ngày tiếp theo. Không có biến thể phút/kết hợp.'}:DATA.bot_timeframes?.[mode]?.bots?.[k]||{label:'Chưa rõ khung',priority:'',detail:'Chưa có mô tả khung giao dịch được xác minh.'};}
+function botFrame(k){
+  if(DATA.traders?.[k]?.supported_modes){
+    if(['paper_minute','backtest_minute'].includes(mode))return {label:'Phút · thử nghiệm',priority:'phút',detail:'Chất lượng báo cáo năm biết từ phiên trước + giá/khối lượng nến phút. Không dùng chỉ báo giá ngày; điểm vào/thoát phút là giả thuyết của Arena.'};
+    if(['paper_combo','hybrid'].includes(mode))return {label:'Ngày + phút · thử nghiệm',priority:'phút',detail:'Bộ lọc tài chính, giá/MA200 và thanh khoản ngày hôm trước; tín hiệu vào/thoát trên nến phút. Không dùng giá đóng cửa của ngày đang giao dịch.'};
+    return {label:'Chỉ ngày · dài hạn',priority:'ngày',detail:'Báo cáo năm đã công bố, xét mỗi tháng; dự kiến khớp phiên ngày tiếp theo.'};
+  }
+  return DATA.bot_timeframes?.[mode]?.bots?.[k]||{label:'Chưa rõ khung',priority:'',detail:'Chưa có mô tả khung giao dịch được xác minh.'};
+}
 function frameBadge(k){const f=botFrame(k);return safe(f.label)+(mode==='hybrid'&&f.priority==='phút'?' · ưu tiên phút':'');}
 function rankExtra(k){
   const b=part(k);
@@ -348,7 +369,7 @@ function renderHome(){
   $('totalInitial').textContent=money(capital);$('marketDay').textContent=mode==='hybrid'?String(DATA.hybrid_backtest_audit?.last||'—').split('-').reverse().join('/'):(mode==='backtest'&&opt?opt.end.split('-').reverse().join('/'):DATA.last_session.split('-').reverse().join('/'));
   const available=included.filter(k=>regionFilter==='ALL'||DATA.traders?.[k]?.region===regionFilter);
   const sorted=available.sort((a,b)=>ret(b)-ret(a));
-  $('regionChips').innerHTML=Object.entries(REGION).map(([k,label])=>`<button class="chip ${regionFilter===k?'active':''}" onclick="setRegionFilter('${k}')">${label} · ${k==='ALL'?IDS.filter(t=>supportsMode(t)).length:IDS.filter(t=>supportsMode(t)&&DATA.traders?.[t]?.region===k).length}</button>`).join('');
+  $('regionChips').innerHTML=Object.entries(REGION).map(([k,label])=>`<button class="chip ${regionFilter===k?'active':''}" onclick="setRegionFilter('${k}')">${label} · ${k==='ALL'?IDS.filter(t=>supportsMode(t)&&part(t)).length:IDS.filter(t=>supportsMode(t)&&part(t)&&DATA.traders?.[t]?.region===k).length}</button>`).join('');
   $('leaderboard').innerHTML=(sorted.length?sorted.map((k,i)=>`<div class="rankgroup">
     <button type="button" class="ranker ${k===selected?'selected':''}" aria-expanded="${expandedBot===k}" aria-controls="rankdetail-${k}" onclick="selectRankBot('${k}')">
       <span class="rankicon">${['🥇','🥈','🥉'][i]||('#'+(i+1))}</span>
@@ -450,9 +471,11 @@ function renderBookComparison(k){
 }
 function renderBots(){
   $('botChips').innerHTML=IDS.map(k=>`<button class="chip ${selected===k?'active':''}" onclick="selectProfile('${k}')">${EMOJI[k]} ${safe(SHORT[k])}${hiddenBots[k]?' · TẮT':''}</button>`).join('');
-  const b=part(selected),holds=b.holdings||[],plans=b.orders_next||[],acts=b.actions||[];
+  const b=part(selected);
+  if(!b){$('botDetail').innerHTML=renderBookComparison(selected)+'<div class="card empty">Chưa tải được sổ này. Hãy tải lại trang; chưa có số liệu để hiển thị.</div>';return;}
+  const holds=b.holdings||[],plans=b.orders_next||[],acts=b.actions||[];
   const cloud=DATA.cloud_enabled?.[selected]!==false;
-  const valueNotes=DATA.traders?.[selected]?.supported_modes&&VALUE_DATA?`<div class="card"><strong>Phạm vi mô phỏng dài hạn</strong><p class="note">${VALUE_DATA.fundamentals.comparable_nonfinancial_companies}/146 mã có báo cáo năm phi tài chính phù hợp; còn phải đạt bộ lọc tại ngày xét. Số mã đạt chất lượng: ${VALUE_DATA.audit[selected].quality_eligible_start} đầu kỳ → ${VALUE_DATA.audit[selected].quality_eligible_end} cuối kỳ. Không đồng nghĩa đều có tín hiệu mua.</p>${VALUE_DATA.limitations.map(s=>`<p class="note">${safe(s)}</p>`).join('')}<p class="note">Nguồn báo cáo: Vietcap IQ, lấy ngày ${safe(VALUE_DATA.fundamentals.asof.slice(0,10))}. <a href="${safe(DATA.traders[selected].source)}" target="_blank" rel="noopener">Tư tưởng tham khảo: thư Berkshire 1989</a>.</p></div>`:'';
+  const valueNotes=DATA.traders?.[selected]?.supported_modes&&VALUE_DATA?`<div class="card"><strong>Phạm vi mô phỏng và biến thể</strong><p class="note">${VALUE_DATA.fundamentals.comparable_nonfinancial_companies}/146 mã có báo cáo năm phi tài chính phù hợp; còn phải đạt bộ lọc tại ngày xét. Số mã đạt chất lượng: ${VALUE_DATA.audit[selected].quality_eligible_start} đầu kỳ → ${VALUE_DATA.audit[selected].quality_eligible_end} cuối kỳ. Không đồng nghĩa đều có tín hiệu mua.</p>${!['paper','backtest'].includes(mode)?`<p class="note"><strong>Biến thể phút thử nghiệm:</strong> vẫn lọc chất lượng báo cáo năm; dùng MA20/MA10 của nến phút để vào và thoát. Giữ tối thiểu 5 phiên, nghỉ 7 phiên sau bán, giới hạn 5% khối lượng nến trước; có phí, thuế và trượt giá. Sổ kết hợp thêm giá/MA200 và thanh khoản ngày trước. Đây là quy tắc Arena đặt để thử nghiệm, không phải cách hai ông thực sự giao dịch.</p>`:''}${VALUE_DATA.limitations.map(s=>`<p class="note">${safe(s)}</p>`).join('')}<p class="note">Nguồn báo cáo: Vietcap IQ, lấy ngày ${safe(VALUE_DATA.fundamentals.asof.slice(0,10))}. <a href="${safe(DATA.traders[selected].source)}" target="_blank" rel="noopener">Tư tưởng tham khảo: thư Berkshire 1989</a>.</p></div>`:'';
   $('botDetail').innerHTML=renderBookComparison(selected)+`<div class="card"><div class="bothead"><div class="avatar">${EMOJI[selected]}</div><div><strong>${safe(DATA.traders?.[selected]?.name||SHORT[selected])}</strong><div class="label">${safe(DATA.traders?.[selected]?.tag||'Chiến thuật công khai')}</div></div></div><p class="note" style="margin:13px 0 4px">${safe(DATA.traders?.[selected]?.explain||TEXT[selected])}</p><p class="note" style="margin:5px 0 4px">${safe(DATA.traders?.[selected]?.detail||'Mô phỏng quy tắc công khai; không phải giao dịch thật của trader.')}</p>
   <div class="card soft"><strong>⏱ ${frameBadge(selected)}</strong><p class="note" style="margin-top:6px">${safe(botFrame(selected).detail)}</p><p class="note">Mỗi tab có sổ và kết quả riêng: chỉ phút, chỉ ngày hoặc ngày + phút. Đây là khung dữ liệu của engine hiện tại, không phải cam kết về phong cách của trader ngoài đời.</p></div>
   ${selected==='Hybrid'&&mode!=='paper_minute'&&mode!=='backtest_minute'? `<div class="card soft"><strong>🧬 Chiến thuật được chọn gần nhất</strong><p class="note" style="margin-top:6px">${safe(Object.entries(DATA.hybrid_model?.leaders_latest||{}).map(([id,w])=>(SHORT[id]||id)+' · '+(w*100).toFixed(0)+'%').join(', ')||'Không có bot đủ lợi nhuận sau khi xét rủi ro; giữ tiền mặt.')}</p></div>`:''}
@@ -474,6 +497,8 @@ function sectorBookStats(id,k){
   if(id==='paper')return DATA.paper?.[k]?.sector_stats;
   if(id==='paper_minute'||id==='paper_combo')return DATA[id]?.[k]?.sector_stats;
   if(id==='backtest'&&DATA.backtests?.[k]?.sector_stats)return DATA.backtests[k].sector_stats;
+  const key={backtest_minute:'minute_backtests',hybrid:'hybrid_backtests'}[id];
+  if(key&&DATA[key]?.[k]?.sector_stats)return DATA[key][k].sector_stats;
   return SECTOR_DATA?.books?.[id]?.[k];
 }
 function combineSectorStats(stats){
@@ -502,7 +527,7 @@ async function refreshSectorData(){
     const fresh=await response.json();if(fresh.mode!=='real_market_data')throw new Error('Sổ ngày không hợp lệ');
     DATA={...fresh,paper_minute:DATA.paper_minute,paper_combo:DATA.paper_combo,intraday_paper_status:DATA.intraday_paper_status};
     applyValueData();try{await loadValueData();}catch(_){}
-    await loadSectorData();try{await loadIntradayPaper(true);}catch(_){sectorRefreshError='Chưa cập nhật được paper phút; đang dùng bản đã tải.';}
+    await loadSectorData();try{await loadIntradayPaper(true);await loadValueIntraday(true);}catch(_){sectorRefreshError='Chưa cập nhật được paper phút; đang dùng bản đã tải.';}
   }catch(_){sectorRefreshError='Cập nhật chưa thành công; số liệu bên dưới là bản đã tải trước đó.';}
   if(page==='sectors')renderSectors();
 }
@@ -603,6 +628,7 @@ async function loadIntradayPaper(remote=false){
   const p=await r.json();if(!p.started_at||!p.paper_minute||!p.paper_combo)throw new Error('Sổ paper không hợp lệ');
   if(DATA.intraday_paper_status?.updated_at>p.updated_at)return;
   DATA.paper_minute=p.paper_minute;DATA.paper_combo=p.paper_combo;DATA.intraday_paper_status=p;
+  applyValueIntraday();
 }
 async function boot(){
   try{
@@ -616,6 +642,8 @@ async function boot(){
     try{await loadSectorData();}catch(_){}
     try{await loadIntradayPaper();}catch(_){}
     try{await loadIntradayPaper(true);}catch(_){}
+    try{await loadValueIntraday();}catch(_){}
+    try{await loadValueIntraday(true);}catch(_){}
     IDS=Object.keys(DATA.traders||{}).filter(k=>DATA.paper?.[k]&&DATA.backtests?.[k]);
     if(!IDS.length)throw new Error('No valid trader profiles');
     if(!IDS.includes(selected))selected=IDS[0];
@@ -632,7 +660,7 @@ async function boot(){
   if(!demo){try{const response=await fetch('./hybrid-coverage.json?cache='+Date.now(),{cache:'no-store'});if(response.ok){const c=await response.json();if(Number.isInteger(c?.session_count)&&c.session_count>=0&&c.required_sessions===5)hybridBankProgress=c;}}catch(_){/* no published banking counters yet */}}
   const requested=new URLSearchParams(location.search).get('mode');
   if(MODE_ID[requested])setMode(requested);else if(requested==='minute')setMode('hybrid');
-  setInterval(async()=>{try{await loadIntradayPaper(true);if(isPaper()||page==='bots'||page==='sectors')render();}catch(_){}},60000);
+  setInterval(async()=>{try{await loadIntradayPaper(true);}catch(_){}try{await loadValueIntraday(true);}catch(_){}if(isPaper()||page==='bots'||page==='sectors')render();},60000);
   render();
   const requestedBot=new URLSearchParams(location.search).get('bot');
   if(requestedBot&&IDS.includes(requestedBot))selectProfile(requestedBot);

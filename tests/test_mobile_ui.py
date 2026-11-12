@@ -8,7 +8,7 @@ import pytest
 
 SITE = Path(__file__).resolve().parents[1] / "site" / "index.html"
 
-def test_daily_only_value_profiles_route_without_fake_minute_results(tmp_path):
+def test_all_six_value_profiles_route_to_independent_real_ledgers(tmp_path):
     node=shutil.which('node')
     if not node:pytest.skip('Node.js unavailable')
     html=SITE.read_text(encoding='utf8');js=re.search(r'<script>(.*?)</script>',html,re.S)[1]
@@ -22,22 +22,31 @@ DATA=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
 const intraday=JSON.parse(fs.readFileSync(require('node:path').join(require('node:path').dirname(process.argv[2]),'paper-intraday.json'),'utf8'));
 DATA.paper_minute=intraday.paper_minute;DATA.paper_combo=intraday.paper_combo;
 VALUE_DATA=JSON.parse(fs.readFileSync(process.argv[3],'utf8'));applyValueData();IDS=Object.keys(DATA.traders);
+VALUE_INTRADAY=JSON.parse(fs.readFileSync(require('node:path').join(require('node:path').dirname(process.argv[2]),'value-intraday.json'),'utf8'));applyValueIntraday();
 assert.equal(IDS.length,13);mode='backtest_minute';
-assert.equal(activeKeys().length,11);assert.equal(part('Buffett'),undefined);
-const originalRender=render;render=()=>{};selectProfile('Buffett');assert.equal(mode,'backtest');assert.equal(selected,'Buffett');
-assert.equal(activeKeys().length,13);assert.equal(part('Buffett').return_pct,VALUE_DATA.backtests.Buffett.return_pct);
-renderBots();assert.ok(elements.botDetail.innerHTML.includes('Không áp dụng — bot dài hạn chỉ theo ngày'));
-assert.ok(elements.botDetail.innerHTML.includes('113/146'));
-setMode('paper_minute');assert.notEqual(selected,'Buffett');assert.equal(activeKeys().length,11);
-selectProfile('Munger');assert.equal(mode,'paper');assert.equal(part('Munger').nav,100000000);
-assert.equal(comparisonBooks('Munger').filter(b=>b.data).length,2);
+assert.equal(activeKeys().length,13);assert.equal(part('Buffett').return_pct,VALUE_DATA.minute_backtests.Buffett.return_pct);
+const originalRender=render;render=()=>{};selectProfile('Buffett');assert.equal(mode,'backtest_minute');assert.equal(selected,'Buffett');
+renderBots();assert.ok(elements.botDetail.innerHTML.includes('113/146'));
+assert.equal(comparisonBooks('Buffett').filter(b=>b.data).length,6);
+assert.ok(!elements.botDetail.innerHTML.includes('Không áp dụng'));
+setMode('paper_minute');assert.equal(selected,'Buffett');assert.equal(activeKeys().length,13);
+selectProfile('Munger');assert.equal(mode,'paper_minute');assert.equal(part('Munger').nav,VALUE_INTRADAY.paper_minute.Munger.nav);
 for(const p of ['3M','6M','1Y','2Y','ALL']){period=p;mode='backtest';assert.equal(part('Munger').return_pct,VALUE_DATA.backtest_periods[p].Munger.return_pct);}
-// Replacing the base daily payload must not discard long-term books.
-DATA=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));applyValueData();assert.ok(DATA.paper.Buffett);
+for(const m of ['paper_minute','paper','paper_combo','backtest_minute','backtest','hybrid']){
+  mode=m;assert.equal(activeKeys().length,13);assert.ok(part('Buffett'));assert.ok(part('Munger'));
+}
+// A missing ledger is absent, never silently replaced by zero or daily returns.
+mode='paper_minute';delete DATA.paper_minute.Munger;assert.equal(activeKeys().length,12);
+renderBots();assert.ok(elements.botDetail.innerHTML.includes('Chưa tải được sổ này'));
+applyValueIntraday();assert.equal(activeKeys().length,13);
+// Replacing the base daily payload must retain all six overlay sources.
+DATA=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));applyValueData();assert.ok(DATA.paper.Buffett&&DATA.paper_minute.Buffett);
 SECTOR_DATA=JSON.parse(fs.readFileSync(process.argv[4],'utf8'));
-sectorMode='backtest_minute';sectorBot='ALL';renderSectors();assert.ok(elements.sectorContent.innerHTML.includes('Tất cả 11 bot'));
-sectorMode='backtest';renderSectors();assert.ok(elements.sectorContent.innerHTML.includes('Tất cả 13 bot'));
-assert.equal(sectorBookStats('backtest','Buffett').buy_fills,VALUE_DATA.backtests.Buffett.buy_count);
+for(const m of ['backtest_minute','backtest','hybrid','paper_minute','paper','paper_combo']){
+  sectorMode=m;sectorBot='ALL';renderSectors();assert.ok(elements.sectorContent.innerHTML.includes('Tất cả 13 bot'));
+}
+assert.equal(sectorBookStats('backtest_minute','Buffett').buy_fills,VALUE_DATA.minute_backtests.Buffett.buy_count);
+assert.equal(sectorBookStats('hybrid','Munger').buy_fills,VALUE_DATA.hybrid_backtests.Munger.buy_count);
 '''
     path=tmp_path/'value-ui.cjs';path.write_text(check,encoding='utf8')
     result=subprocess.run([node,str(path),str(SITE.parent/'dashboard.json'),str(SITE.parent/'value-investing.json'),str(SITE.parent/'sectors.json')],capture_output=True,text=True,encoding='utf8')

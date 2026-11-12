@@ -69,6 +69,8 @@ def test_forward_worker_orders_shared_cash_by_bar_time_not_provider_order(tmp_pa
     (tmp_path/'config').mkdir();(tmp_path/'state').mkdir()
     (tmp_path/'config/research-universe.json').write_text(json.dumps({'eligible_symbols':['ACB','FPT']}))
     (tmp_path/'config/bots.json').write_text('{}')
+    (tmp_path/'config/value-bots.json').write_text('{}')
+    (tmp_path/'config/market-classification.json').write_text('{"sectors":{}}')
     state=dict(started_at='2026-11-12T09:15:00+07:00',last_observed_at=None,sessions=['2026-11-12'],symbols_observed=[],marks={},watermarks={'FPT':'2026-11-12T09:59:00+07:00','ACB':'2026-11-12T09:59:00+07:00'},paper_minute=new_accounts(),paper_combo=new_accounts())
     b=state['paper_minute']['Minervini']
     for sym,signal,submitted in [('FPT','09:58','09:59:05'),('ACB','09:59','10:00:05')]:

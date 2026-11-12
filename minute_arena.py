@@ -70,7 +70,7 @@ def new_accounts():
     return {k:dict(cash=100_000_000.,positions={},pending={},closed={},trades=[],history=[]) for k in TRADERS}
 
 
-def step(accounts,symbol,row,ts,session,marks,*,submitted_at=None,entry_gates=None):
+def step(accounts,symbol,row,ts,session,marks,*,submitted_at=None,entry_gates=None,bot_settings=None,exit_rule=None):
     """A request must exist before its fill bar START. Never same-bar fills.
 
     Paper supplies actual receipt time; history supplies the signal bar end.
@@ -81,7 +81,7 @@ def step(accounts,symbol,row,ts,session,marks,*,submitted_at=None,entry_gates=No
         p=b['positions'].get(symbol)
         gate=bool(row.get(bot,False)) if entry_gates is None else bool(entry_gates.get(bot,False))
         if not p and symbol not in b['pending'] and not gate: continue
-        s=BOT_SETTINGS[bot]
+        s=(bot_settings or BOT_SETTINGS)[bot]
         req=b['pending'].pop(symbol,None)
         if req:
             age=(ts-pd.Timestamp(req['signal'])).total_seconds()
@@ -110,7 +110,7 @@ def step(accounts,symbol,row,ts,session,marks,*,submitted_at=None,entry_gates=No
         adv=float(row['adv']); atr=float(row['atr'])
         if cap<100 or not math.isfinite(adv) or adv<=0: continue
         if p:
-            if session-p['session']<max(3,s.minimum_hold_sessions) or not exit_signal(bot,row,p['price']): continue
+            if session-p['session']<max(3,s.minimum_hold_sessions) or not (exit_rule or exit_signal)(bot,row,p['price']): continue
             req=dict(side='SELL',qty=min(cap,p['qty']))
         else:
             if not gate or len(b['positions'])>=s.max_positions or session-b['closed'].get(symbol,-999)<s.cooldown_sessions: continue

@@ -16,6 +16,7 @@ from intraday_data import normalize_minute
 from minute_arena import features,new_accounts,step,snapshot
 from hybrid_backtest import _recent,_minute_entry_mask,_eligible_daily
 from engine import TRADERS
+import value_intraday as value_models
 ROOT=Path(__file__).resolve().parent
 
 def atomic(path,obj):
@@ -57,6 +58,7 @@ def publish(state,status,errors=None):
 def run(minutes=0):
     path=ROOT/'state/paper_intraday.json'; now=datetime.now(VN)
     state=json.loads(path.read_text(encoding='utf8')) if path.exists() else dict(started_at=now.isoformat(),last_observed_at=None,sessions=[],symbols_observed=[],marks={},watermarks={},paper_minute=new_accounts(),paper_combo=new_accounts())
+    value_state=value_models.load_state(ROOT,now)
     universe=json.loads((ROOT/'config/research-universe.json').read_text(encoding='utf8'))['eligible_symbols']
     end=time.monotonic()+minutes*60
     lock=Lock(); last_request=[0.]
@@ -72,6 +74,20 @@ def run(minutes=0):
         return sym,validate_wire(data[0],sym),datetime.now(VN)
     while True:
         now=datetime.now(VN); errors=[]; fresh=0
+        value_fresh=0
+        value_controls=json.loads((ROOT/'config/value-bots.json').read_text(encoding='utf8'))
+        value_active={mode:{k:b for k,b in value_state[mode].items() if value_controls.get(k,True)} for mode in value_models.MODES}
+        for mode in value_models.MODES:
+            for k,b in value_state[mode].items():
+                if not value_controls.get(k,True):b['pending'].clear()
+        value_gate_path=ROOT/'state/value_daily_gates.json'
+        value_gates=json.loads(value_gate_path.read_text(encoding='utf8')) if value_gate_path.exists() else {}
+        value_gate_day=pd.Timestamp(value_gates.get('date','1970-01-01')).date()
+        value_gate_valid=timedelta(0)<now.date()-value_gate_day<=timedelta(days=5)
+        value_state.update(gate_date=value_gates.get('date'),gate_valid=value_gate_valid)
+        if not value_gate_valid:
+            for mode in value_models.MODES:
+                for b in value_state[mode].values():b['pending'].clear()
         controls=json.loads((ROOT/'config/bots.json').read_text(encoding='utf8'))
         active={mode:{k:b for k,b in state[mode].items() if controls.get(k,True)} for mode in ('paper_minute','paper_combo')}
         for mode in active:
@@ -91,29 +107,40 @@ def run(minutes=0):
         with ThreadPoolExecutor(max_workers=4) as pool:
             observations=list(pool.map(guarded,symbols))
         source_ok=any(raw is not None for _,raw,_ in observations)
-        if source_ok: state['provider_verified_at']=datetime.now(VN).isoformat()
+        if source_ok:
+            state['provider_verified_at']=datetime.now(VN).isoformat()
+            value_state['provider_verified_at']=state['provider_verified_at']
         events=[]
         for sym,raw,received in observations:
             if raw is None: errors.append(sym+': '+received); continue
             f=normalize_minute(raw,'vnd'); local=pd.Timestamp(received).tz_localize(None)
             f=f[(f.index.normalize()==local.normalize())&(f.index+pd.Timedelta(minutes=1)<=local)]
             if f.empty: continue
-            ff=features(f); combo=_recent(f)
+            ff=features(f); combo=_recent(f); value_rows=value_models.minute_features(f).to_dict('index')
             masks={k:_minute_entry_mask(k,combo) for k in TRADERS}
             for ts,row in ff.to_dict('index').items():
                 aware=ts.tz_localize(VN)
                 if not eligible_bar(aware,datetime.now(VN),state['started_at'],state['watermarks'].get(sym)):continue
                 j=f.index.get_loc(ts)
                 entries={k:valid_gates and sym in gates.get('bots',{}).get(k,[]) and bool(masks[k][j]) for k in TRADERS}
-                events.append((ts,sym,row,entries,received))
+                events.append((ts,sym,row,entries,received,value_rows[ts]))
         # Shared cash is processed in bar-time order, never API/symbol order.
-        for ts,sym,row,entries,received in sorted(events,key=lambda e:(e[0],e[1])):
+        for ts,sym,row,entries,received,value_row in sorted(events,key=lambda e:(e[0],e[1])):
             day=str(ts.date())
             if day not in state['sessions']:state['sessions'].append(day)
             seq=state['sessions'].index(day)
             submitted=pd.Timestamp.now(tz=VN).tz_localize(None)
             step(active['paper_minute'],sym,row,ts,seq,state['marks'],submitted_at=submitted)
             if valid_gates: step(active['paper_combo'],sym,row,ts,seq,state['marks'],submitted_at=submitted,entry_gates=entries)
+            if value_gate_valid and eligible_bar(ts.tz_localize(VN),datetime.now(VN),value_state['started_at'],value_state['watermarks'].get(sym)):
+                if day not in value_state['sessions']:value_state['sessions'].append(day)
+                value_seq=value_state['sessions'].index(day)
+                for mode,bots in value_active.items():
+                    value_models.value_step(bots,sym,value_row,ts,value_seq,value_state['marks'],value_gates.get('bots',{}),combo=mode=='paper_combo',submitted_at=pd.Timestamp.now(tz=VN).tz_localize(None))
+                value_state['watermarks'][sym]=ts.tz_localize(VN).isoformat()
+                value_state['last_observed_at']=max(value_state.get('last_observed_at') or '',received.isoformat())
+                if sym not in value_state['symbols_observed']:value_state['symbols_observed'].append(sym)
+                value_fresh+=1
             state['watermarks'][sym]=ts.tz_localize(VN).isoformat()
             state['last_observed_at']=max(state.get('last_observed_at') or '',received.isoformat())
             if sym not in state['symbols_observed']:state['symbols_observed'].append(sym)
@@ -127,6 +154,12 @@ def run(minutes=0):
                 for k,b in bots.items():
                     point=dict(date=state['last_observed_at'],nav=b['nav'],return_pct=b['return_pct'])
                     state[mode][k]['history'].append(point)
+        if value_fresh:
+            for mode in value_models.MODES:
+                for k,b in snapshot(value_state[mode],value_state['marks']).items():
+                    value_state[mode][k]['history'].append(dict(date=value_state['last_observed_at'],nav=b['nav'],return_pct=b['return_pct']))
+        value_status='observing_fresh_minutes' if value_fresh else ('waiting_fresh_minutes' if market else 'market_closed')
+        value_models.publish(value_state,value_status,errors,ROOT)
         publish(state,status,errors)
         print(status,'fresh bars',fresh,'errors',len(errors),flush=True)
         if minutes<=0 and not source_ok:

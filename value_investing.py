@@ -21,10 +21,10 @@ VN=ZoneInfo('Asia/Ho_Chi_Minh')
 POLICY={'Buffett':dict(positions=6,roe=.15,debt=1.,margin=.08,price_anchor=.95),
         'Munger':dict(positions=4,roe=.20,debt=.6,margin=.12,price_anchor=1.15)}
 PROFILES={k:dict(name='Warren Buffett' if k=='Buffett' else 'Charlie Munger',
-    emoji='🌳' if k=='Buffett' else '💎',region='US',flag='🇺🇸',supported_modes=['paper','backtest'],
+    emoji='🌳' if k=='Buffett' else '💎',region='US',flag='🇺🇸',supported_modes=['paper_minute','paper','paper_combo','backtest_minute','backtest','hybrid'],
     tag='Doanh nghiệp tốt, chờ giá giảm' if k=='Buffett' else 'Chất lượng cao, danh mục tập trung',
     explain='Đọc báo cáo năm đã công bố, ưu tiên lợi nhuận và dòng tiền bền vững; xét mua mỗi tháng, giữ khi chất lượng còn tốt.',
-    detail=f"Mô hình học hỏi tư duy, không phải công thức hay lệnh thật của {k}. Ba năm lãi, CFO và FCF dương; ROE bình quân ≥{p['roe']:.0%}, biên lãi ≥{p['margin']:.0%}, nợ vay/vốn chủ ≤{p['debt']}; tối đa {p['positions']} mã. Giá mua ≤{p['price_anchor']} × MA200 chỉ là mốc giá tham chiếu, KHÔNG phải định giá nội tại. Chỉ doanh nghiệp phi tài chính có số liệu phù hợp. Chỉ giao dịch ngày; không dùng ATR để cắt lỗ.",
+    detail=f"Mô hình học hỏi tư duy, không phải công thức hay lệnh thật của {k}. Ba năm lãi, CFO và FCF dương; ROE bình quân ≥{p['roe']:.0%}, biên lãi ≥{p['margin']:.0%}, nợ vay/vốn chủ ≤{p['debt']}; tối đa {p['positions']} mã. Bản ngày xét mỗi tháng, mua khi giá ≤{p['price_anchor']} × MA200 tham chiếu, KHÔNG phải định giá nội tại. Chỉ doanh nghiệp phi tài chính có số liệu phù hợp. Bản phút/kết hợp là biến thể thử nghiệm: bộ lọc tài chính và điểm vào/thoát phút, không phải phong cách đầu tư dài hạn thực tế của hai ông.",
     source='https://www.berkshirehathaway.com/letters/1989.html') for k,p in POLICY.items()}
 
 def read(path):return json.loads(Path(path).read_text(encoding='utf8'))
@@ -175,12 +175,12 @@ def build_backtests():
             print(option['key'],bot,result['return_pct'],result['max_drawdown_pct'],len(book['trades']),flush=True)
     public=dict(revision='value_quality_v1',mode='real_market_data',generated_at=datetime.now(VN).isoformat(),traders=PROFILES,backtests=results['ALL'],backtest_periods=results,policy=POLICY,audit=audit,
         fundamentals=dict(source=bundle['source'],asof=bundle['asof'],sha256=hashlib.sha256(f.read_bytes()).hexdigest(),comparable_nonfinancial_companies=len(reports),requested_symbols=len(symbols),availability_rule=bundle['availability_rule']),
-        limitations=['Bộ 146 mã được chọn sau khi biết dữ liệu liên tục: còn sai lệch chọn mã sống sót.', 'Báo cáo hiện tại không phải kho phiên bản gốc. Mỗi giá trị chỉ dùng sau ngày công bố/cập nhật muộn nhất cộng 1 ngày; báo cáo bị sửa khiến lịch sử có thể thiếu cơ hội.', 'Loại ngành ngân hàng, bảo hiểm, dịch vụ tài chính theo ICB hiện tại vì bộ lọc nợ/CFO không tương đương; phân ngành chưa theo từng thời điểm.', 'MA200 là mốc giá tương đối, không phải định giá nội tại hay đo lường lợi thế cạnh tranh. Không mô phỏng đánh giá quản trị định tính.', 'Giá theo nguồn OHLCV đang dùng của Arena; chưa tái dựng đầy đủ cổ tức tiền mặt/quyền và giá chưa điều chỉnh. Chưa phải mô hình tổng lợi nhuận của nhà đầu tư dài hạn.', 'Ngưỡng cố định do Arena đặt trước khi chạy, không phải công thức được Buffett/Munger xác nhận. Xét mỗi tháng, khớp phiên sau, phí/trượt giá/thuế và giới hạn thanh khoản.'])
+        limitations=['Bộ 146 mã được chọn sau khi biết dữ liệu liên tục: còn sai lệch chọn mã sống sót.', 'Báo cáo hiện tại không phải kho phiên bản gốc. Mỗi giá trị chỉ dùng sau ngày công bố/cập nhật muộn nhất cộng 1 ngày; báo cáo bị sửa khiến lịch sử có thể thiếu cơ hội.', 'Loại ngành ngân hàng, bảo hiểm, dịch vụ tài chính theo ICB hiện tại vì bộ lọc nợ/CFO không tương đương; phân ngành chưa theo từng thời điểm.', 'MA200 là mốc giá tương đối, không phải định giá nội tại hay đo lường lợi thế cạnh tranh. Không mô phỏng đánh giá quản trị định tính.', 'Giá theo nguồn OHLCV đang dùng của Arena; chưa tái dựng đầy đủ cổ tức tiền mặt/quyền và giá chưa điều chỉnh. Chưa phải mô hình tổng lợi nhuận của nhà đầu tư dài hạn.', 'Ngưỡng cố định do Arena đặt trước khi chạy, không phải công thức được Buffett/Munger xác nhận. Bản ngày xét mỗi tháng, khớp phiên sau; bản phút/kết hợp theo quy tắc thử nghiệm riêng. Có phí/trượt giá/thuế và giới hạn thanh khoản.'])
     public['daily_input_sha256']={s:hashlib.sha256((ROOT/'data/prices_research_vietcap/ITC.csv' if s=='ITC' else ROOT/'data/prices'/f'{s}.csv').read_bytes()).hexdigest() for s in symbols}
     dest=ROOT/'site/value-investing.json'
     if dest.exists():
         old=read(dest)
-        for k in ('paper','paper_started_at','paper_last_session'):
+        for k in ('paper','paper_started_at','paper_last_session','paper_fundamentals_asof','cloud_enabled','minute_backtests','hybrid_backtests','intraday_backtest_audit','intraday_policy'):
             if k in old:public[k]=old[k]
     write(dest,public)
 
@@ -217,6 +217,8 @@ def update_paper(now=None):
     public['paper_started_at']=state['enrolled_at'];public['paper_last_session']=str(date.date())
     public['cloud_enabled']=controls
     public['paper_fundamentals_asof']=bundle['asof'];write(ROOT/'site/value-investing.json',public)
+    from value_intraday import export_gates
+    export_gates(bundle,prices,symbols,date,ROOT)
 
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--backtest',action='store_true');p.add_argument('--paper',action='store_true');a=p.parse_args()

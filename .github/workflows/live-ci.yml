@@ -18,6 +18,8 @@ on:
       - 'tests/**'
       - 'engine.py'
       - 'value_investing.py'
+      - 'value_intraday.py'
+      - 'run_value_intraday.py'
       - 'value_fundamentals.py'
       - 'config/value-*.json'
       - 'site/value-investing.json'

@@ -77,7 +77,7 @@ def test_published_inputs_and_all_trade_counts_reconcile():
     assert all(sectors[s]['icb_code'] not in ('8300','8500','8700') for s in eligible)
     for books in d['backtest_periods'].values():
         for bot,r in books.items():
-            assert d['traders'][bot]['supported_modes']==['paper','backtest']
+            assert set(d['traders'][bot]['supported_modes'])=={'paper_minute','paper','paper_combo','backtest_minute','backtest','hybrid'}
             assert r['sector_stats']['buy_fills']==r['buy_count']
             assert r['sector_stats']['sell_fills']==r['closed_trades']
             assert len(r['history'])==len(r['curve']) and r['history'][0]['nav']==100_000_000
