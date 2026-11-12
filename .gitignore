@@ -14,3 +14,8 @@ site/stocks/
 data/prices_research_vietcap/
 
 data/expansion/
+
+data/pit_daily/
+data/pit_minute/
+data/value_fundamentals/
+data/pit_results/

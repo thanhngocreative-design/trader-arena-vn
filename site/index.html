@@ -187,7 +187,24 @@ let period='ALL', stockSymbol='',stockWindow='3M',stockSelectedBar=null;
 let hiddenBots={};try{hiddenBots=JSON.parse(localStorage.getItem('arena-hidden-bots-v1')||'{}')||{};}catch(_){hiddenBots={};}
 let liveApiBase='',livePoll=null;
 let hybridBankProgress=null;
-const activeKeys=()=>IDS.filter(k=>!hiddenBots[k]);
+let VALUE_DATA=null;
+function applyValueData(){
+  if(!VALUE_DATA)return;
+  for(const [k,profile] of Object.entries(VALUE_DATA.traders)){
+    DATA.traders[k]=profile;EMOJI[k]=profile.emoji;SHORT[k]=k;TEXT[k]=profile.explain;
+    DATA.paper[k]=VALUE_DATA.paper[k];DATA.backtests[k]=VALUE_DATA.backtests[k];
+    for(const [p,books] of Object.entries(VALUE_DATA.backtest_periods)){if(DATA.backtest_periods?.[p])DATA.backtest_periods[p][k]=books[k];}
+    DATA.cloud_enabled={...DATA.cloud_enabled,...VALUE_DATA.cloud_enabled};
+  }
+}
+async function loadValueData(){
+  const response=await fetch('./value-investing.json?v='+Date.now(),{cache:'no-store'});
+  if(!response.ok)throw new Error('Không tải được bot dài hạn');
+  const v=await response.json();if(v.mode!=='real_market_data'||v.revision!=='value_quality_v1'||!v.paper?.Buffett||!v.paper?.Munger)throw new Error('Bot dài hạn chưa được xác minh');
+  VALUE_DATA=v;applyValueData();
+}
+const supportsMode=(k,m=mode)=>!DATA.traders?.[k]?.supported_modes||DATA.traders[k].supported_modes.includes(m);
+const activeKeys=()=>IDS.filter(k=>!hiddenBots[k]&&supportsMode(k));
 const periodData=()=>DATA.backtest_periods?.[period]||DATA.backtests;
 function selectPeriod(p){if(!DATA.backtest_periods?.[p]&&p!=='ALL')return;period=p;render();}
 function toggleBot(k){hiddenBots[k]=!hiddenBots[k];try{localStorage.setItem('arena-hidden-bots-v1',JSON.stringify(hiddenBots));}catch(_){};render();}
@@ -253,7 +270,7 @@ function setMode(m){
   if(!MODE_ID[m])return;
   const key={paper_minute:'paper_minute',paper_combo:'paper_combo',backtest_minute:'minute_backtests',hybrid:'hybrid_backtests'}[m];
   if(key&&!Object.keys(DATA[key]||{}).length){$('hybridCoverage').textContent=MODE_LABEL[m]+': chưa có dữ liệu đã xác minh; không dùng kết quả của tab khác.';return;}
-  mode=m;document.querySelectorAll('.switch button').forEach(x=>x.classList.toggle('active',x.id===MODE_ID[m]));render();
+  mode=m;if(!supportsMode(selected))selected=IDS.find(k=>supportsMode(k))||IDS[0];document.querySelectorAll('.switch button').forEach(x=>x.classList.toggle('active',x.id===MODE_ID[m]));render();
 }
 
 function selectRankBot(id){
@@ -263,8 +280,9 @@ function selectRankBot(id){
   // Repaint only the home view. Do not change page, tab or scroll to the top.
   renderHome();
 }
-function openBotProfile(id){if(!IDS.includes(id))return;selected=id;setPage('bots')}
-function botFrame(k){return DATA.bot_timeframes?.[mode]?.bots?.[k]||{label:'Chưa rõ khung',priority:'',detail:'Chưa có mô tả khung giao dịch được xác minh.'};}
+function selectProfile(id){if(!IDS.includes(id))return;selected=id;if(!supportsMode(id))setMode(isPaper()?'paper':'backtest');else render();}
+function openBotProfile(id){if(!IDS.includes(id))return;selectProfile(id);setPage('bots')}
+function botFrame(k){return DATA.traders?.[k]?.supported_modes?{label:'Chỉ ngày · dài hạn',priority:'ngày',detail:'Báo cáo năm đã công bố, xét mỗi tháng; dự kiến khớp phiên ngày tiếp theo. Không có biến thể phút/kết hợp.'}:DATA.bot_timeframes?.[mode]?.bots?.[k]||{label:'Chưa rõ khung',priority:'',detail:'Chưa có mô tả khung giao dịch được xác minh.'};}
 function frameBadge(k){const f=botFrame(k);return safe(f.label)+(mode==='hybrid'&&f.priority==='phút'?' · ưu tiên phút':'');}
 function rankExtra(k){
   const b=part(k);
@@ -330,7 +348,7 @@ function renderHome(){
   $('totalInitial').textContent=money(capital);$('marketDay').textContent=mode==='hybrid'?String(DATA.hybrid_backtest_audit?.last||'—').split('-').reverse().join('/'):(mode==='backtest'&&opt?opt.end.split('-').reverse().join('/'):DATA.last_session.split('-').reverse().join('/'));
   const available=included.filter(k=>regionFilter==='ALL'||DATA.traders?.[k]?.region===regionFilter);
   const sorted=available.sort((a,b)=>ret(b)-ret(a));
-  $('regionChips').innerHTML=Object.entries(REGION).map(([k,label])=>`<button class="chip ${regionFilter===k?'active':''}" onclick="setRegionFilter('${k}')">${label} · ${k==='ALL'?IDS.length:IDS.filter(t=>DATA.traders?.[t]?.region===k).length}</button>`).join('');
+  $('regionChips').innerHTML=Object.entries(REGION).map(([k,label])=>`<button class="chip ${regionFilter===k?'active':''}" onclick="setRegionFilter('${k}')">${label} · ${k==='ALL'?IDS.filter(t=>supportsMode(t)).length:IDS.filter(t=>supportsMode(t)&&DATA.traders?.[t]?.region===k).length}</button>`).join('');
   $('leaderboard').innerHTML=(sorted.length?sorted.map((k,i)=>`<div class="rankgroup">
     <button type="button" class="ranker ${k===selected?'selected':''}" aria-expanded="${expandedBot===k}" aria-controls="rankdetail-${k}" onclick="selectRankBot('${k}')">
       <span class="rankicon">${['🥇','🥈','🥉'][i]||('#'+(i+1))}</span>
@@ -409,19 +427,20 @@ function renderBookComparison(k){
     const b=book.data,m=comparisonMetric(b);
     const history=b?.history||[];
     const observed=history.length>0;
-    let status=!b?'Chưa có dữ liệu':book.paper?(observed?'Đã ghi nhận '+n(b.observed_history_points||history.length)+' điểm NAV':'Chưa có phiên ghi nhận'):'Toàn bộ 3 năm';
+    const unsupported=DATA.traders?.[k]?.supported_modes&&!DATA.traders[k].supported_modes.includes(book.id);
+    let status=unsupported?'Không áp dụng — bot dài hạn chỉ theo ngày':!b?'Chưa có dữ liệu':book.paper?(observed?'Đã ghi nhận '+n(b.observed_history_points||history.length)+' điểm NAV':'Chưa có phiên ghi nhận'):'Toàn bộ 3 năm';
     if(book.paper&&observed){
       const last=book.id==='paper'?history[history.length-1]?.date:DATA.intraday_paper_status?.last_observed_at;
       status+=' · '+shortDate(last);
     }
-    const cells=!b?'<td colspan="3" class="muted">Chưa có dữ liệu</td>':
+    const cells=!b?`<td colspan="3" class="muted">${unsupported?'Không áp dụng':'Chưa có dữ liệu'}</td>`:
       `<td><strong class="${m.ret===null?'muted':color(m.ret)}">${m.ret===null?'—':pct(m.ret)}</strong><small>${m.profit===null?'—':(m.profit>=0?'+':'')+money(m.profit)}</small></td>
        <td class="${m.dd===null?'muted':'red'}">${m.dd===null?'—':pct(m.dd)}</td>
        <td>${m.buys===null||m.sells===null?'—':n(m.buys+m.sells).toLocaleString('vi-VN')}<small>${m.buys===null||m.sells===null?'Chưa có số liệu':m.buys+' mua · '+m.sells+' bán'}</small></td>`;
     return `<tr data-book="${book.id}" class="${mode===book.id?'book-current':''}"><th scope="row"><button class="book-link" ${b?'':'disabled'} onclick="openComparisonBook('${book.id}')">${safe(book.label)} ↗</button><small>${m.nav===null?'—':money(m.nav)}</small><small class="book-status">${safe(status)}</small></th>${cells}</tr>`;
   }).join('');
   return `<section class="card book-comparison" aria-label="So sánh 6 sổ của bot"><h3>So sánh 6 sổ · ${safe(SHORT[k])}</h3>
-    <p class="note">Paper: từ ${safe(start)} · Backtest: ${safe(period)}.</p>
+    <p class="note">Paper: từ ${safe(DATA.paper?.[k]?.paper_started_at?shortDate(DATA.paper[k].paper_started_at):start)} · Backtest: ${safe(period)}.</p>
     <p class="note">Paper theo dõi từ ngày bắt đầu mùa mới; backtest là mô phỏng lịch sử 3 năm. Thời gian và quy tắc khác nhau, không xếp hạng chung. Bảng luôn dùng toàn bộ 3 năm cho cả ba backtest.</p>
     <table><caption class="note">Chạm tên sổ để xem chi tiết bên dưới.</caption><thead><tr><th scope="col">Sổ / Tài sản</th><th scope="col">Lãi/lỗ</th><th scope="col"><abbr title="Mức giảm sâu nhất từ đỉnh NAV đã ghi nhận">DD</abbr></th><th scope="col">Khớp</th></tr></thead><tbody>${rows}</tbody></table>
     <p class="note">DD: mức giảm sâu nhất từ đỉnh tài sản đã ghi nhận; paper tính cả vốn ban đầu. Khớp: số lần mua + bán, có thể gồm bán một phần. “—”: chưa có số liệu; paper chưa ghi NAV thì chưa tính DD.</p>
@@ -430,13 +449,14 @@ function renderBookComparison(k){
   </section>`;
 }
 function renderBots(){
-  $('botChips').innerHTML=IDS.map(k=>`<button class="chip ${selected===k?'active':''}" onclick="selected='${k}';renderBots()">${EMOJI[k]} ${safe(SHORT[k])}${hiddenBots[k]?' · TẮT':''}</button>`).join('');
+  $('botChips').innerHTML=IDS.map(k=>`<button class="chip ${selected===k?'active':''}" onclick="selectProfile('${k}')">${EMOJI[k]} ${safe(SHORT[k])}${hiddenBots[k]?' · TẮT':''}</button>`).join('');
   const b=part(selected),holds=b.holdings||[],plans=b.orders_next||[],acts=b.actions||[];
   const cloud=DATA.cloud_enabled?.[selected]!==false;
+  const valueNotes=DATA.traders?.[selected]?.supported_modes&&VALUE_DATA?`<div class="card"><strong>Phạm vi mô phỏng dài hạn</strong><p class="note">${VALUE_DATA.fundamentals.comparable_nonfinancial_companies}/146 mã có báo cáo năm phi tài chính phù hợp; còn phải đạt bộ lọc tại ngày xét. Số mã đạt chất lượng: ${VALUE_DATA.audit[selected].quality_eligible_start} đầu kỳ → ${VALUE_DATA.audit[selected].quality_eligible_end} cuối kỳ. Không đồng nghĩa đều có tín hiệu mua.</p>${VALUE_DATA.limitations.map(s=>`<p class="note">${safe(s)}</p>`).join('')}<p class="note">Nguồn báo cáo: Vietcap IQ, lấy ngày ${safe(VALUE_DATA.fundamentals.asof.slice(0,10))}. <a href="${safe(DATA.traders[selected].source)}" target="_blank" rel="noopener">Tư tưởng tham khảo: thư Berkshire 1989</a>.</p></div>`:'';
   $('botDetail').innerHTML=renderBookComparison(selected)+`<div class="card"><div class="bothead"><div class="avatar">${EMOJI[selected]}</div><div><strong>${safe(DATA.traders?.[selected]?.name||SHORT[selected])}</strong><div class="label">${safe(DATA.traders?.[selected]?.tag||'Chiến thuật công khai')}</div></div></div><p class="note" style="margin:13px 0 4px">${safe(DATA.traders?.[selected]?.explain||TEXT[selected])}</p><p class="note" style="margin:5px 0 4px">${safe(DATA.traders?.[selected]?.detail||'Mô phỏng quy tắc công khai; không phải giao dịch thật của trader.')}</p>
   <div class="card soft"><strong>⏱ ${frameBadge(selected)}</strong><p class="note" style="margin-top:6px">${safe(botFrame(selected).detail)}</p><p class="note">Mỗi tab có sổ và kết quả riêng: chỉ phút, chỉ ngày hoặc ngày + phút. Đây là khung dữ liệu của engine hiện tại, không phải cam kết về phong cách của trader ngoài đời.</p></div>
   ${selected==='Hybrid'&&mode!=='paper_minute'&&mode!=='backtest_minute'? `<div class="card soft"><strong>🧬 Chiến thuật được chọn gần nhất</strong><p class="note" style="margin-top:6px">${safe(Object.entries(DATA.hybrid_model?.leaders_latest||{}).map(([id,w])=>(SHORT[id]||id)+' · '+(w*100).toFixed(0)+'%').join(', ')||'Không có bot đủ lợi nhuận sau khi xét rủi ro; giữ tiền mặt.')}</p></div>`:''}
-  <div class="switchline"><div><strong style="font-size:13px">${hiddenBots[selected]?'Đã tắt theo dõi':'Đang theo dõi bot'}</strong><p class="note">Chỉ ảnh hưởng bảng xếp hạng trên iPhone.</p></div><button class="tog ${hiddenBots[selected]?'off':''}" onclick="toggleBot('${selected}')">${hiddenBots[selected]?'BẬT':'TẮT'}</button></div>
+  ${valueNotes}<div class="switchline"><div><strong style="font-size:13px">${hiddenBots[selected]?'Đã tắt theo dõi':'Đang theo dõi bot'}</strong><p class="note">Chỉ ảnh hưởng bảng xếp hạng trên iPhone.</p></div><button class="tog ${hiddenBots[selected]?'off':''}" onclick="toggleBot('${selected}')">${hiddenBots[selected]?'BẬT':'TẮT'}</button></div>
   <p class="note">Cloud: ${cloud?'🟢 đang tính lệnh ảo':'⏸ đã tạm dừng đặt lệnh ảo'}. Muốn thay đổi trạng thái cloud, <a href="https://github.com/thanhngocreative-design/trader-arena-vn/actions/workflows/bot-control.yml" target="_blank" rel="noopener" style="color:#7fe6cb">mở công cụ bật/tắt Cloud</a> (GitHub → Run workflow → chọn bot và on/off) hoặc nhắn ChatGPT yêu cầu đổi.</p>
   <div class="metric-grid"><div class="metric"><span class="label">Tài sản tiền ảo</span><div class="value">${money(b.nav)}</div></div><div class="metric"><span class="label">Đang lãi hay lỗ?</span><div class="value ${color(b.return_pct)}">${pct(b.return_pct)}</div></div><div class="metric"><span class="label">Tiền chưa mua cổ phiếu</span><div class="value">${money(b.cash)}</div></div><div class="metric"><span class="label">Số mã đang nắm</span><div class="value">${holds.length}</div></div></div></div>
   <div class="section-title"><h2>👜 Giỏ cổ phiếu</h2><span class="hint">${isPaper()?'Mô phỏng mỗi ngày':'Cuối backtest'}</span></div>
@@ -453,6 +473,7 @@ function renderTrades(){
 function sectorBookStats(id,k){
   if(id==='paper')return DATA.paper?.[k]?.sector_stats;
   if(id==='paper_minute'||id==='paper_combo')return DATA[id]?.[k]?.sector_stats;
+  if(id==='backtest'&&DATA.backtests?.[k]?.sector_stats)return DATA.backtests[k].sector_stats;
   return SECTOR_DATA?.books?.[id]?.[k];
 }
 function combineSectorStats(stats){
@@ -480,6 +501,7 @@ async function refreshSectorData(){
     const response=await fetch('./dashboard.json?v='+Date.now(),{cache:'no-store'});if(!response.ok)throw new Error('Không tải được sổ ngày');
     const fresh=await response.json();if(fresh.mode!=='real_market_data')throw new Error('Sổ ngày không hợp lệ');
     DATA={...fresh,paper_minute:DATA.paper_minute,paper_combo:DATA.paper_combo,intraday_paper_status:DATA.intraday_paper_status};
+    applyValueData();try{await loadValueData();}catch(_){}
     await loadSectorData();try{await loadIntradayPaper(true);}catch(_){sectorRefreshError='Chưa cập nhật được paper phút; đang dùng bản đã tải.';}
   }catch(_){sectorRefreshError='Cập nhật chưa thành công; số liệu bên dưới là bản đã tải trước đó.';}
   if(page==='sectors')renderSectors();
@@ -489,13 +511,15 @@ function renderSectors(){
   if(!SECTOR_DATA){target.innerHTML='<div class="card empty">Chưa tải được phân ngành đã xác minh. Hãy tải lại trang.</div>';return;}
   const d=SECTOR_DATA,shortDate=x=>String(x||'').slice(0,10).split('-').reverse().join('/');
   const missing=d.universe.filter(g=>!g.count&&g.market_count),present=d.universe.filter(g=>g.count).length;
-  const requestedBooks=(sectorBot==='ALL'?IDS:[sectorBot]).map(k=>sectorBookStats(sectorMode,k));
+  const sectorIds=IDS.filter(k=>!DATA.traders?.[k]?.supported_modes||DATA.traders[k].supported_modes.includes(sectorMode));
+  if(sectorBot!=='ALL'&&!sectorIds.includes(sectorBot))sectorBot='ALL';
+  const requestedBooks=(sectorBot==='ALL'?sectorIds:[sectorBot]).map(k=>sectorBookStats(sectorMode,k));
   const complete=requestedBooks.every(Boolean),stats=combineSectorStats(requestedBooks),rows=sectorRank(stats);
   const paper=['paper','paper_minute','paper_combo'].includes(sectorMode);
-  const controls=`<div class="sector-controls"><label>Sổ<select id="sectorModeSelect" onchange="sectorMode=this.value;renderSectors()">${['backtest_minute','backtest','hybrid','paper_minute','paper','paper_combo'].map(id=>`<option value="${id}" ${sectorMode===id?'selected':''}>${safe(MODE_LABEL[id])}</option>`).join('')}</select></label><label>Bot<select id="sectorBotSelect" onchange="sectorBot=this.value;renderSectors()"><option value="ALL">Tất cả 11 bot</option>${IDS.map(k=>`<option value="${k}" ${sectorBot===k?'selected':''}>${safe(SHORT[k])}</option>`).join('')}</select></label><label>So theo<select id="sectorMetricSelect" onchange="sectorMetric=this.value;renderSectors()"><option value="value" ${sectorMetric==='value'?'selected':''}>Giá trị mua</option><option value="count" ${sectorMetric==='count'?'selected':''}>Số lần mua</option></select></label></div>`;
+  const controls=`<div class="sector-controls"><label>Sổ<select id="sectorModeSelect" onchange="sectorMode=this.value;renderSectors()">${['backtest_minute','backtest','hybrid','paper_minute','paper','paper_combo'].map(id=>`<option value="${id}" ${sectorMode===id?'selected':''}>${safe(MODE_LABEL[id])}</option>`).join('')}</select></label><label>Bot<select id="sectorBotSelect" onchange="sectorBot=this.value;renderSectors()"><option value="ALL">Tất cả ${sectorIds.length} bot</option>${sectorIds.map(k=>`<option value="${k}" ${sectorBot===k?'selected':''}>${safe(SHORT[k])}</option>`).join('')}</select></label><label>So theo<select id="sectorMetricSelect" onchange="sectorMetric=this.value;renderSectors()"><option value="value" ${sectorMetric==='value'?'selected':''}>Giá trị mua</option><option value="count" ${sectorMetric==='count'?'selected':''}>Số lần mua</option></select></label></div>`;
   const sectorRows=d.universe.map(g=>`<details class="sector-line"><summary><strong>${safe(g.sector)}</strong><span>${g.count}/146 · ${g.sample_share_pct.toFixed(1)}%</span><div class="sector-track"><span style="width:${g.sample_share_pct}%"></span></div></summary><p class="note">Trong danh sách ${d.market_count} cổ phiếu của Vietcap: ${g.market_count} mã · ${g.market_share_pct.toFixed(1)}%.</p><p class="note">${g.symbols.length?g.symbols.map(sym=>`<button class="tickerbtn" onclick="openStock('${safe(sym)}')">${safe(sym)}</button>`).join(' '):'Mẫu 146 chưa có mã ngành này.'}</p></details>`).join('');
   const flow=!complete?'<div class="empty">Chưa đủ sổ giao dịch để thống kê. Hãy cập nhật; chưa hiển thị tỷ trọng từ dữ liệu thiếu.</div>':rows.length?rows.map(g=>`<details class="sector-line"><summary><strong>${safe(g.sector)}</strong><span>${sectorShare(g).toFixed(1)}%</span><div class="sector-track"><span style="width:${sectorShare(g)}%"></span></div></summary><p class="note">${money(g.buy_value)} giá trị mua · ${g.buy_fills} lần mua · ${g.sell_fills} lần bán.<br>Lãi/lỗ đã chốt theo các lần bán: <span class="${color(g.realized_pnl)}">${money(g.realized_pnl)}</span>. Chưa gồm lãi/lỗ vị thế đang giữ.</p><p class="note">${g.symbols.map(sym=>`<button class="tickerbtn" onclick="openStock('${safe(sym)}')">${safe(sym)}</button>`).join(' ')}</p></details>`).join(''):'<div class="empty">Chưa có lệnh mua đã khớp trong sổ này. Lệnh chờ không được tính vào phân phối ngành.</div>';
-  const botRows=IDS.map(k=>{const book=sectorBookStats(sectorMode,k),top=sectorRank(book)[0];return `<button class="sector-bot ${sectorBot===k?'active':''}" onclick="sectorBot='${k}';renderSectors()"><strong>${safe(SHORT[k])}</strong><span>${top?safe(top.sector)+' · '+sectorShare(top).toFixed(1)+'%':book?'Chưa có lệnh mua':'Chưa có dữ liệu đầy đủ'}</span></button>`;}).join('');
+  const botRows=sectorIds.map(k=>{const book=sectorBookStats(sectorMode,k),top=sectorRank(book)[0];return `<button class="sector-bot ${sectorBot===k?'active':''}" onclick="sectorBot='${k}';renderSectors()"><strong>${safe(SHORT[k])}</strong><span>${top?safe(top.sector)+' · '+sectorShare(top).toFixed(1)+'%':book?'Chưa có lệnh mua':'Chưa có dữ liệu đầy đủ'}</span></button>`;}).join('');
   const e=d.expansion;
   target.innerHTML=`<div class="card"><div class="row"><strong>Độ phủ mẫu 146 mã</strong><button class="chip" onclick="refreshSectorData()">↻ Cập nhật</button></div><p class="note">ICB cấp ${d.icb_level}, Vietcap · phân loại lấy ngày ${shortDate(d.classification_asof)}. Áp dụng nhãn ngành hiện tại cho giao dịch quá khứ; chưa có lịch sử đổi ngành theo thời gian.</p><p class="note">${present}/${d.universe.length} ngành có mặt. Chưa có: <strong>${safe(missing.map(g=>g.sector).join(', '))}</strong>. Tỷ trọng dưới đây đếm số mã, không phải vốn hóa.</p><button class="chip" style="margin:10px 0" onclick="document.getElementById('sectorActivity').scrollIntoView({behavior:'smooth'})">Xem bot mua ngành nào ↓</button>${sectorRows}</div>
   <div class="card" id="sectorActivity"><h2 style="font-size:18px">Bot đang chủ yếu mua ngành nào?</h2>${controls}<p class="note">${paper?'Paper mùa từ '+shortDate(DATA.paper_contest_start)+'. Thống kê toàn bộ giao dịch đã ghi, không chạy bù.':'Backtest toàn bộ '+shortDate(d.period.start)+' – '+shortDate(d.period.end)+', đã đối chiếu đủ 33 sổ lịch sử.'}</p><p class="note">Ngành chỉ dùng để thống kê, không đưa vào tín hiệu mua/bán. Nên so tỷ trọng bot với tỷ trọng ngành trong mẫu 146 vì mẫu chưa cân bằng ngành.</p><p class="note">${sectorMetric==='count'?'Tỷ trọng số lần mua đã khớp.':'Tỷ trọng giá trị mua cộng dồn, không phải tỷ trọng NAV hay vốn đang nắm giữ.'} Giá trị từ sổ khớp đã ghi, có thể làm tròn giá; không dùng 30–40 giao dịch gần nhất để suy ra toàn bộ kỳ.</p>${sectorRefreshError?`<p class="note red">${safe(sectorRefreshError)}</p>`:''}${stats.outside_146_fills?`<p class="note">Có ${stats.outside_146_fills} lần khớp ngoài nhóm 146 trong paper; vẫn tính vào toàn bộ sổ và hiển thị theo ngành thật.</p>`:''}<p class="note">${complete?stats.buy_fills+' lần mua · '+money(stats.buy_value)+' giá trị mua cộng dồn.':'Thiếu dữ liệu một hoặc nhiều sổ đã chọn.'}</p>${flow}</div>
@@ -588,6 +612,7 @@ async function boot(){
     const d=await res.json();
     if(d.mode!=='real_market_data'||!d.paper||!d.backtests||!d.last_session)throw new Error('Invalid feed');
     DATA=d;demo=false;
+    try{await loadValueData();}catch(_){DATA.warnings.push('Chưa tải được hai bot dài hạn Buffett/Munger; đang hiển thị các bot đã xác minh khác.');}
     try{await loadSectorData();}catch(_){}
     try{await loadIntradayPaper();}catch(_){}
     try{await loadIntradayPaper(true);}catch(_){}

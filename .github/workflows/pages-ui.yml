@@ -11,6 +11,7 @@ on:
       - site/paper-intraday.json
       - site/sectors.json
       - site/expansion-audit.json
+      - site/value-investing.json
       - .github/workflows/pages-ui.yml
 permissions:
   contents: read
@@ -84,6 +85,21 @@ jobs:
                   assert stats['outside_146_fills']==0
           assert not Path('site/baseline-v1/dashboard.json').exists()
           print('Verified active research; old published backtests absent')
+          PY
+      - name: Validate separate daily-only value simulations
+        run: |
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          v=json.loads(Path('site/value-investing.json').read_text())
+          assert v['revision']=='value_quality_v1' and v['mode']=='real_market_data'
+          assert v['fundamentals']['sha256']==hashlib.sha256(Path('config/value-fundamentals.json').read_bytes()).hexdigest()
+          for bot in ('Buffett','Munger'):
+              assert v['traders'][bot]['supported_modes']==['paper','backtest']
+              assert bot in v['paper'] and bot in v['backtests']
+              assert v['backtests'][bot]['sector_stats']['buy_fills']==v['backtests'][bot]['buy_count']
+              assert v['backtests'][bot]['sector_stats']['sell_fills']==v['backtests'][bot]['closed_trades']
+          print('Verified two daily-only bots; no minute results substituted')
           PY
       - uses: actions/configure-pages@v5
         with:

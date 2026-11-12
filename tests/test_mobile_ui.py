@@ -8,6 +8,41 @@ import pytest
 
 SITE = Path(__file__).resolve().parents[1] / "site" / "index.html"
 
+def test_daily_only_value_profiles_route_without_fake_minute_results(tmp_path):
+    node=shutil.which('node')
+    if not node:pytest.skip('Node.js unavailable')
+    html=SITE.read_text(encoding='utf8');js=re.search(r'<script>(.*?)</script>',html,re.S)[1]
+    js=js.rsplit('boot();',1)[0]
+    check=r'''
+const assert=require('node:assert/strict'),fs=require('node:fs');
+const elements={};global.document={getElementById:id=>elements[id]||=({innerHTML:'',style:{},classList:{toggle(){}}}),querySelectorAll:()=>[]};
+global.localStorage={getItem:()=>null};global.location={search:''};global.window={scrollTo(){}};
+'''+js+r'''
+DATA=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+const intraday=JSON.parse(fs.readFileSync(require('node:path').join(require('node:path').dirname(process.argv[2]),'paper-intraday.json'),'utf8'));
+DATA.paper_minute=intraday.paper_minute;DATA.paper_combo=intraday.paper_combo;
+VALUE_DATA=JSON.parse(fs.readFileSync(process.argv[3],'utf8'));applyValueData();IDS=Object.keys(DATA.traders);
+assert.equal(IDS.length,13);mode='backtest_minute';
+assert.equal(activeKeys().length,11);assert.equal(part('Buffett'),undefined);
+const originalRender=render;render=()=>{};selectProfile('Buffett');assert.equal(mode,'backtest');assert.equal(selected,'Buffett');
+assert.equal(activeKeys().length,13);assert.equal(part('Buffett').return_pct,VALUE_DATA.backtests.Buffett.return_pct);
+renderBots();assert.ok(elements.botDetail.innerHTML.includes('Không áp dụng — bot dài hạn chỉ theo ngày'));
+assert.ok(elements.botDetail.innerHTML.includes('113/146'));
+setMode('paper_minute');assert.notEqual(selected,'Buffett');assert.equal(activeKeys().length,11);
+selectProfile('Munger');assert.equal(mode,'paper');assert.equal(part('Munger').nav,100000000);
+assert.equal(comparisonBooks('Munger').filter(b=>b.data).length,2);
+for(const p of ['3M','6M','1Y','2Y','ALL']){period=p;mode='backtest';assert.equal(part('Munger').return_pct,VALUE_DATA.backtest_periods[p].Munger.return_pct);}
+// Replacing the base daily payload must not discard long-term books.
+DATA=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));applyValueData();assert.ok(DATA.paper.Buffett);
+SECTOR_DATA=JSON.parse(fs.readFileSync(process.argv[4],'utf8'));
+sectorMode='backtest_minute';sectorBot='ALL';renderSectors();assert.ok(elements.sectorContent.innerHTML.includes('Tất cả 11 bot'));
+sectorMode='backtest';renderSectors();assert.ok(elements.sectorContent.innerHTML.includes('Tất cả 13 bot'));
+assert.equal(sectorBookStats('backtest','Buffett').buy_fills,VALUE_DATA.backtests.Buffett.buy_count);
+'''
+    path=tmp_path/'value-ui.cjs';path.write_text(check,encoding='utf8')
+    result=subprocess.run([node,str(path),str(SITE.parent/'dashboard.json'),str(SITE.parent/'value-investing.json'),str(SITE.parent/'sectors.json')],capture_output=True,text=True,encoding='utf8')
+    assert result.returncode==0,result.stderr
+
 
 def test_mobile_ui_controls_exist():
     html = SITE.read_text(encoding="utf-8")

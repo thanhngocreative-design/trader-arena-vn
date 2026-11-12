@@ -2,7 +2,7 @@ name: Trader Arena VN daily paper contest
 on:
   push:
     branches: [main]
-    paths: ['portfolio.py', 'paper_metrics.py', 'sector_analytics.py', 'config/market-classification.json', 'generate_dashboard.py', 'paper_forward.py', 'fast_engine.py', 'engine.py', '.github/workflows/daily.yml', '.gitattributes', 'state/paper_archive/**']
+    paths: ['value_investing.py', 'value_fundamentals.py', 'config/value-*.json', 'portfolio.py', 'paper_metrics.py', 'sector_analytics.py', 'config/market-classification.json', 'generate_dashboard.py', 'paper_forward.py', 'fast_engine.py', 'engine.py', '.github/workflows/daily.yml', '.gitattributes', 'state/paper_archive/**']
   workflow_dispatch:
   schedule:
     # 16:47 Vietnam time, weekdays (UTC+7).
@@ -42,6 +42,13 @@ jobs:
         env:
           VNSTOCK_API_KEY: ${{ secrets.VNSTOCK_API_KEY }}
         run: python generate_dashboard.py
+      - name: Refresh dated real annual statements for long-term bots
+        # A failed provider refresh leaves the last verified statements in use.
+        # Their real availability dates and fiscal-year freshness still apply.
+        continue-on-error: true
+        run: python value_fundamentals.py --refresh
+      - name: Advance Buffett and Munger daily forward paper books
+        run: python value_investing.py --paper
       - name: Save daily results and paper state
         run: |
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -53,7 +60,7 @@ jobs:
             echo "main advanced while processing: use latest committed site/ledger"
             git reset --hard origin/main
           else
-            git add state/paper_state.json state/paper_daily_gates.json site/dashboard.json
+            git add state/paper_state.json state/paper_daily_gates.json site/dashboard.json state/value_paper.json site/value-investing.json
             if ! git diff --cached --quiet; then
               git commit -m "Daily paper simulation results [skip ci]"
               if ! git push origin HEAD:main; then
