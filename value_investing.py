@@ -180,7 +180,7 @@ def build_backtests():
     dest=ROOT/'site/value-investing.json'
     if dest.exists():
         old=read(dest)
-        for k in ('paper','paper_started_at','paper_last_session'): 
+        for k in ('paper','paper_started_at','paper_last_session'):
             if k in old:public[k]=old[k]
     write(dest,public)
 
