@@ -78,8 +78,12 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin main
           if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
-            echo "main advanced; refuse overwrite, cached minute bars stay banked"
-            exit 1
+            if [ "${{ steps.bank.outputs.ready }}" = "true" ]; then
+              echo "main advanced; refuse overwriting a newer Daily dashboard"
+              exit 1
+            fi
+            echo "main advanced, but only safe 1m coverage counts will be published"
+            git reset --hard origin/main
           fi
           git add site/dashboard.json site/hybrid-coverage.json
           if ! git diff --cached --quiet; then
