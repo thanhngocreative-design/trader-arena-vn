@@ -149,6 +149,20 @@ def build(symbols, history_start, out_path):
     minute_results,minute_audit=build_hybrid_backtests(context,minute_frames,settings)
     minute_audit['rejected_symbols']=minute_errors
     minute_payload={k:summary_backtest(v) for k,v in minute_results.items()}
+    # The regular EOD runner intentionally does not download intraday prices.
+    # Preserve a previously audited historical hybrid pilot; never relabel it
+    # as newly calculated or up-to-date at the latest Daily session.
+    if not minute_payload and Path(out_path).exists():
+        try:
+            previous=json.loads(Path(out_path).read_text(encoding='utf-8'))
+            prev_audit=previous.get('hybrid_backtest_audit',{})
+            if prev_audit.get('status')=='verified_1m_pilot' and previous.get('hybrid_backtests'):
+                minute_audit=dict(prev_audit)
+                minute_audit['historical_snapshot']=True
+                minute_audit['stale_vs_daily']=prev_audit.get('last')!=last.date().isoformat()
+                minute_payload=previous['hybrid_backtests']
+        except (ValueError,TypeError,OSError,KeyError):
+            pass
     last_idx=len(context.dates)-1
     prepared_rows={
         symbol:pd.Series({
