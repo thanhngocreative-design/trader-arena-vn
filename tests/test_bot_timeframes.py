@@ -30,5 +30,6 @@ def test_published_timeframes_and_ui_have_mode_specific_labels():
     ui=(root/'site/index.html').read_text(encoding='utf8')
     assert 'function botFrame(k)' in ui
     assert 'DATA.bot_timeframes?.[mode]' in ui
-    assert 'botTimeframeOverview' in ui
+    assert 'botTimeframeOverview' not in ui
+    assert 'Khung giao dịch của bot' not in ui
     assert 'frameBadge(selected)' in ui and 'frameBadge(k)' in ui

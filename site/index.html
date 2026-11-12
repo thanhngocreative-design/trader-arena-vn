@@ -261,12 +261,6 @@ function selectRankBot(id){
 function openBotProfile(id){if(!IDS.includes(id))return;selected=id;setPage('bots')}
 function botFrame(k){return DATA.bot_timeframes?.[mode]?.bots?.[k]||{label:'Chưa rõ khung',priority:'',detail:'Chưa có mô tả khung giao dịch được xác minh.'};}
 function frameBadge(k){const f=botFrame(k);return safe(f.label)+(mode==='hybrid'&&f.priority==='phút'?' · ưu tiên phút':'');}
-function frameOverview(){
-  const manifest=DATA.bot_timeframes?.[mode];
-  if(!manifest)return '';
-  const c=manifest.counts;
-  return `<div class="card" style="margin:12px 0"><strong>⏱ Khung giao dịch của bot</strong><p class="note" style="margin-top:8px">Trong mục đang xem: <strong>Chỉ phút: ${c.minute_only}</strong> · <strong>Chỉ ngày: ${c.daily_only}</strong> · <strong>Ngày + phút: ${c.daily_and_minute}</strong>.</p><p class="note">${safe(MODE_LABEL[mode])}: 11 bot dùng đúng khung của tab này. Các chiến thuật phút là mô hình thử nghiệm, không phải lịch sử giao dịch của trader.</p><details><summary style="cursor:pointer;padding:10px 0">Xem khung của từng bot</summary>${IDS.map(k=>`<div style="padding:8px 0;border-top:1px solid #334155"><strong>${safe(SHORT[k])}</strong><span style="display:block;font-size:13px">${frameBadge(k)}</span></div>`).join('')}</details></div>`;
-}
 function rankExtra(k){
   const b=part(k);
   if(!b)return '';
@@ -310,9 +304,6 @@ function renderHome(){
   if(!researchNote){researchNote=document.createElement('div');researchNote.id='research146Note';researchNote.className='notice';document.getElementById('backtestTimePicker').after(researchNote);}
   researchNote.style.display=meta&&!isPaper()?'block':'none';
   if(meta)researchNote.textContent='146 mã · '+meta.start+' đến '+meta.end+' · Cấu hình vốn ATR. '+(mode==='hybrid'?'Backtest Daily + 1 phút thật; không nội suy khoảng thiếu.':'Backtest nến ngày. Chọn Kết hợp 1m để xem mô phỏng phút.');
-  let timeframeBox=document.getElementById('botTimeframeOverview');
-  if(!timeframeBox){timeframeBox=document.createElement('div');timeframeBox.id='botTimeframeOverview';researchNote.after(timeframeBox);}
-  timeframeBox.innerHTML=frameOverview();
   const opt=DATA.backtest_options?.find(x=>x.key===period);
   $('modePill').textContent=isPaper()?'Ghi nối tiếp từng phiên':mode==='hybrid'?'Daily + 1 phút · Thử nghiệm':(opt?.label||'Từ 2023');
   const intr=DATA.hybrid_backtest_audit||{};
