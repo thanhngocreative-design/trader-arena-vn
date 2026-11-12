@@ -72,8 +72,7 @@ jobs:
         with:
           path: data/minute
           key: arena-minute-2026-${{ github.run_id }}
-      - name: Commit only aggregate pilot statistics, not licensed raw candles
-        if: steps.bank.outputs.ready == 'true'
+      - name: Commit only coverage counts and verified pilot statistics
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -82,20 +81,17 @@ jobs:
             echo "main advanced; refuse overwrite, cached minute bars stay banked"
             exit 1
           fi
-          git add site/dashboard.json
+          git add site/dashboard.json site/hybrid-coverage.json
           if ! git diff --cached --quiet; then
             git commit -m "Verified Daily plus 1m hybrid pilot backtest [skip ci]"
             git push origin HEAD:main
           fi
           test -z "$(git ls-files data/minute/)" || (echo 'ERROR minute CSV leaked to git' && exit 1)
       - uses: actions/configure-pages@v5
-        if: steps.bank.outputs.ready == 'true'
         with:
           enablement: true
       - uses: actions/upload-pages-artifact@v3
-        if: steps.bank.outputs.ready == 'true'
         with:
           path: ./site
       - uses: actions/deploy-pages@v4
-        if: steps.bank.outputs.ready == 'true'
         id: deploy
