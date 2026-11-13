@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from vn30 import configuration,membership,context
+from vn30 import configuration,membership,context,membership_digest
 from engine import Settings
 from pit_context import PITContext
 from paper_vn30 import verify_previous
@@ -57,6 +57,7 @@ def test_published_vn30_results_have_complete_independent_real_data_books():
     assert p['minute_audit']['member_days']==747*30
     assert p['minute_audit']['member_days_with_minutes']==747*30
     assert p['execution_audit']['status']=='all_fills_verified_against_real_bars'
+    assert p['membership_sha256']==membership_digest()
     assert len(p['execution_audit']['fills_by_book'])==39
     assert paper['season_start']=='2026-11-13'
     assert len(state['ledgers'])==39
@@ -66,3 +67,10 @@ def test_published_vn30_results_have_complete_independent_real_data_books():
             trades=state['ledgers'][mode+':'+bot]
             assert len(trades)==b['buy_count']+b['closed_trades']
             assert all(t['symbol'] in membership(configuration(),t['date']) for t in trades if t['side']=='MUA')
+
+def test_membership_hash_is_portable_but_detects_real_changes():
+    import json,copy
+    cfg=configuration();serialized=json.dumps(cfg,indent=2)
+    assert membership_digest(json.loads(serialized.replace('\n','\r\n')))==membership_digest(cfg)
+    altered=copy.deepcopy(cfg);altered['months'][-1]['members'][0]='DIFFERENT'
+    assert membership_digest(altered)!=membership_digest(cfg)

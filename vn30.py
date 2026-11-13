@@ -18,6 +18,10 @@ CONFIG=ROOT/'config/research-vn30.json'
 OUTPUT=ROOT/'data/pit_results/vn30-v1'
 BOTS=list(TRADERS)+list(POLICY)
 
+def membership_digest(data=None):
+    """Hash the exact membership content consistently across Git line endings."""
+    return hashlib.sha256(json.dumps(read(CONFIG) if data is None else data,sort_keys=True,separators=(',',':'),ensure_ascii=True).encode('utf8')).hexdigest()
+
 def configuration():
     cfg=read(CONFIG);rows=cfg['months']
     if not rows or rows!=sorted(rows,key=lambda r:r['effective']):raise ValueError('Unordered VN30 events')
@@ -106,7 +110,7 @@ def run():
             key=str(d.date());has_daily=d in prices[s].index;bars=frames[s].loc[key:key+' 23:59']
             member_days.append((has_daily,len(bars)>0,key in coverage[s].get('price_mismatch_sessions',[])))
     audit=dict(symbols=len(cfg['eligible_symbols']),symbols_with_minutes=sum(len(frames[s])>0 for s in cfg['eligible_symbols']),member_days=len(member_days),member_days_with_daily=sum(r[0] for r in member_days),member_days_with_minutes=sum(r[1] for r in member_days),member_days_daily_without_minutes=sum(r[0] and not r[1] for r in member_days),member_days_quarantined=sum(r[2] for r in member_days),quality_by_symbol=coverage,no_interpolation=True)
-    public=dict(revision=cfg['revision'],execution_revision=REVISION,status='complete',mode='real_market_data',generated_at=datetime.now(VN).isoformat(),start=cfg['start'],first_session=cfg['first_session'],end=cfg['end'],verified_through=cfg['verified_through'],sessions=len(dates),target=30,unique_symbols=len(cfg['eligible_symbols']),months=cfg['months'],cohort=cohort,sector_universe=universe_distribution(current,classification),minute_audit=audit,execution_audit=dict(status='all_fills_verified_against_real_bars',fills_by_book=counts,total_fills=sum(counts.values())),membership_sha256=hashlib.sha256(CONFIG.read_bytes()).hexdigest(),limitations=cfg['limitations'])
+    public=dict(revision=cfg['revision'],execution_revision=REVISION,status='complete',mode='real_market_data',generated_at=datetime.now(VN).isoformat(),start=cfg['start'],first_session=cfg['first_session'],end=cfg['end'],verified_through=cfg['verified_through'],sessions=len(dates),target=30,unique_symbols=len(cfg['eligible_symbols']),months=cfg['months'],cohort=cohort,sector_universe=universe_distribution(current,classification),minute_audit=audit,execution_audit=dict(status='all_fills_verified_against_real_bars',fills_by_book=counts,total_fills=sum(counts.values())),membership_sha256=membership_digest(),limitations=cfg['limitations'])
     write(ROOT/'site/research-vn30.json',public);print('Published VN30: 39 verified backtest accounts', {k:v for k,v in audit.items() if k!='quality_by_symbol'},flush=True)
     return public
 
