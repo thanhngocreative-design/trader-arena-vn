@@ -228,6 +228,11 @@ let SECTOR_DATA=null,sectorMode='backtest_minute',sectorBot='ALL',sectorMetric='
 let period='ALL', stockSymbol='',stockWindow='3M',stockSelectedBar=null,stockStudy=false,stockReplay=false,PIT_STOCKS={},REPLAY_STOCKS={};
 const stockBars=()=>stockReplay?REPLAY_STOCKS[stockSymbol]||[]:stockStudy?PIT_STOCKS[stockSymbol]||[]:DATA.stocks?.[stockSymbol]||[];
 let hiddenBots={};try{hiddenBots=JSON.parse(localStorage.getItem('arena-hidden-bots-v1')||'{}')||{};}catch(_){hiddenBots={};}
+const legacyHiddenBots={...hiddenBots};
+let botSelections={};try{const saved=JSON.parse(localStorage.getItem('arena-bot-selections-v2')||'{}');if(saved&&typeof saved==='object'&&!Array.isArray(saved))botSelections=saved;}catch(_){}
+const botSelectionScope=()=>study+':'+mode;
+function loadBotSelection(){const saved=botSelections[botSelectionScope()];hiddenBots={...(saved&&typeof saved==='object'&&!Array.isArray(saved)?saved:legacyHiddenBots)};}
+function saveBotSelection(){botSelections[botSelectionScope()]={...hiddenBots};try{localStorage.setItem('arena-bot-selections-v2',JSON.stringify(botSelections));}catch(_){};}
 let liveApiBase='',livePoll=null;
 let hybridBankProgress=null;
 const BOT_POSITION_LIMITS={Minervini:6,ONeil:7,Darvas:5,BNF:3,CIS:3,Qullamaggie:5,Unger:8,ThaiPham:6,DuongChung:4,PThai:8,Hybrid:6,Buffett:6,Munger:4};
@@ -254,7 +259,7 @@ function historicalSource(){return study!=='legacy'&&PIT_DATA?.cohorts?.[study]|
 function activeStudy(){return study!=='legacy'&&PIT_DATA?.cohorts?.[study]?study:'legacy';}
 const STUDY_LABELS={'300':'Rổ tháng · tối đa 300 mã','146':'Rổ cố định · 146 mã sống sót','vn30':'VN30 · theo từng thời kỳ'};
 function studyLabel(){return STUDY_LABELS[activeStudy()]||'Chưa tải được rổ';}
-function setStudy(id){if(!Object.hasOwn(STUDY_LABELS,id)||!PIT_DATA)return;study=id;applyReplayData();render();}
+function setStudy(id){if(!Object.hasOwn(STUDY_LABELS,id)||!PIT_DATA)return;study=id;applyReplayData();loadBotSelection();render();}
 function vn30Membership(){
   const data=PIT_DATA.vn30,events=data.months.filter(r=>r.effective>='2023-08-07'),row=events.find(r=>r.effective===studyMonth)||events[events.length-1];
   return `<details ${studyListOpen?'open':''}><summary class="note" onclick="studyListOpen=!this.parentElement.open">Xem VN30 theo ngày hiệu lực</summary><label class="note">Kỳ áp dụng <select aria-label="Kỳ VN30" onchange="studyMonth=this.value;studyListOpen=true;render()" style="max-width:100%;margin:8px 0;padding:8px">${events.map(r=>`<option value="${r.effective}" ${r.effective===row.effective?'selected':''}>${r.effective}${r.kind==='off_cycle_replacement'?' · thay đổi giữa kỳ':''}</option>`).join('')}</select></label><p class="note">Đã công bố trước phiên áp dụng: ${safe(row.asof)} · hiệu lực: ${safe(row.effective)}${row.until_exclusive?' · đến trước '+safe(row.until_exclusive):''}. Đúng 30 thành viên chính thức; không lấy mã dự phòng.</p><p class="note">${row.members.map(s=>`<button class="tickerbtn" onclick="openStock('${s}',!isPaper())">${s}</button>`).join(' ')}</p><a class="note" href="${safe(row.source_url)}" target="_blank" rel="noopener">Xem nguồn thành phần rổ ↗</a><p class="note">${data.unique_symbols} mã từng xuất hiện trong ba năm. Đã đối chiếu danh mục đến ${safe(data.verified_through)}; gồm thay đổi BSR thay DGC ngày 13/05/2026. Độ phủ: ${data.minute_audit.symbols_with_minutes}/${data.unique_symbols} mã có nến phút thật; có ${data.minute_audit.member_days_daily_without_minutes} ngày-thành-viên có nến ngày nhưng thiếu toàn bộ nến phút đã kiểm chứng. Không bù nến.</p></details>`;
@@ -306,7 +311,32 @@ const supportsMode=(k,m=mode)=>!DATA.traders?.[k]?.supported_modes||DATA.traders
 const activeKeys=()=>IDS.filter(k=>!hiddenBots[k]&&supportsMode(k)&&part(k));
 const periodData=()=>historicalSource().backtest_periods?.[period]||historicalSource().backtests;
 function selectPeriod(p){if(!DATA.backtest_periods?.[p]&&p!=='ALL')return;period=p;render();}
-function toggleBot(k){hiddenBots[k]=!hiddenBots[k];try{localStorage.setItem('arena-hidden-bots-v1',JSON.stringify(hiddenBots));}catch(_){};render();}
+function toggleBot(k){if(!IDS.includes(k))return;hiddenBots[k]=!hiddenBots[k];saveBotSelection();render();}
+function mixRanking(){
+  const sourceMode={paper:'backtest',paper_minute:'backtest_minute',paper_combo:'hybrid'}[mode]||mode;
+  const source=historicalSource(),key={backtest:'backtests',backtest_minute:'minute_backtests',hybrid:'hybrid_backtests'}[sourceMode];
+  const sourcePeriod=mode==='backtest'?period:'ALL';
+  const books=sourceMode==='backtest'?source.backtest_periods?.[sourcePeriod]||(sourcePeriod==='ALL'?source.backtests:null):source[key];
+  const numeric=x=>typeof x==='number'&&Number.isFinite(x);
+  return IDS.filter(bot=>supportsMode(bot)&&part(bot)&&numeric(books?.[bot]?.return_pct)).map(bot=>{
+    const book=books[bot];return {bot,score:numeric(book.nav)?(book.nav/100000000-1)*100:book.return_pct,dd:numeric(book.max_drawdown_pct)?book.max_drawdown_pct:-Infinity};
+  }).sort((a,b)=>b.score-a.score||b.dd-a.dd||a.bot.localeCompare(b.bot));
+}
+function applyBestMix(count){
+  if(![2,3,4].includes(count))return;
+  const ranking=mixRanking();if(ranking.length<count)return;
+  const chosen=new Set(ranking.slice(0,count).map(r=>r.bot));
+  hiddenBots=Object.fromEntries(IDS.map(bot=>[bot,!chosen.has(bot)]));
+  regionFilter='ALL';if(!chosen.has(selected))selected=ranking[0].bot;
+  if(expandedBot&&!chosen.has(expandedBot))expandedBot=null;
+  saveBotSelection();render();
+}
+function enableAllBots(){hiddenBots={};saveBotSelection();render();}
+function mixControls(){
+  const ranking=mixRanking(),enabled=activeKeys(),chosen=new Set(enabled);
+  const label={paper:'Backtest ngày · 3 năm',paper_minute:'Backtest phút · 3 năm',paper_combo:'Backtest ngày + phút · 3 năm',backtest:'Backtest ngày · '+(DATA.backtest_options?.find(x=>x.key===period)?.label||period),backtest_minute:'Backtest phút · 3 năm',hybrid:'Backtest ngày + phút · 3 năm'}[mode];
+  return `<div class="card soft" data-mix-controls><strong>Chọn nhanh nhóm bot</strong><div class="chips" style="margin:10px 0">${[2,3,4].map(count=>{const active=enabled.length===count&&ranking.slice(0,count).every(r=>chosen.has(r.bot));return `<button type="button" class="chip ${active?'active':''}" aria-pressed="${active}" onclick="applyBestMix(${count})" ${ranking.length<count?'disabled':''}>Mix ${count} best bot</button>`;}).join('')}<button type="button" class="chip" onclick="enableAllBots()">Bật tất cả</button></div><p class="note">Top theo ${safe(label)} của rổ này: lợi nhuận sau chi phí, hòa thì xét drawdown. ${isPaper()?'Paper dùng thứ hạng backtest tương ứng. ':''}Không phải dự báo lợi nhuận.</p><p class="note">Đang theo dõi ${enabled.length}/${IDS.length} bot: ${enabled.map(bot=>safe(SHORT[bot]||bot)).join(', ')||'chưa bật bot nào'}.</p><p class="note">Mỗi bot vẫn có 100 triệu vốn đầu kỳ. Chỉ lọc hiển thị, không dừng chạy paper. Nhớ riêng từng rổ/sổ trên trình duyệt này.</p></div>`;
+}
 const chartRanges={ '1M':22,'3M':66,'6M':132,'1Y':252,'3Y':780 };
 async function openStock(symbol,studySource=false){
   if(!/^[A-Z0-9]{2,7}$/.test(String(symbol)))return;
@@ -372,7 +402,7 @@ function setMode(m){
   if(!MODE_ID[m])return;
   const key={paper_minute:'paper_minute',paper_combo:'paper_combo',backtest_minute:'minute_backtests',hybrid:'hybrid_backtests'}[m];
   if(key&&!Object.keys(DATA[key]||{}).length){$('hybridCoverage').textContent=MODE_LABEL[m]+': chưa có dữ liệu đã xác minh; không dùng kết quả của tab khác.';return;}
-  mode=m;if(!supportsMode(selected))selected=IDS.find(k=>supportsMode(k))||IDS[0];document.querySelectorAll('.switch button').forEach(x=>x.classList.toggle('active',x.id===MODE_ID[m]));render();
+  mode=m;loadBotSelection();if(!supportsMode(selected))selected=IDS.find(k=>supportsMode(k))||IDS[0];document.querySelectorAll('.switch button').forEach(x=>x.classList.toggle('active',x.id===MODE_ID[m]));render();
 }
 
 function selectRankBot(id){
@@ -494,7 +524,7 @@ function renderHome(){
     $('dateLabel').textContent=isPaper()?(replay.last_session?'Paper replay: '+replay.last_session:'Chờ paper sau phiên '+replay.season_start):'Lịch sử: '+DATA.last_session;
     $('dataNotice').textContent=isPaper()?(replay.last_session?'📡 Paper đã replay đến '+replay.last_session+'.':'📡 Paper đang chờ phiên hoàn tất từ '+replay.season_start+'.')+' Tài khoản và lệnh đều là mô phỏng.':'📡 Backtest dùng dữ liệu lịch sử đến '+DATA.last_session+'. Tài khoản và lệnh đều là mô phỏng.';
   }
-  $('studyControls').innerHTML=studyPicker();
+  $('studyControls').innerHTML=studyPicker()+mixControls();
   $('backtestTimePicker').style.display=mode==='backtest'?'block':'none';
   const meta=DATA.research_meta;
   let researchNote=document.getElementById('research146Note');
@@ -627,7 +657,7 @@ function renderBookComparison(k){
     return `<tr data-book="${book.id}" class="${mode===book.id?'book-current':''}"><th scope="row"><button class="book-link" ${b?'':'disabled'} onclick="openComparisonBook('${book.id}')">${safe(book.label)} ↗</button><small>${m.nav===null?'—':money(m.nav)}</small><small class="book-status">${safe(status)}</small></th>${cells}</tr>`;
   }).join('');
   return `<section class="card book-comparison" aria-label="So sánh 6 sổ của bot"><h3>So sánh 6 sổ · ${safe(SHORT[k])}</h3>
-    ${studyPicker()}<p class="note">Mẫu backtest: ${safe(studyLabel())}. Paper là các tài khoản replay từ đầu mùa; sổ forward cũ lưu riêng.</p>
+    ${studyPicker()}${mixControls()}<p class="note">Mẫu backtest: ${safe(studyLabel())}. Paper là các tài khoản replay từ đầu mùa; sổ forward cũ lưu riêng.</p>
     <p class="note">Paper: từ ${safe(DATA.paper?.[k]?.paper_started_at?shortDate(DATA.paper[k].paper_started_at):start)} · Backtest: ${safe(period)}.</p>
     <p class="note">Paper replay từ đầu mùa và backtest ba năm dùng cùng quy tắc khớp nến kế tiếp. Hai khoảng thời gian khác nhau, không xếp hạng chung. Bảng dùng toàn bộ ba năm cho ba backtest.</p>
     <table><caption class="note">Chạm tên sổ để xem chi tiết bên dưới.</caption><thead><tr><th scope="col">Sổ / Tài sản</th><th scope="col">Lãi/lỗ</th><th scope="col"><abbr title="Mức giảm sâu nhất từ đỉnh NAV đã ghi nhận">DD</abbr></th><th scope="col">Khớp</th></tr></thead><tbody>${rows}</tbody></table>
@@ -648,7 +678,7 @@ function renderBots(){
   $('botDetail').innerHTML=renderBookComparison(selected)+`<div class="card"><div class="bothead"><div class="avatar">${EMOJI[selected]}</div><div><strong>${safe(DATA.traders?.[selected]?.name||SHORT[selected])}</strong><div class="label">${safe(DATA.traders?.[selected]?.tag||'Chiến thuật công khai')}</div></div></div><p class="note" style="margin:13px 0 4px">${safe(DATA.traders?.[selected]?.explain||TEXT[selected])}</p><p class="note" style="margin:5px 0 4px">${safe(DATA.traders?.[selected]?.detail||'Mô phỏng quy tắc công khai; không phải giao dịch thật của trader.')}</p>
   <div class="card soft"><strong>⏱ ${frameBadge(selected)}</strong><p class="note" style="margin-top:6px">${safe(botFrame(selected).detail)}</p><p class="note">Mỗi tab có sổ và kết quả riêng: chỉ phút, chỉ ngày hoặc ngày + phút. Đây là khung dữ liệu của engine hiện tại, không phải cam kết về phong cách của trader ngoài đời.</p></div>
   ${selected==='Hybrid'&&mode!=='paper_minute'&&mode!=='backtest_minute'? `<div class="card soft"><strong>🧬 Chiến thuật được chọn gần nhất</strong><p class="note" style="margin-top:6px">${safe(Object.entries(DATA.hybrid_model?.leaders_latest||{}).map(([id,w])=>(SHORT[id]||id)+' · '+(w*100).toFixed(0)+'%').join(', ')||'Không có bot đủ lợi nhuận sau khi xét rủi ro; giữ tiền mặt.')}</p></div>`:''}
-  ${valueNotes}${!isPaper()&&b.valuation_audit?`<div class="card"><strong>Định giá khi thiếu giá giao dịch</strong><p class="note">${b.valuation_audit.maximum_reserve>0?'Có '+n(b.valuation_audit.sessions_with_reserve)+' phiên phát sinh dự phòng.':'Không phát sinh dự phòng trong sổ này.'} Sau 20 phiên không có giá quan sát, phần đang cầm được dự phòng 100% để tính NAV thận trọng; vẫn giữ cổ phiếu, không tạo giá thị trường 0 hay lệnh bán giả. Giá xuất hiện lại thì tính lại theo giá thật.</p><p class="note">Dự phòng cuối kỳ: ${money(b.valuation_audit.final_reserve)}. NAV nếu giữ nguyên giá quan sát cuối: ${money(b.valuation_audit.nav_last_quote_convention)} (${pct(b.valuation_audit.return_last_quote_pct)}); giá này có thể đã cũ.</p></div>`:''}<div class="switchline"><div><strong style="font-size:13px">${hiddenBots[selected]?'Đã tắt theo dõi':'Đang theo dõi bot'}</strong><p class="note">Áp dụng cho bảng xếp hạng, tổng kết qua các rổ và nhật ký trên thiết bị này.</p></div><button class="tog ${hiddenBots[selected]?'off':''}" onclick="toggleBot('${selected}')">${hiddenBots[selected]?'BẬT':'TẮT'}</button></div>
+  ${valueNotes}${!isPaper()&&b.valuation_audit?`<div class="card"><strong>Định giá khi thiếu giá giao dịch</strong><p class="note">${b.valuation_audit.maximum_reserve>0?'Có '+n(b.valuation_audit.sessions_with_reserve)+' phiên phát sinh dự phòng.':'Không phát sinh dự phòng trong sổ này.'} Sau 20 phiên không có giá quan sát, phần đang cầm được dự phòng 100% để tính NAV thận trọng; vẫn giữ cổ phiếu, không tạo giá thị trường 0 hay lệnh bán giả. Giá xuất hiện lại thì tính lại theo giá thật.</p><p class="note">Dự phòng cuối kỳ: ${money(b.valuation_audit.final_reserve)}. NAV nếu giữ nguyên giá quan sát cuối: ${money(b.valuation_audit.nav_last_quote_convention)} (${pct(b.valuation_audit.return_last_quote_pct)}); giá này có thể đã cũ.</p></div>`:''}<div class="switchline"><div><strong style="font-size:13px">${hiddenBots[selected]?'Đã tắt theo dõi':'Đang theo dõi bot'}</strong><p class="note">Áp dụng cho bảng xếp hạng, tổng kết và nhật ký của rổ, sổ đang chọn trên trình duyệt này.</p></div><button class="tog ${hiddenBots[selected]?'off':''}" onclick="toggleBot('${selected}')">${hiddenBots[selected]?'BẬT':'TẮT'}</button></div>
   <p class="note">Cloud: ${cloud?'🟢 đang tính lệnh ảo':'⏸ đã tạm dừng đặt lệnh ảo'}. Muốn thay đổi trạng thái cloud, <a href="https://github.com/thanhngocreative-design/trader-arena-vn/actions/workflows/bot-control.yml" target="_blank" rel="noopener" style="color:#7fe6cb">mở công cụ bật/tắt Cloud</a> (GitHub → Run workflow → chọn bot và on/off) hoặc nhắn ChatGPT yêu cầu đổi.</p>
   <div class="metric-grid"><div class="metric"><span class="label">Tài sản tiền ảo</span><div class="value">${money(b.nav)}</div></div><div class="metric"><span class="label">Đang lãi hay lỗ?</span><div class="value ${color(b.return_pct)}">${pct(b.return_pct)}</div></div><div class="metric"><span class="label">Tiền chưa mua cổ phiếu</span><div class="value">${money(b.cash)}</div></div><div class="metric"><span class="label">Số mã đang nắm</span><div class="value">${holds.length}</div><p class="note">Giới hạn cấu hình hiện tại: ${BOT_POSITION_LIMITS[selected]} mã/sổ</p></div></div></div>
   <div class="section-title"><h2>👜 Giỏ cổ phiếu</h2><span class="hint">${isPaper()?'Mô phỏng mỗi ngày':'Cuối backtest'}</span></div>
@@ -838,7 +868,7 @@ async function boot(){
   const requestedStudy=new URLSearchParams(location.search).get('study');
   if(Object.hasOwn(STUDY_LABELS,requestedStudy))study=requestedStudy;
   else if(requestedStudy==='legacy')study='146'; // Old links open the current fixed basket.
-  applyReplayData();
+  applyReplayData();loadBotSelection();
   const requested=new URLSearchParams(location.search).get('mode');
   if(MODE_ID[requested])setMode(requested);else if(requested==='minute')setMode('hybrid');
   setInterval(async()=>{try{await loadReplayData();}catch(_){}if(isPaper()||page==='bots'||page==='sectors')render();},60000);

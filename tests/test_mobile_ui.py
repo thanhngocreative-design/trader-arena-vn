@@ -272,7 +272,7 @@ def test_six_book_comparison_uses_distinct_sources_and_handles_missing_data(tmp_
     if not node: pytest.skip('Node.js unavailable')
     html=SITE.read_text(encoding='utf8')
     functions='function comparisonBooks'+html.split('function comparisonBooks',1)[1].split('function renderBots()',1)[0]
-    script="const historicalSource=()=>DATA,activeStudy=()=> 'legacy',studyPicker=()=>'',studyLabel=()=> '146 mã cũ',paperSource=()=>null;\n"+functions+'''
+    script="const historicalSource=()=>DATA,activeStudy=()=> 'legacy',studyPicker=()=>'',mixControls=()=>'',studyLabel=()=> '146 mã cũ',paperSource=()=>null;\n"+functions+'''
 const assert=require('node:assert/strict');
 const value=n=>({nav:n,return_pct:n-100,buy_count:n,closed_trades:0,max_drawdown_pct:null,history:[]});
 const DATA={capital_each:100,paper_minute:{Bot:value(101)},paper:{Bot:value(102)},paper_combo:{Bot:value(103)},minute_backtests:{Bot:value(104)},backtests:{Bot:value(105)},hybrid_backtests:{Bot:value(106)},backtest_periods:{'3M':{Bot:value(999)}}};
