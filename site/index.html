@@ -236,7 +236,7 @@ function saveBotSelection(){botSelections[botSelectionScope()]={...hiddenBots};t
 let liveApiBase='',livePoll=null;
 let hybridBankProgress=null;
 const BOT_POSITION_LIMITS={Minervini:6,ONeil:7,Darvas:5,BNF:3,CIS:3,Qullamaggie:5,Unger:8,ThaiPham:6,DuongChung:4,PThai:8,Hybrid:6,Buffett:6,Munger:4};
-let VALUE_DATA=null,VALUE_INTRADAY=null,PIT_DATA=null,study='300',studyMonth=null,studyListOpen=false;
+let VALUE_DATA=null,VALUE_INTRADAY=null,PIT_DATA=null,study='300',studyMonth=null,studyListOpen=false,studyInfoOpen=false;
 let REPLAY_DATA=null,FIXED_REPLAY_DATA=null,VN30_REPLAY_DATA=null;
 function paperSource(){return study==='vn30'?VN30_REPLAY_DATA:study==='146'?FIXED_REPLAY_DATA:REPLAY_DATA;}
 function applyReplayData(){
@@ -268,7 +268,10 @@ function studyPicker(){
   if(!PIT_DATA)return '';
   const selectedMonth=PIT_DATA.months.find(m=>m.month===studyMonth)||PIT_DATA.months[PIT_DATA.months.length-1];
   const membership=activeStudy()==='vn30'?vn30Membership():activeStudy()==='300'?`<details ${studyListOpen?'open':''}><summary class="note" onclick="studyListOpen=!this.parentElement.open">Kiểm tra danh sách từng tháng</summary><label class="note">Kỳ chọn <select aria-label="Kỳ chọn 300 mã" onchange="studyMonth=this.value;studyListOpen=true;render()" style="max-width:100%;margin:8px 0;padding:8px">${PIT_DATA.months.map(m=>`<option value="${m.month}" ${m.month===selectedMonth.month?'selected':''}>${m.month}</option>`).join('')}</select></label><p class="note">Chốt dữ liệu: ${safe(selectedMonth.asof)} · áp dụng: ${safe(selectedMonth.effective)}. ${selectedMonth.eligible_count} mã đạt điều kiện lịch sử trước kỳ; lấy 300 theo thanh khoản đã quan sát.</p><p class="note">${selectedMonth.members.map(s=>`<button class="tickerbtn" onclick="openStock('${s}',true)">${s}</button>`).join(' ')}</p></details>`:`<details ${studyListOpen?'open':''}><summary class="note" onclick="studyListOpen=!this.parentElement.open">Xem danh sách 146 mã</summary><p class="note">Rổ cố định gồm đúng 146 mã sống sót; danh sách giữ nguyên giữa các phiên và dùng cho cả paper lẫn backtest.</p><p class="note">${[...(PIT_DATA.cohorts['146'].universe||[])].sort().map(s=>`<button class="tickerbtn" onclick="openStock('${s}',!isPaper())">${s}</button>`).join(' ')}</p></details>`;
-  return `<div class="card soft"><strong>Rổ cổ phiếu</strong><div class="chips" style="margin:10px 0">${Object.keys(STUDY_LABELS).map(id=>`<button class="chip ${activeStudy()===id?'active':''}" onclick="setStudy('${id}')">${STUDY_LABELS[id]}</button>`).join('')}</div><p class="note">${activeStudy()==='vn30'?'Cho 13 bot chọn cổ phiếu từ thành phần VN30 đã có hiệu lực ở từng thời điểm. Không dùng VN30 hiện tại áp ngược cho quá khứ; không sao chép tỷ trọng chỉ số.':activeStudy()==='300'?'Chọn lại tối đa 300 mã mỗi tháng bằng dữ liệu đã có trước kỳ, không yêu cầu mã sống sót đến cuối ba năm. '+PIT_DATA.unique_symbols+' mã từng xuất hiện; '+PIT_DATA.retained_delisted_in_research.length+' mã hiện được nguồn xếp vào nhóm hủy niêm yết.':'Giữ nguyên 146 mã trong toàn bộ kỳ thử, được chọn vì có dữ liệu liên tục suốt ba năm nên vẫn có sai lệch chọn mã sống sót. Dùng cùng nguồn giá và phương pháp với Rổ tháng, gồm khớp đúng nến kế tiếp.'}</p><p class="note">Mỗi rổ có ba tài khoản paper riêng cho từng bot, cùng bắt đầu mùa 13/11/2026. Lựa chọn rổ áp dụng cho cả paper và backtest đang xem.</p>${membership}</div>`;
+  const id=activeStudy(),replay=paperSource();
+  const description=id==='vn30'?`30 thành viên theo ngày hiệu lực; ${PIT_DATA.vn30.unique_symbols} mã từng thuộc rổ.`:id==='300'?`Chọn lại tối đa 300 mã mỗi tháng theo thanh khoản quá khứ; ${PIT_DATA.unique_symbols} mã từng xuất hiện.`:'Giữ cố định 146 mã sống sót; có sai lệch chọn mẫu.';
+  const method=id==='vn30'?'Theo công bố lịch sử, kể cả thay đổi giữa kỳ. Không áp rổ hiện tại ngược về quá khứ, không tính mã dự phòng.':id==='300'?`Trước mỗi tháng: cần 252 nến ngày, có giao dịch ít nhất 40/60 phiên và 1/5 phiên gần nhất. Lấy 300 mã thanh khoản cao nhất, không xét kết quả tương lai. ${PIT_DATA.retained_delisted_in_research.length} mã từng xuất hiện hiện được nguồn xếp vào nhóm hủy niêm yết.`:'146 mã được chọn vì có dữ liệu liên tục suốt ba năm, nên bỏ sót nhiều mã không sống sót đến cuối kỳ. Danh sách không đổi giữa các phiên.';
+  return `<div class="card soft" data-universe-controls><strong>Rổ cổ phiếu</strong><div class="chips" style="margin:10px 0">${Object.keys(STUDY_LABELS).map(key=>`<button class="chip ${id===key?'active':''}" onclick="setStudy('${key}')">${STUDY_LABELS[key]}</button>`).join('')}</div><p class="note">${description}</p><details ${studyInfoOpen?'open':''}><summary class="note" onclick="studyInfoOpen=!this.parentElement.open">Cách chọn rổ &amp; dữ liệu</summary><p class="note">${method}</p><p class="note">Kho backtest: ${safe(PIT_DATA.first_session)} – ${safe(PIT_DATA.end)}, ${PIT_DATA.sessions} phiên. Paper từ ${safe(replay?.season_start||DATA.paper_contest_start||'2026-11-13')}${replay?.last_session?' · đã replay đến '+safe(replay.last_session):' · chờ phiên hoàn tất'}. Mỗi bot/rổ/sổ có tài khoản riêng.</p><p class="note">Dùng nến thật, không bù nến thiếu; cùng phí, thuế và quy tắc khớp nến kế tiếp. Giá điều chỉnh và nguồn thiếu vẫn có thể gây sai lệch.</p></details>${membership}</div>`;
 }
 async function loadPITData(){
   const r=await fetch('./research-300.json?v='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('Nghiên cứu chưa tải được');
@@ -323,7 +326,7 @@ function mixRanking(){
   }).sort((a,b)=>b.score-a.score||b.dd-a.dd||a.bot.localeCompare(b.bot));
 }
 function applyBestMix(count){
-  if(![2,3,4].includes(count))return;
+  if(![2,3,4,5,6].includes(count))return;
   const ranking=mixRanking();if(ranking.length<count)return;
   const chosen=new Set(ranking.slice(0,count).map(r=>r.bot));
   hiddenBots=Object.fromEntries(IDS.map(bot=>[bot,!chosen.has(bot)]));
@@ -332,10 +335,15 @@ function applyBestMix(count){
   saveBotSelection();render();
 }
 function enableAllBots(){hiddenBots={};saveBotSelection();render();}
+function mixTotalMarkup(total,capital){
+  if(!(capital>0))return '<span class="muted">Chưa bật bot nào · vốn ban đầu 0đ</span>';
+  const profit=total-capital,change=profit/capital*100;
+  return `<span class="${color(profit)}">${profit>0?'+':''}${money(profit)} · ${pct(change)}</span> <span class="muted">so với ${money(capital)} ban đầu</span>`;
+}
 function mixControls(){
   const ranking=mixRanking(),enabled=activeKeys(),chosen=new Set(enabled);
   const label={paper:'Backtest ngày · 3 năm',paper_minute:'Backtest phút · 3 năm',paper_combo:'Backtest ngày + phút · 3 năm',backtest:'Backtest ngày · '+(DATA.backtest_options?.find(x=>x.key===period)?.label||period),backtest_minute:'Backtest phút · 3 năm',hybrid:'Backtest ngày + phút · 3 năm'}[mode];
-  return `<div class="card soft" data-mix-controls><strong>Chọn nhanh nhóm bot</strong><div class="chips" style="margin:10px 0">${[2,3,4].map(count=>{const active=enabled.length===count&&ranking.slice(0,count).every(r=>chosen.has(r.bot));return `<button type="button" class="chip ${active?'active':''}" aria-pressed="${active}" onclick="applyBestMix(${count})" ${ranking.length<count?'disabled':''}>Mix ${count} best bot</button>`;}).join('')}<button type="button" class="chip" onclick="enableAllBots()">Bật tất cả</button></div><p class="note">Top theo ${safe(label)} của rổ này: lợi nhuận sau chi phí, hòa thì xét drawdown. ${isPaper()?'Paper dùng thứ hạng backtest tương ứng. ':''}Không phải dự báo lợi nhuận.</p><p class="note">Đang theo dõi ${enabled.length}/${IDS.length} bot: ${enabled.map(bot=>safe(SHORT[bot]||bot)).join(', ')||'chưa bật bot nào'}.</p><p class="note">Mỗi bot vẫn có 100 triệu vốn đầu kỳ. Chỉ lọc hiển thị, không dừng chạy paper. Nhớ riêng từng rổ/sổ trên trình duyệt này.</p></div>`;
+  return `<div class="card soft" data-mix-controls><strong>Chọn nhanh nhóm bot</strong><div class="chips" style="margin:10px 0">${[2,3,4,5,6].map(count=>{const active=enabled.length===count&&ranking.slice(0,count).every(r=>chosen.has(r.bot));return `<button type="button" class="chip ${active?'active':''}" aria-pressed="${active}" onclick="applyBestMix(${count})" ${ranking.length<count?'disabled':''}>Mix ${count} best bot</button>`;}).join('')}<button type="button" class="chip" onclick="enableAllBots()">Bật tất cả</button></div><p class="note">Top theo ${safe(label)} của rổ này: lợi nhuận sau chi phí, hòa thì xét drawdown. ${isPaper()?'Paper dùng thứ hạng backtest tương ứng. ':''}Không phải dự báo lợi nhuận.</p><p class="note">Đang theo dõi ${enabled.length}/${IDS.length} bot: ${enabled.map(bot=>safe(SHORT[bot]||bot)).join(', ')||'chưa bật bot nào'}.</p><p class="note">Mỗi bot vẫn có 100 triệu vốn đầu kỳ. Chỉ lọc hiển thị, không dừng chạy paper. Nhớ riêng từng rổ/sổ trên trình duyệt này.</p></div>`;
 }
 const chartRanges={ '1M':22,'3M':66,'6M':132,'1Y':252,'3Y':780 };
 async function openStock(symbol,studySource=false){
@@ -401,7 +409,7 @@ function setPage(p){page=p;document.querySelectorAll('.page').forEach(x=>x.class
 function setMode(m){
   if(!MODE_ID[m])return;
   const key={paper_minute:'paper_minute',paper_combo:'paper_combo',backtest_minute:'minute_backtests',hybrid:'hybrid_backtests'}[m];
-  if(key&&!Object.keys(DATA[key]||{}).length){$('hybridCoverage').textContent=MODE_LABEL[m]+': chưa có dữ liệu đã xác minh; không dùng kết quả của tab khác.';return;}
+  if(key&&!Object.keys(DATA[key]||{}).length){$('hybridCoverage').style.display='';$('hybridCoverage').textContent=MODE_LABEL[m]+': chưa có dữ liệu đã xác minh; không dùng kết quả của tab khác.';return;}
   mode=m;loadBotSelection();if(!supportsMode(selected))selected=IDS.find(k=>supportsMode(k))||IDS[0];document.querySelectorAll('.switch button').forEach(x=>x.classList.toggle('active',x.id===MODE_ID[m]));render();
 }
 
@@ -547,8 +555,8 @@ function renderHome(){
   $('universeNotice').textContent=isPaper()&&DATA.research_meta?'📊 Paper giữ sổ và phạm vi của mùa đang chạy; đổi mẫu nghiên cứu không sửa hay chạy bù lịch sử paper.':audit
       ?'📊 Đã xác minh '+audit.tradable_history_count+'/'+audit.candidate_count+' mã ứng viên có dữ liệu phù hợp · Lọc thanh khoản tại từng phiên. Vẫn có sai lệch chọn mẫu lịch sử.'
       : '📊 Vũ trụ cổ phiếu được xác nhận sau khi kết nối dữ liệu.';
-  const total=included.reduce((sum,k)=>sum+nav(k),0),capital=n(DATA.capital_each)*included.length,change=capital?(total/capital-1)*100:0;
-  $('totalNav').textContent=vnd(total);$('totalDelta').innerHTML=`<span class="${color(change)}">${pct(change)}</span> <span class="muted">so với ${money(capital)} ban đầu</span>`;
+  const total=included.reduce((sum,k)=>sum+nav(k),0),capital=n(DATA.capital_each)*included.length;
+  $('totalNav').textContent=vnd(total);$('totalDelta').innerHTML=mixTotalMarkup(total,capital);
   $('totalInitial').textContent=money(capital);$('marketDay').textContent=mode==='hybrid'?String(DATA.hybrid_backtest_audit?.last||'—').split('-').reverse().join('/'):(mode==='backtest'&&opt?opt.end.split('-').reverse().join('/'):DATA.last_session.split('-').reverse().join('/'));
   const available=included.filter(k=>regionFilter==='ALL'||DATA.traders?.[k]?.region===regionFilter);
   const sorted=available.sort((a,b)=>ret(b)-ret(a));
@@ -575,11 +583,6 @@ function renderHome(){
   if(!isPaper()){
     researchNote.textContent='146 mã · '+meta.start+' đến '+meta.end+' · '+MODE_LABEL[mode]+'. '+(mode==='backtest_minute'?'11 bot gốc dùng tín hiệu/ATR phút; Buffett và Munger dùng thêm chất lượng báo cáo năm, phân bổ theo NAV. NAV theo nến phút cuối quan sát.':'')+' Phí, thuế, trượt giá, T+ và khoảng thiếu dữ liệu được giữ trong mô phỏng. Nhóm mã được chọn sau kỳ nghiên cứu, có sai lệch chọn mẫu.';
     $('marketDay').textContent=meta.end.split('-').reverse().join('/');
-    if(activeStudy()!=='legacy'){
-      $('universeNotice').textContent='📊 '+studyLabel()+' · '+(activeStudy()==='vn30'?PIT_DATA.vn30.unique_symbols+' mã từng thuộc VN30. Thành phần đổi theo ngày hiệu lực.':activeStudy()==='300'?PIT_DATA.unique_symbols+' mã từng có mặt. Không yêu cầu sống sót đến cuối kỳ.':'Tính lại cùng phương pháp để đối chiếu.')+' Mẫu vẫn có giới hạn dữ liệu; không khẳng định đã xóa hoàn toàn sai lệch.';
-      $('hybridCoverage').textContent='Đã chạy '+PIT_DATA.sessions+' phiên thật, '+PIT_DATA.first_session+' – '+PIT_DATA.end+'. Không nội suy nến, không thay mã thiếu dữ liệu bằng mã khác. '+(activeStudy()==='vn30'?'Cả 36 mã có nến phút thật trong thời gian thuộc VN30; có nến mỗi phiên không có nghĩa đủ mọi phút.':activeStudy()==='300'?'SJF không có giao dịch trong kỳ; vẫn giữ kỳ chọn ban đầu.':'Rổ cố định 146 mã sống sót, cùng nguồn giá và quy tắc khớp.');
-      researchNote.textContent=studyLabel()+' · '+PIT_DATA.first_session+' – '+PIT_DATA.end+'. '+(activeStudy()==='vn30'?'Dùng thành phần VN30 lịch sử theo ngày hiệu lực, có cả thay đổi giữa kỳ.':activeStudy()==='300'?'Chọn theo quá khứ, có mã rời sàn và khoảng ngừng giao dịch.':'Giữ cố định 146 mã được chọn vì có dữ liệu liên tục suốt ba năm; còn sai lệch chọn mã sống sót.')+' Dùng cùng chi phí/thanh khoản; sau 20 phiên thiếu giá có dự phòng định giá, không tạo giá 0 hay lệnh bán giả. Nguồn còn thiếu danh mục/vintage đầy đủ; giá điều chỉnh và dữ liệu thiếu vẫn có thể gây sai lệch.';
-    }
   }
   if(isPaper()&&DATA.paper_contest_start){
     const start=DATA.paper_contest_start.split('-').reverse().join('/');
@@ -610,6 +613,12 @@ function renderHome(){
     $('universeNotice').textContent='Paper replay cuối ngày · '+studyLabel()+' · mùa từ '+p.season_start+'. Sổ forward cũ đã lưu riêng; giao dịch cũ không được cộng lại.';
     $('hybridCoverage').textContent=done?'Đã kiểm tra và replay '+p.sessions.length+' phiên đến '+p.last_session+'. Khoảng trống và nến bị loại được công bố trong dữ liệu phiên.':'Chưa có phiên hoàn tất từ ngày bắt đầu mùa. Vốn khởi tạo 100 triệu/bot/sổ; chưa có kết quả giao dịch.';
     if(!done)$('simpleMessage').textContent='Chờ dữ liệu sau phiên; không dùng nến đang chạy để tạo kết quả paper.';
+  }
+
+  if(activeStudy()!=='legacy'){
+    $('universeNotice').style.display='none';
+    $('hybridCoverage').style.display='none';
+    researchNote.style.display='none';
   }
 
 }
@@ -657,7 +666,7 @@ function renderBookComparison(k){
     return `<tr data-book="${book.id}" class="${mode===book.id?'book-current':''}"><th scope="row"><button class="book-link" ${b?'':'disabled'} onclick="openComparisonBook('${book.id}')">${safe(book.label)} ↗</button><small>${m.nav===null?'—':money(m.nav)}</small><small class="book-status">${safe(status)}</small></th>${cells}</tr>`;
   }).join('');
   return `<section class="card book-comparison" aria-label="So sánh 6 sổ của bot"><h3>So sánh 6 sổ · ${safe(SHORT[k])}</h3>
-    ${studyPicker()}${mixControls()}<p class="note">Mẫu backtest: ${safe(studyLabel())}. Paper là các tài khoản replay từ đầu mùa; sổ forward cũ lưu riêng.</p>
+    ${studyPicker()}${mixControls()}
     <p class="note">Paper: từ ${safe(DATA.paper?.[k]?.paper_started_at?shortDate(DATA.paper[k].paper_started_at):start)} · Backtest: ${safe(period)}.</p>
     <p class="note">Paper replay từ đầu mùa và backtest ba năm dùng cùng quy tắc khớp nến kế tiếp. Hai khoảng thời gian khác nhau, không xếp hạng chung. Bảng dùng toàn bộ ba năm cho ba backtest.</p>
     <table><caption class="note">Chạm tên sổ để xem chi tiết bên dưới.</caption><thead><tr><th scope="col">Sổ / Tài sản</th><th scope="col">Lãi/lỗ</th><th scope="col"><abbr title="Mức giảm sâu nhất từ đỉnh NAV đã ghi nhận">DD</abbr></th><th scope="col">Khớp</th></tr></thead><tbody>${rows}</tbody></table>

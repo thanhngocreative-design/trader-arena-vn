@@ -32,7 +32,7 @@ for(const universe of ['300','146','vn30'])for(const book of ['paper','paper_min
   // Ranking must include hidden bots and ignore country filters.
   hiddenBots=Object.fromEntries(IDS.map(b=>[b,true]));
   assert.deepEqual(mixRanking().map(r=>r.bot),expected);
-  for(const count of [2,3,4]){
+  for(const count of [2,3,4,5,6]){
     applyBestMix(count);assert.equal(regionFilter,'ALL');
     assert.deepEqual(new Set(activeKeys()),new Set(expected.slice(0,count)));
     assert.equal((mixControls().match(/aria-pressed="true"/g)||[]).length,1);
@@ -41,6 +41,13 @@ for(const universe of ['300','146','vn30'])for(const book of ['paper','paper_min
   assert.deepEqual(JSON.parse(storage.get('arena-bot-selections-v2'))[scope],hiddenBots);
 }
 assert.equal(Object.keys(expectedScopes).length,18);
+assert.ok(mixTotalMarkup(271801701,200000000).includes('+71,8 triệu'));
+assert.ok(mixTotalMarkup(271801701,200000000).includes('+35,90%'));
+assert.ok(mixTotalMarkup(180000000,200000000).includes('-20 triệu'));
+assert.ok(mixTotalMarkup(180000000,200000000).includes('-10,00%'));
+assert.ok(mixTotalMarkup(200000000,200000000).includes('0đ'));
+assert.ok(mixTotalMarkup(0,0).includes('Chưa bật bot nào'));
+assert.ok(studyPicker().includes('Cách chọn rổ &amp; dữ liệu'));
 for(const [scope,chosen] of Object.entries(expectedScopes)){
   const [universe,book]=scope.split(':');setStudy(universe);setMode(book);
   assert.deepEqual(activeKeys(),chosen);
