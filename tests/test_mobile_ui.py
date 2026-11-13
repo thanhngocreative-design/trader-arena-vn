@@ -46,7 +46,7 @@ def test_cross_basket_summary_rejects_missing_results_and_unobserved_paper(tmp_p
     functions='function summaryBasketSources'+html.split('function summaryBasketSources',1)[1].split('function graph(',1)[0]
     script=r'''
 const assert=require('node:assert/strict');
-let mode='backtest',period='ALL',REPLAY_DATA=null,FIXED_REPLAY_DATA=null;const IDS=['A','B','C','D','E','F','G'];
+let mode='backtest',period='ALL',REPLAY_DATA=null,FIXED_REPLAY_DATA=null,hiddenBots={};const IDS=['A','B','C','D','E','F','G'];
 const STUDY_LABELS={'300':'Monthly','146':'Fixed'},MODE_LABEL={backtest:'Day',paper:'Paper'},SHORT={};
 const DATA={traders:{},backtest_options:[{key:'ALL',label:'All'}],paper_contest_start:'2026-11-13'};
 const book=(ret,dd=-10)=>({return_pct:ret,max_drawdown_pct:dd,buy_count:2,closed_trades:1,history:[]});
@@ -78,6 +78,14 @@ for(const b of IDS)DATA.paper[b].history=[{date:'2026-11-13',nav:100000000}];
 assert.equal(summaryBotRanking().rows.length,0);
 for(const b of IDS)FIXED_REPLAY_DATA.paper[b].history=[{date:'2026-11-13',nav:100000000}];
 assert.equal(summaryBotRanking().rows.length,7);assert.ok(!crossBasketSummary().includes('chưa có tài khoản paper cho Rổ cố định'));
+// Enabled bots alone determine ranking, missing-result counts and empty states.
+hiddenBots={A:true};rank=summaryBotRanking();assert.equal(rank.rows.length,6);
+assert.ok(!rank.rows.some(r=>r.bot==='A'));assert.equal(rank.rows[0].bot,'B');
+assert.ok(!crossBasketSummary().includes('data-summary-bot="A"'));
+hiddenBots.B=true;assert.ok(crossBasketSummary().includes('Cần ít nhất 6 bot'));
+hiddenBots=Object.fromEntries(IDS.map(k=>[k,true]));
+assert.ok(crossBasketSummary().includes('Chưa bật theo dõi bot nào'));
+hiddenBots={};assert.equal(summaryBotRanking().rows.length,7);
 '''
     path=tmp_path/'summary.cjs';path.write_text(script,encoding='utf8')
     result=subprocess.run([node,str(path)],capture_output=True,text=True,encoding='utf8')
@@ -110,13 +118,14 @@ for(const cohort of ['300','146']){
 }
 const untouched=JSON.stringify(PIT_DATA);
 for(const [m,key] of [['backtest','backtests'],['backtest_minute','minute_backtests'],['hybrid','hybrid_backtests']]){
-  mode=m;period='ALL';const ranking=summaryBotRanking();assert.equal(ranking.rows.length,13);assert.equal(ranking.sources.length,2);
+  hiddenBots={};mode=m;period='ALL';const ranking=summaryBotRanking();assert.equal(ranking.rows.length,13);assert.equal(ranking.sources.length,2);
   for(const row of ranking.rows){
     const a=PIT_DATA.cohorts['300'][key][row.bot],b=PIT_DATA.cohorts['146'][key][row.bot];
     assert.equal(row.score,(a.return_pct+b.return_pct)/2);assert.equal(row.worstDD,Math.min(a.max_drawdown_pct,b.max_drawdown_pct));
   }
   const scores=ranking.rows.map(r=>[r.bot,r.score]);study='146';hiddenBots={Minervini:true};regionFilter='VN';
-  assert.deepEqual(summaryBotRanking().rows.map(r=>[r.bot,r.score]),scores);
+  assert.deepEqual(summaryBotRanking().rows.map(r=>[r.bot,r.score]),scores.filter(r=>r[0]!=='Minervini'));
+  hiddenBots={};assert.deepEqual(summaryBotRanking().rows.map(r=>[r.bot,r.score]),scores);
   const html=crossBasketSummary();assert.equal((html.match(/data-summary-bot=/g)||[]).length,6);
   assert.ok(html.includes('🧭 Tổng kết qua các rổ · '+MODE_LABEL[mode]));
   for(const row of ranking.rows)assert.deepEqual(botChartData(row.bot).series,PIT_DATA.cohorts[study][key][row.bot].curve);
