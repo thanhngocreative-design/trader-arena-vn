@@ -46,6 +46,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add state/replay_market state/paper_replay.json site/paper-replay.json state/paper_fixed146.json site/paper-fixed146.json state/paper_vn30.json site/paper-vn30.json
+          git add state/paper_seasons
           if [ -d site/replay-stocks ]; then git add site/replay-stocks; fi
           if ! git diff --cached --quiet; then
             git commit -m 'Persist verified completed-session paper replay [skip ci]'
@@ -63,6 +64,7 @@ jobs:
             state/paper_replay.json
             state/paper_fixed146.json
             state/paper_vn30.json
+            state/paper_seasons
             site/paper-replay.json
             site/paper-fixed146.json
             site/paper-vn30.json

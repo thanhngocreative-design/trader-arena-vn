@@ -1,2 +1,3 @@
 # Archived paper journals must retain their exact original bytes and hashes.
 state/paper_archive/** -text
+site/paper-archive/** -text

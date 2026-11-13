@@ -2,7 +2,7 @@
 import hashlib,json
 from datetime import datetime
 import pandas as pd
-from paper_replay import ROOT,VN,START,MARKET,ENDPOINT,read,write,unpack,source_inputs,completed_date,blank
+from paper_replay import ROOT,VN,START,MARKET,ENDPOINT,read,write,unpack,source_inputs,completed_date,blank,observed_minutes
 from paper_fixed146 import supplemental,verify_inputs
 from vn30 import configuration,membership,context,BOTS,audit_fills
 from pit_intraday import run_minute,run_combo
@@ -14,7 +14,8 @@ from intraday_data import normalize_minute
 from replay_rules import REVISION
 from sector_analytics import universe_distribution
 
-STATE=ROOT/'state/paper_vn30.json';PUBLIC=ROOT/'site/paper-vn30.json'
+STATE=ROOT/'state/paper_seasons'/START/'paper_vn30.json';PUBLIC=ROOT/'site/paper-vn30.json'
+OUTPUT_BASE=ROOT/'data/pit_results/replay-vn30'/START
 
 def verify_previous(previous,ledgers,events):
     if not previous:return
@@ -46,7 +47,7 @@ def run(collect=True,now=None):
                 raw.time=pd.to_datetime(raw.time,utc=True).dt.tz_convert(VN);positive=raw.loc[raw.volume>0]
                 if len(positive) and pd.Timestamp(day) in prices[s].index:
                     ratio=float(positive.close.iloc[-1])/float(prices[s].loc[day,'close']);bad=not .92<=ratio<=1.08
-                f=normalize_minute(raw,'vnd');f=f.loc[f.volume>0]
+                f=observed_minutes(raw)
                 if bad:f=f.iloc[:0]
             extra.setdefault(s,[]).append(f);extra_audit[day][s]=dict(bars=len(f),price_mismatch_quarantined=bad)
     for s,parts in extra.items():frames[s]=pd.concat([frames.get(s,pd.DataFrame()),*parts]).sort_index()
@@ -55,7 +56,7 @@ def run(collect=True,now=None):
     cfg['daily_input_sha256']={s:hashlib.sha256(f.to_csv().encode()).hexdigest() for s,f in prices.items()}
     benchmark=benchmark.copy();benchmark[['open','high','low','close']]*=1000;ctx=context(prices,benchmark,cfg)
     training={b:backtest(prices,benchmark,b,'2022-01-03',end_date=end,settings=ctx.settings,features_cache=ctx)['curve'] for b in CORE};build_hybrid_signals(ctx,training)
-    output=ROOT/'data/pit_results/replay-vn30'/end;output.mkdir(parents=True,exist_ok=True)
+    output=OUTPUT_BASE/end;output.mkdir(parents=True,exist_ok=True)
     reports=eligible_companies(merged_fundamentals(),classification['sectors']);books={};ledgers={}
     for bot in BOTS:
         r=backtest(prices,benchmark,bot,START,end_date=end,settings=ctx.settings,features_cache=ctx) if bot in TRADERS else value_backtest(ctx,bot,START,end,reports)

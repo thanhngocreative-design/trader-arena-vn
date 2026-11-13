@@ -7,10 +7,11 @@ import pandas as pd
 from paper_replay import (ROOT,VN,START,MARKET,ENDPOINT,epoch,validate_wire,normalize_minute,
     read,write,pack,unpack,source_inputs,completed_date,blank,BOTS,Settings,PITContext,
     backtest,CORE,build_hybrid_signals,eligible_companies,merged_fundamentals,value_backtest,
-    TRADERS,POLICY,attach_summary,run_minute,run_combo,can_fill,REVISION,universe_distribution)
+    TRADERS,POLICY,attach_summary,run_minute,run_combo,can_fill,REVISION,universe_distribution,observed_minutes)
 
-STATE=ROOT/'state/paper_fixed146.json'
+STATE=ROOT/'state/paper_seasons'/START/'paper_fixed146.json'
 PUBLIC=ROOT/'site/paper-fixed146.json'
+OUTPUT_BASE=ROOT/'data/pit_results/replay-fixed146'/START
 
 def supplemental(day,symbols,collect=True,folder='fixed146-sessions'):
     """Never rewrite the already banked monthly-session source to add names."""
@@ -49,7 +50,7 @@ def add_minutes(prices,frames,sessions,fixed,collect=True):
                 positive=raw.loc[raw.volume>0]
                 if len(positive) and date in prices[s].index:
                     ratio=float(positive.close.iloc[-1])/float(prices[s].loc[date,'close']);bad=not .92<=ratio<=1.08
-                f=normalize_minute(raw,'vnd');f=f.loc[f.volume>0]
+                f=observed_minutes(raw)
                 if bad:f=f.iloc[:0]
             extra.setdefault(s,[]).append(f)
             audit[day][s]=dict(bars=len(f),price_mismatch_quarantined=bad,positive_daily=date in prices[s].index)
@@ -103,7 +104,7 @@ def run(collect=True,now=None):
         r=backtest(prices,benchmark,bot,START,end_date=cfg['end'],settings=ctx.settings,features_cache=ctx) if bot in TRADERS else value_backtest(ctx,bot,START,cfg['end'],reports)
         book=attach_summary(r,classification['sectors'],set(fixed));book['history']=[dict(date=str(d.date()),nav=round(float(v.nav))) for d,v in r['curve'].iterrows()];book['orders_next']=[]
         day[bot]=book;ledgers['paper:'+bot]=json.loads(r['trades'].to_json(orient='records',date_format='iso'))
-    output=ROOT/'data/pit_results/replay-fixed146'/cfg['end'];output.mkdir(parents=True,exist_ok=True)
+    output=OUTPUT_BASE/cfg['end'];output.mkdir(parents=True,exist_ok=True)
     coverage={s:dict(minute_sha256=hashlib.sha256(f.to_csv().encode()).hexdigest()) for s,f in frames.items()};cfg['minute_input_sha256']=coverage
     run_minute({'146':ctx},frames,coverage,cfg,output);run_combo({'146':ctx},prices,frames,cfg,output)
     minute=read(output/'minute-146.json');payload.update(paper=day,paper_minute=minute['minute'],paper_combo={**read(output/'combo-146.json'),**minute['value_combo']})
@@ -118,7 +119,7 @@ def run(collect=True,now=None):
                 if not can_fill(t['signal_time'],t['time'],t.get('submitted_at')):raise ValueError('Invalid fixed146 paper clock')
     verify_previous(previous,ledgers)
     payload.update(status='completed_session_replay',last_session=sessions[-1],sessions=sessions,data_audit=audits,supplemental_data_audit=extra_audit,
-        note='Rổ cố định 146 mã sống sót; tài khoản riêng từ 13/11/2026. Replay cuối ngày, khớp đúng nến kế tiếp; thiếu thì hủy lệnh.')
+        note='Rổ cố định 146 mã sống sót; tài khoản riêng từ '+START+'. Replay cuối ngày, khớp đúng nến kế tiếp; thiếu thì hủy lệnh.')
     inputs={p.relative_to(MARKET).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in MARKET.rglob('*.gz')};payload['input_sha256']=inputs
     for s in fixed:
         f=prices[s].loc[:cfg['end']].tail(780)

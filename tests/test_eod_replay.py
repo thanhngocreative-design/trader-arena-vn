@@ -10,6 +10,38 @@ from historical_minute import VN
 from tests.test_hybrid_backtest import fixtures, sample_raw
 
 
+def test_auction_only_tape_is_empty_but_invalid_candles_still_fail():
+    raw=pd.DataFrame([dict(time='2026-11-02 14:45:00',open=10000,high=10000,low=10000,close=10000,volume=100)])
+    assert replay.observed_minutes(raw).empty
+    with pytest.raises(ValueError,match='Duplicate minute'):
+        replay.observed_minutes(pd.concat([raw,raw]))
+    with pytest.raises(ValueError,match='Impossible OHLCV'):
+        replay.observed_minutes(raw.assign(low=12000))
+    assert len(replay.observed_minutes(raw.assign(time='2026-11-02 09:30:00')))==1
+
+
+def test_month_selection_cannot_see_later_rows_in_initial_daily_bank(tmp_path,monkeypatch):
+    market=tmp_path/'market';market.mkdir()
+    rows=[dict(date=d,open=10000,high=10000,low=10000,close=10000,volume=100) for d in ['2026-10-30','2026-11-02','2026-11-12']]
+    replay.pack(market/'daily-history.json.gz',dict(prices={'FPT':rows},benchmark=rows))
+    monkeypatch.setattr(replay,'MARKET',market)
+    monkeypatch.setattr(replay,'START','2026-11-02')
+    frozen=dict(month='2026-11',effective='2026-11-02',asof='2026-10-30',members=['FPT'])
+    monkeypatch.setattr(replay,'read',lambda p:dict(months=[frozen],eligible_symbols=['FPT']))
+    inspected=[]
+    def selection(prices,calendar,**kwargs):
+        assert prices['FPT'].index.max()==pd.Timestamp('2026-10-30')
+        assert calendar[-2]==pd.Timestamp('2026-10-30')
+        inspected.append(True)
+        return [frozen]
+    monkeypatch.setattr(replay,'monthly_memberships',selection)
+    def stop(*args):raise RuntimeError('stop before requesting current-session data')
+    monkeypatch.setattr(replay,'fetch_session',stop)
+    with pytest.raises(RuntimeError,match='stop before'):
+        replay.source_inputs('2026-11-02')
+    assert inspected==[True]
+
+
 def test_completed_cutoff_does_not_replay_unfinished_or_weekend_sessions():
     assert replay.completed_date(datetime(2026,11,13,15,59,tzinfo=VN))=='2026-11-12'
     assert replay.completed_date(datetime(2026,11,13,16,0,tzinfo=VN))=='2026-11-13'

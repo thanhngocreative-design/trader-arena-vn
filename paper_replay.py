@@ -26,11 +26,11 @@ from pit_intraday import run_minute, run_combo
 from replay_rules import REVISION, can_fill
 from sector_analytics import universe_distribution
 
-START = '2026-11-13'
+START = '2026-11-02'
 MARKET = ROOT/'state/replay_market'
-STATE = ROOT/'state/paper_replay.json'
+STATE = ROOT/'state/paper_seasons'/START/'paper_replay.json'
 PUBLIC = ROOT/'site/paper-replay.json'
-OUTPUT_BASE = ROOT/'data/pit_results/replay'
+OUTPUT_BASE = ROOT/'data/pit_results/replay'/START
 BOTS = list(TRADERS)+list(POLICY)
 
 
@@ -56,6 +56,17 @@ def frame(rows):
     f=pd.DataFrame(rows);f['date']=pd.to_datetime(f.date)
     if f.date.duplicated().any():raise ValueError('Duplicate source dates')
     return f.loc[valid_rows(f)].set_index('date').sort_index()
+
+def observed_minutes(raw):
+    """An actual auction-only session is an empty continuous tape, not an error.
+
+    The canonical validator still checks all raw OHLCV and duplicate timestamps;
+    only its explicit no-continuous-session outcome becomes an empty frame.
+    """
+    try:return normalize_minute(raw,'vnd').loc[lambda f:f.volume>0]
+    except ValueError as error:
+        if str(error)!='No continuous-session bars; auctions not supported':raise
+        return pd.DataFrame(columns=['open','high','low','close','volume'],index=pd.DatetimeIndex([],name='time'))
 
 
 def fetch_session(day, symbols):
@@ -90,18 +101,25 @@ def fetch_session(day, symbols):
 def source_inputs(end, collect=True):
     base=unpack(MARKET/'daily-history.json.gz')
     cfg=read(ROOT/'config/research-300.json');months=list(cfg['months'])
-    prices={s:frame(rows) for s,rows in base['prices'].items()}
-    benchmark=frame(base['benchmark'])
+    # The bank can contain later historical observations. They must not enter
+    # the initial information set when a season starts earlier than its asof.
+    cutoff=pd.Timestamp(START)
+    prices={s:frame(rows).loc[lambda f:f.index<cutoff] for s,rows in base['prices'].items()}
+    benchmark=frame(base['benchmark']).loc[lambda f:f.index<cutoff]
     calendar=pd.bdate_range(START,end)
     audits={};frames={};sessions=[]
     for date in calendar:
         day=str(date.date());prior=benchmark.index[-1]
         # Monthly ranking is made BEFORE today's source is requested. The first
         # month's membership is the already frozen November selection.
+        appended=False
         if day[:7]!=str(prior.date())[:7]:
             planned=benchmark.index.append(pd.DatetimeIndex([date]))
             row=monthly_memberships(prices,planned,first=day[:7]+'-01',last=day)[0]
-            months.append(row)
+            frozen=[r for r in months if r['month']==day[:7]]
+            if frozen:
+                if frozen[-1]['effective']!=day or frozen[-1]['asof']!=str(prior.date()) or set(frozen[-1]['members'])!=set(row['members']):raise ValueError('Frozen monthly membership does not match information available before the first session')
+            else:months.append(row);appended=True
         members=[r for r in months if r['effective']<=day][-1]['members']
         # All candidate daily data is collected for the NEXT monthly ranking.
         # Minute tapes are needed only for current and previously selected names
@@ -112,7 +130,7 @@ def source_inputs(end, collect=True):
         try:data=fetch_session(day,minute_symbols)
         except ValueError as error:
             if 'Benchmark has no completed session' in str(error):
-                if months[-1]['effective']==day and day[:7]!=str(prior.date())[:7]:months.pop()
+                if appended:months.pop()
                 continue
             raise
         # Session daily updates for every catalog candidate, independently of
@@ -135,7 +153,7 @@ def source_inputs(end, collect=True):
             pack(daily_path,daily)
         else:raise ValueError('Missing frozen candidate daily '+day)
         def convert(rows):
-            return frame([{**r,'date':str(pd.Timestamp(r['time']).tz_convert(VN).date())} for r in rows])
+            return frame([{**r,'date':r['date'] if 'date' in r else str(pd.Timestamp(r['time']).tz_convert(VN).date())} for r in rows])
         benchmark=pd.concat([benchmark,convert(data['replies']['VNINDEX']['ONE_DAY'])])
         if date not in benchmark.index:raise ValueError('Invalid benchmark observation')
         for s,rows in daily.items():
@@ -151,7 +169,7 @@ def source_inputs(end, collect=True):
             positive=raw.loc[raw.volume>0];bad=False
             if len(positive) and date in prices[s].index:
                 ratio=float(positive.close.iloc[-1])/float(prices[s].loc[date,'close']);bad=not .92<=ratio<=1.08
-            normalized=normalize_minute(raw,'vnd');normalized=normalized.loc[normalized.volume>0]
+            normalized=observed_minutes(raw)
             if bad:normalized=normalized.iloc[:0]
             day_audit[s]=dict(bars=len(normalized),positive_daily=date in prices[s].index,price_mismatch_quarantined=bad)
             frames.setdefault(s,[]).append(normalized)
@@ -176,13 +194,13 @@ def run(collect=True,now=None):
         payload['sector_universe']=universe_distribution(payload['members'],classification)
         payload.update({m:{b:blank() for b in BOTS} for m in ('paper','paper_minute','paper_combo')})
         if not STATE.exists():
-            inputs={str(p.relative_to(MARKET)):hashlib.sha256(p.read_bytes()).hexdigest() for p in MARKET.rglob('*.gz')}
+            inputs={p.relative_to(MARKET).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in MARKET.rglob('*.gz')}
             write(STATE,dict(last_session=None,execution_revision=REVISION,ledgers={},input_sha256=inputs))
         write(PUBLIC,payload);return payload
     if STATE.exists():
         previous=read(STATE)
         for path,digest in previous['input_sha256'].items():
-            if hashlib.sha256((MARKET/path).read_bytes()).hexdigest()!=digest:raise ValueError('Frozen paper input changed: '+path)
+            if hashlib.sha256(MARKET.joinpath(*Path(path.replace('\\','/')).parts).read_bytes()).hexdigest()!=digest:raise ValueError('Frozen paper input changed: '+path)
     prices,benchmark,frames,cfg,audits,sessions=source_inputs(end,collect)
     if not sessions:raise ValueError('No real completed session; keep previous published paper')
     cfg['end']=sessions[-1];settings=Settings(portfolio_policy='atr_v1')
@@ -230,7 +248,7 @@ def run(collect=True,now=None):
     payload.update(status='completed_session_replay',last_session=sessions[-1],sessions=sessions,members=[r for r in cfg['months'] if r['effective']<=sessions[-1]][-1]['members'],data_audit=audits,
         note='Replay sau phiên; chỉ thấy nến đã đóng; đúng nến kế tiếp, thiếu thì bỏ lệnh. Tài khoản liên tục từ ngày bắt đầu mùa; không cộng lại giao dịch cũ.')
     payload['sector_universe']=universe_distribution(payload['members'],read(ROOT/'config/market-classification.json'))
-    inputs={str(p.relative_to(MARKET)):hashlib.sha256(p.read_bytes()).hexdigest() for p in MARKET.rglob('*.gz')}
+    inputs={p.relative_to(MARKET).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in MARKET.rglob('*.gz')}
     payload['input_sha256']=inputs
     for symbol in sorted({s for row in cfg['months'] if row['effective']>=START[:7]+'-01' for s in row['members']}):
         if symbol not in prices:continue

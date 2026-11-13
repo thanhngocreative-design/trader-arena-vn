@@ -53,13 +53,14 @@ def test_vn30_paper_freezes_used_membership_and_prior_trade_prefix():
 
 def test_published_vn30_results_have_complete_independent_real_data_books():
     from value_investing import ROOT,read
-    p=read(ROOT/'site/research-vn30.json');paper=read(ROOT/'site/paper-vn30.json');state=read(ROOT/'state/paper_vn30.json')
+    from paper_vn30 import STATE,START
+    p=read(ROOT/'site/research-vn30.json');paper=read(ROOT/'site/paper-vn30.json');state=read(STATE)
     assert p['minute_audit']['member_days']==747*30
     assert p['minute_audit']['member_days_with_minutes']==747*30
     assert p['execution_audit']['status']=='all_fills_verified_against_real_bars'
     assert p['membership_sha256']==membership_digest()
     assert len(p['execution_audit']['fills_by_book'])==39
-    assert paper['season_start']=='2026-11-13'
+    assert paper['season_start']==START
     assert len(state['ledgers'])==39
     for mode in ('paper','paper_minute','paper_combo'):
         assert len(paper[mode])==13
