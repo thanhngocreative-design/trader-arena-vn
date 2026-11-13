@@ -32,6 +32,7 @@ def test_three_replay_books_are_idempotent_and_append_without_rewriting(tmp_path
     ctx,minute=fixtures();stock,benchmark=sample_raw();start=ctx.dates[-8];end=start
     config=dict(start=str(start.date()),end=str(end.date()),training_symbols=['FPT','HPG'],eligible_symbols=['FPT','HPG'],daily_input_sha256={},
         months=[dict(effective=str(ctx.dates[0].date()),asof=str((ctx.dates[0]-pd.Timedelta(days=1)).date()),members=['FPT','HPG'])])
+    config['months'].append(dict(effective=str(start.replace(day=1).date()),asof=str((start.replace(day=1)-pd.Timedelta(days=1)).date()),members=['FPT','HPG']))
     (tmp_path/'config').mkdir()
     (tmp_path/'config/market-classification.json').write_text(json.dumps(replay.read(replay.ROOT/'config/market-classification.json')),encoding='utf8')
     market=tmp_path/'market';market.mkdir()
@@ -51,6 +52,8 @@ def test_three_replay_books_are_idempotent_and_append_without_rewriting(tmp_path
     now=datetime.combine(end.date(),datetime.min.time()).replace(hour=17,tzinfo=VN)
     first=replay.run(False,now);saved=copy.deepcopy(json.loads(replay.STATE.read_text()))
     assert len(first['paper']['Darvas']['history'])==1
+    chart=json.loads((tmp_path/'site/replay-stocks/FPT.json').read_text())
+    assert chart[-1][0]==str(end.date()) and chart[-1][4]==float(stock.loc[end,'close'])
     assert sum(first['paper_combo']['Darvas'][k] for k in ('buy_count','closed_trades'))>0
     again=replay.run(False,now)
     assert first==again and json.loads(replay.STATE.read_text())==saved

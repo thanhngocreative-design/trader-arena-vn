@@ -184,8 +184,8 @@ const TEXT={Minervini:'Tìm cổ phiếu đang tăng rất khỏe. Chỉ mua khi
 let DATA={traders:{},paper:{},backtests:{},stocks:{},warnings:[]}, mode='paper', page='home', selected='Minervini', tradeFilter='ALL', demo=true;
 let expandedBot=null;
 let SECTOR_DATA=null,sectorMode='backtest_minute',sectorBot='ALL',sectorMetric='value',sectorRefreshError='';
-let period='ALL', stockSymbol='',stockWindow='3M',stockSelectedBar=null,stockStudy=false,PIT_STOCKS={};
-const stockBars=()=>stockStudy?PIT_STOCKS[stockSymbol]||[]:DATA.stocks?.[stockSymbol]||[];
+let period='ALL', stockSymbol='',stockWindow='3M',stockSelectedBar=null,stockStudy=false,stockReplay=false,PIT_STOCKS={},REPLAY_STOCKS={};
+const stockBars=()=>stockReplay?REPLAY_STOCKS[stockSymbol]||[]:stockStudy?PIT_STOCKS[stockSymbol]||[]:DATA.stocks?.[stockSymbol]||[];
 let hiddenBots={};try{hiddenBots=JSON.parse(localStorage.getItem('arena-hidden-bots-v1')||'{}')||{};}catch(_){hiddenBots={};}
 let liveApiBase='',livePoll=null;
 let hybridBankProgress=null;
@@ -257,8 +257,10 @@ function toggleBot(k){hiddenBots[k]=!hiddenBots[k];try{localStorage.setItem('are
 const chartRanges={ '1M':22,'3M':66,'6M':132,'1Y':252,'3Y':780 };
 async function openStock(symbol,studySource=false){
   if(!/^[A-Z0-9]{2,7}$/.test(String(symbol)))return;
-  stockSymbol=symbol;stockWindow='3M';stockSelectedBar=null;stockStudy=studySource||(!isPaper()&&activeStudy()!=='legacy');
-  if(!DATA.stocks)DATA.stocks={};const cache=stockStudy?PIT_STOCKS:DATA.stocks;
+  stockSymbol=symbol;stockWindow='3M';stockSelectedBar=null;
+  stockReplay=!studySource&&isPaper()&&!!REPLAY_DATA?.last_session;
+  stockStudy=studySource||(!isPaper()&&activeStudy()!=='legacy')||(isPaper()&&!!REPLAY_DATA&&!stockReplay);
+  if(!DATA.stocks)DATA.stocks={};const cache=stockReplay?REPLAY_STOCKS:stockStudy?PIT_STOCKS:DATA.stocks;
   $('stockOverlay').classList.add('on');document.body.style.overflow='hidden';
   if(!DATA.stocks)DATA.stocks={};
   if(!cache[symbol]&&!demo){
@@ -267,7 +269,7 @@ async function openStock(symbol,studySource=false){
     $('stockGraph').innerHTML='';
     $('stockCursor').textContent='';
     try{
-      const response=await fetch((stockStudy?'./pit-stocks/':'./stocks/')+encodeURIComponent(symbol)+'.json',{cache:'force-cache'});
+      const response=await fetch((stockReplay?'./replay-stocks/':stockStudy?'./pit-stocks/':'./stocks/')+encodeURIComponent(symbol)+'.json'+(stockReplay?'?v='+REPLAY_DATA.last_session:''),{cache:'force-cache'});
       if(!response.ok)throw new Error('Not found');
       const bars=await response.json();
       if(!Array.isArray(bars)||!bars.length)throw new Error('Invalid candles');

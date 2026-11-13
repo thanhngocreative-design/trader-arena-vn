@@ -232,6 +232,11 @@ def run(collect=True,now=None):
     payload['sector_universe']=universe_distribution(payload['members'],read(ROOT/'config/market-classification.json'))
     inputs={str(p.relative_to(MARKET)):hashlib.sha256(p.read_bytes()).hexdigest() for p in MARKET.rglob('*.gz')}
     payload['input_sha256']=inputs
+    for symbol in sorted({s for row in cfg['months'] if row['effective']>=START[:7]+'-01' for s in row['members']}):
+        if symbol not in prices:continue
+        observed=prices[symbol].loc[:cfg['end']].tail(780)
+        bars=[[str(date.date())]+[float(row[k]) for k in ('open','high','low','close','volume')] for date,row in observed.iterrows()]
+        write(ROOT/'site/replay-stocks'/f'{symbol}.json',bars)
     write(STATE,dict(last_session=sessions[-1],execution_revision=REVISION,ledgers=ledgers,input_sha256=inputs))
     write(PUBLIC,payload)
     print('Published verified EOD paper',sessions[-1],len(sessions),'sessions, 39 books',flush=True)
