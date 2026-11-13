@@ -33,7 +33,9 @@ for(const cohort of ['300','146']){
   assert.equal(six.find(b=>b.id==='paper').data,DATA.paper.Buffett);
 }
 assert.equal(JSON.stringify(DATA.paper),originalPaper);
-setStudy('legacy');mode='backtest';assert.equal(part('Minervini'),DATA.backtest_periods.ALL.Minervini);
+setStudy('legacy');mode='backtest';assert.equal(activeStudy(),'146');assert.equal(part('Minervini'),PIT_DATA.cohorts['146'].backtest_periods.ALL.Minervini);
+assert.ok(!studyPicker().includes("setStudy('legacy')"));assert.ok(!studyPicker().includes('Đối chứng'));
+assert.ok(studyPicker().includes('Rổ cố định · 146 mã sống sót'));assert.equal(Object.keys(STUDY_LABELS).length,2);
 setStudy('300');studyMonth='2023-11';assert.ok(studyPicker().includes('SJF'));
 assert.ok(studyPicker().includes('2023-10-31'));assert.equal(PIT_DATA.months[0].members.length,300);
 SECTOR_DATA=JSON.parse(fs.readFileSync(path.join(root,'sectors.json'),'utf8'));sectorMode='hybrid';sectorBot='Munger';renderSectors();
