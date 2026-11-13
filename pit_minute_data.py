@@ -6,9 +6,10 @@ from intraday_data import normalize_minute
 from value_investing import ROOT,read,write
 from pit_universe import load_daily
 
-def load_minutes():
+def load_minutes(symbols=None):
     config=read(ROOT/'config/research-300.json');audit=read(ROOT/'data/pit_minute/audit.json');old=read(ROOT/'data/minute_history/audit.json');original=read(ROOT/'config/research-universe.json')['eligible_symbols']
-    symbols=sorted(set(config['eligible_symbols'])|set(original));daily,_,_=load_daily();out=ROOT/'data/pit_results/minute-normalized';out.mkdir(exist_ok=True)
+    restricted=symbols is not None
+    symbols=sorted(set(symbols) if restricted else set(config['eligible_symbols'])|set(original));daily,_,_=load_daily();out=ROOT/'data/pit_results/minute-normalized';out.mkdir(exist_ok=True)
     frames={};coverage={}
     for n,s in enumerate(symbols,1):
         r=audit['symbols'].get(s)
@@ -39,7 +40,7 @@ def load_minutes():
         frames[s]=f;coverage[s]=record
         if n%25==0:print('Verified normalized minute stocks',n,'/',len(symbols),flush=True)
     target=ROOT/'data/pit_results/minute-coverage.json'
-    if not target.exists() or read(target)!=coverage:write(target,coverage)
+    if not restricted and (not target.exists() or read(target)!=coverage):write(target,coverage)
     return frames,coverage
 
 def wide_features(frames):

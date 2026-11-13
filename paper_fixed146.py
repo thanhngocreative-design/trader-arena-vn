@@ -12,9 +12,9 @@ from paper_replay import (ROOT,VN,START,MARKET,ENDPOINT,epoch,validate_wire,norm
 STATE=ROOT/'state/paper_fixed146.json'
 PUBLIC=ROOT/'site/paper-fixed146.json'
 
-def supplemental(day,symbols,collect=True):
+def supplemental(day,symbols,collect=True,folder='fixed146-sessions'):
     """Never rewrite the already banked monthly-session source to add names."""
-    path=MARKET/'fixed146-sessions'/f'{day}.json.gz'
+    path=MARKET/folder/f'{day}.json.gz'
     if path.exists():
         data=unpack(path)
         if data['requested_symbols']!=sorted(symbols):raise ValueError('Frozen supplemental universe changed')

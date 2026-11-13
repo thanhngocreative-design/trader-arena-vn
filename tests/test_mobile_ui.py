@@ -105,8 +105,9 @@ const root=process.argv[2];DATA=JSON.parse(fs.readFileSync(path.join(root,'dashb
 VALUE_DATA=JSON.parse(fs.readFileSync(path.join(root,'value-investing.json'),'utf8'));applyValueData();
 VALUE_INTRADAY=JSON.parse(fs.readFileSync(path.join(root,'value-intraday.json'),'utf8'));applyValueIntraday();
 PIT_DATA=JSON.parse(fs.readFileSync(path.join(root,'research-300.json'),'utf8'));IDS=Object.keys(DATA.traders);
+const vn30=JSON.parse(fs.readFileSync(path.join(root,'research-vn30.json'),'utf8'));PIT_DATA.vn30=vn30;PIT_DATA.cohorts.vn30=vn30.cohort;PIT_DATA.sector_universes.vn30=vn30.sector_universe;
 render=()=>{};const originalPaper=JSON.stringify(DATA.paper);
-for(const cohort of ['300','146']){
+for(const cohort of ['300','146','vn30']){
   setStudy(cohort);assert.equal(activeStudy(),cohort);assert.equal(historicalSource(),PIT_DATA.cohorts[cohort]);
   for(const [m,key] of [['backtest','backtests'],['backtest_minute','minute_backtests'],['hybrid','hybrid_backtests']]){
     mode=m;period='ALL';assert.equal(activeKeys().length,13);
@@ -118,10 +119,10 @@ for(const cohort of ['300','146']){
 }
 const untouched=JSON.stringify(PIT_DATA);
 for(const [m,key] of [['backtest','backtests'],['backtest_minute','minute_backtests'],['hybrid','hybrid_backtests']]){
-  hiddenBots={};mode=m;period='ALL';const ranking=summaryBotRanking();assert.equal(ranking.rows.length,13);assert.equal(ranking.sources.length,2);
+  hiddenBots={};mode=m;period='ALL';const ranking=summaryBotRanking();assert.equal(ranking.rows.length,13);assert.equal(ranking.sources.length,3);
   for(const row of ranking.rows){
-    const a=PIT_DATA.cohorts['300'][key][row.bot],b=PIT_DATA.cohorts['146'][key][row.bot];
-    assert.equal(row.score,(a.return_pct+b.return_pct)/2);assert.equal(row.worstDD,Math.min(a.max_drawdown_pct,b.max_drawdown_pct));
+    const a=PIT_DATA.cohorts['300'][key][row.bot],b=PIT_DATA.cohorts['146'][key][row.bot],c=PIT_DATA.cohorts.vn30[key][row.bot];
+    assert.equal(row.score,(a.return_pct+b.return_pct+c.return_pct)/3);assert.equal(row.worstDD,Math.min(a.max_drawdown_pct,b.max_drawdown_pct,c.max_drawdown_pct));
   }
   const scores=ranking.rows.map(r=>[r.bot,r.score]);study='146';hiddenBots={Minervini:true};regionFilter='VN';
   assert.deepEqual(summaryBotRanking().rows.map(r=>[r.bot,r.score]),scores.filter(r=>r[0]!=='Minervini'));
@@ -132,12 +133,12 @@ for(const [m,key] of [['backtest','backtests'],['backtest_minute','minute_backte
   selected='Minervini';assert.ok(rankExtra('Darvas').includes('id="rankChart-Darvas"'));
 }
 mode='backtest';period='3M';
-for(const r of summaryBotRanking().rows)assert.equal(r.score,(PIT_DATA.cohorts['300'].backtest_periods['3M'][r.bot].return_pct+PIT_DATA.cohorts['146'].backtest_periods['3M'][r.bot].return_pct)/2);
+for(const r of summaryBotRanking().rows)assert.equal(r.score,(PIT_DATA.cohorts['300'].backtest_periods['3M'][r.bot].return_pct+PIT_DATA.cohorts['146'].backtest_periods['3M'][r.bot].return_pct+PIT_DATA.cohorts.vn30.backtest_periods['3M'][r.bot].return_pct)/3);
 assert.equal(JSON.stringify(PIT_DATA),untouched);hiddenBots={};regionFilter='ALL';study='146';period='ALL';
 assert.equal(JSON.stringify(DATA.paper),originalPaper);
 setStudy('legacy');mode='backtest';assert.equal(activeStudy(),'146');assert.equal(part('Minervini'),PIT_DATA.cohorts['146'].backtest_periods.ALL.Minervini);
 assert.ok(!studyPicker().includes("setStudy('legacy')"));assert.ok(!studyPicker().includes('Đối chứng'));
-assert.ok(studyPicker().includes('Rổ cố định · 146 mã sống sót'));assert.equal(Object.keys(STUDY_LABELS).length,2);
+assert.ok(studyPicker().includes('Rổ cố định · 146 mã sống sót'));assert.equal(Object.keys(STUDY_LABELS).length,3);
 setStudy('300');studyMonth='2023-11';assert.ok(studyPicker().includes('SJF'));
 assert.ok(studyPicker().includes('2023-10-31'));assert.equal(PIT_DATA.months[0].members.length,300);
 SECTOR_DATA=JSON.parse(fs.readFileSync(path.join(root,'sectors.json'),'utf8'));sectorMode='hybrid';sectorBot='Munger';renderSectors();
@@ -146,11 +147,11 @@ assert.equal(sectorBookStats('hybrid','Munger').buy_fills,PIT_DATA.cohorts['300'
 stockStudy=true;stockSymbol='SJF';PIT_STOCKS.SJF=JSON.parse(fs.readFileSync(path.join(root,'pit-stocks/SJF.json'),'utf8'));
 assert.equal(stockBars().at(-1)[0],'2023-11-10');
 REPLAY_DATA=JSON.parse(fs.readFileSync(path.join(root,'paper-replay.json'),'utf8'));
-FIXED_REPLAY_DATA=JSON.parse(fs.readFileSync(path.join(root,'paper-fixed146.json'),'utf8'));applyReplayData();
+FIXED_REPLAY_DATA=JSON.parse(fs.readFileSync(path.join(root,'paper-fixed146.json'),'utf8'));VN30_REPLAY_DATA=JSON.parse(fs.readFileSync(path.join(root,'paper-vn30.json'),'utf8'));applyReplayData();
 for(const modeId of ['paper','paper_minute','paper_combo']){
   mode=modeId;assert.equal(activeKeys().length,13);
   for(const bot of IDS)assert.equal(part(bot),REPLAY_DATA[modeId][bot]);
-  assert.equal(summaryBotRanking().sources.length,2);
+  assert.equal(summaryBotRanking().sources.length,3);
   if(REPLAY_DATA.status==='waiting_completed_session'){
     assert.equal(summaryBotRanking().rows.length,0);assert.ok(!crossBasketSummary().includes('data-summary-bot='));
     assert.ok(crossBasketSummary().includes('Paper đang chờ phiên replay'));
@@ -161,17 +162,18 @@ const replayBooks=JSON.stringify(DATA.paper);
 applyValueData();applyValueIntraday();assert.equal(JSON.stringify(DATA.paper),replayBooks);
 assert.equal(REPLAY_DATA.execution_revision,'strict_next_candle_v1');
 const monthlyBefore=JSON.stringify(REPLAY_DATA),fixedBefore=JSON.stringify(FIXED_REPLAY_DATA);
-for(const cohort of ['146','300','146']){
-  setStudy(cohort);const source=cohort==='146'?FIXED_REPLAY_DATA:REPLAY_DATA;
+for(const cohort of ['146','vn30','300','vn30','146']){
+  setStudy(cohort);const source=cohort==='vn30'?VN30_REPLAY_DATA:cohort==='146'?FIXED_REPLAY_DATA:REPLAY_DATA;
   for(const m of ['paper','paper_minute','paper_combo']){
     mode=m;for(const bot of IDS)assert.equal(part(bot),source[m][bot]);
-    assert.equal(summaryBotRanking().sources.length,2);
+    assert.equal(summaryBotRanking().sources.length,3);
   }
 }
 assert.equal(JSON.stringify(REPLAY_DATA),monthlyBefore);assert.equal(JSON.stringify(FIXED_REPLAY_DATA),fixedBefore);
 const fixedList=studyPicker();assert.ok(fixedList.includes('Xem danh sách 146 mã'));
 assert.equal((fixedList.match(/class="tickerbtn"/g)||[]).length,146);
 assert.ok(fixedList.includes('CHP'));assert.ok(fixedList.includes('TCL'));
+setStudy('vn30');studyMonth='2026-05-13';const list=studyPicker();assert.ok(list.includes('thay đổi giữa kỳ'));assert.equal((list.match(/class="tickerbtn"/g)||[]).length,30);assert.ok(list.includes(">BSR</button>"));assert.ok(!list.includes(">DGC</button>"));renderSectors();assert.ok(elements.sectorContent.innerHTML.includes('Độ phủ mẫu 30 mã'));
 assert.ok(renderBookComparison('Buffett').includes('cùng quy tắc khớp nến kế tiếp'));
 '''
     p=tmp_path/'pit-ui.cjs';p.write_text(script,encoding='utf8')

@@ -4,11 +4,11 @@ import pandas as pd
 from fast_engine import FastContext
 
 class PITContext(FastContext):
-    def __init__(self,prices,benchmark,months,settings,static=None):
+    def __init__(self,prices,benchmark,months,settings,static=None,min_history=252):
         self.months=months;self.static=set(static) if static is not None else None
         calendar=benchmark.index
         clean={s:f.loc[f.index.intersection(calendar)].sort_index() for s,f in prices.items()}
-        clean={s:f for s,f in clean.items() if len(f)>=252}
+        clean={s:f for s,f in clean.items() if len(f)>=min_history}
         super().__init__({s:f.reindex(calendar) for s,f in clean.items()},benchmark,settings)
         shape=(len(self.symbols),len(calendar));self.allowed=np.zeros(shape,dtype=bool)
         self.a['sma200']=np.full(shape,np.nan)
