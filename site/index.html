@@ -248,13 +248,14 @@ async function loadReplayData(){
 }
 function historicalSource(){return study!=='legacy'&&PIT_DATA?.cohorts?.[study]||DATA;}
 function activeStudy(){return study!=='legacy'&&PIT_DATA?.cohorts?.[study]?study:'legacy';}
-function studyLabel(){return activeStudy()==='300'?'300 mã / tháng':activeStudy()==='146'?'146 mã đối chiếu':'146 mã cũ';}
+const STUDY_LABELS={'300':'Rổ tháng · tối đa 300 mã','146':'Đối chứng · 146 mã cố định',legacy:'Bản cũ · 146 mã sống sót'};
+function studyLabel(){return STUDY_LABELS[activeStudy()];}
 function setStudy(id){if(!['300','146','legacy'].includes(id)||(id!=='legacy'&&!PIT_DATA))return;study=id;render();}
 function studyPicker(){
   if(!PIT_DATA)return '';
   const selectedMonth=PIT_DATA.months.find(m=>m.month===studyMonth)||PIT_DATA.months[PIT_DATA.months.length-1];
   const membership=activeStudy()==='300'?`<details ${studyListOpen?'open':''}><summary class="note" onclick="studyListOpen=!this.parentElement.open">Kiểm tra danh sách từng tháng</summary><label class="note">Kỳ chọn <select aria-label="Kỳ chọn 300 mã" onchange="studyMonth=this.value;studyListOpen=true;render()" style="max-width:100%;margin:8px 0;padding:8px">${PIT_DATA.months.map(m=>`<option value="${m.month}" ${m.month===selectedMonth.month?'selected':''}>${m.month}</option>`).join('')}</select></label><p class="note">Chốt dữ liệu: ${safe(selectedMonth.asof)} · áp dụng: ${safe(selectedMonth.effective)}. ${selectedMonth.eligible_count} mã đạt điều kiện lịch sử trước kỳ; lấy 300 theo thanh khoản đã quan sát.</p><p class="note">${selectedMonth.members.map(s=>`<button class="tickerbtn" onclick="openStock('${s}',true)">${s}</button>`).join(' ')}</p></details>`:'';
-  return `<div class="card soft"><strong>Mẫu backtest</strong><div class="chips" style="margin:10px 0">${[['300','300 xoay vòng'],['146','146 đối chiếu'],['legacy','146 cũ']].map(([id,label])=>`<button class="chip ${activeStudy()===id?'active':''}" onclick="setStudy('${id}')">${label}</button>`).join('')}</div><p class="note">${activeStudy()==='300'?'Chọn lại 300 mã mỗi tháng bằng dữ liệu trước kỳ; '+PIT_DATA.unique_symbols+' mã từng xuất hiện, gồm '+PIT_DATA.retained_delisted_in_research.length+' mã nguồn hiện xếp vào nhóm hủy niêm yết.':activeStudy()==='146'?'146 mã cũ được tính lại trên cùng nguồn giá và quy tắc với mẫu 300 để đối chiếu.':'Bản 146 lưu trước khi mở rộng, còn điều kiện sống sót đủ ba năm.'} Paper replay dùng cùng quy tắc khớp nến kế tiếp.</p>${membership}</div>`;
+  return `<div class="card soft"><strong>Rổ cổ phiếu và phiên bản kiểm thử</strong><div class="chips" style="margin:10px 0">${['300','146','legacy'].map(id=>`<button class="chip ${activeStudy()===id?'active':''}" onclick="setStudy('${id}')">${STUDY_LABELS[id]}</button>`).join('')}</div><p class="note">${activeStudy()==='300'?'Rổ đang dùng: chọn lại tối đa 300 mã mỗi tháng bằng dữ liệu đã có trước kỳ, không yêu cầu mã sống sót đến cuối ba năm. '+PIT_DATA.unique_symbols+' mã từng xuất hiện; '+PIT_DATA.retained_delisted_in_research.length+' mã hiện được nguồn xếp vào nhóm hủy niêm yết.':activeStudy()==='146'?'Giữ cố định đúng 146 mã của bản cũ, đều đã qua điều kiện sống sót ba năm. Chạy lại cùng nguồn giá và phương pháp với Rổ tháng, gồm khớp đúng nến kế tiếp; dùng để so ảnh hưởng của việc đổi rổ.':'Kết quả đóng băng của 146 mã được chọn vì có dữ liệu liên tục suốt ba năm. Dùng phương pháp cũ, lưu trước khi đồng bộ khớp đúng nến kế tiếp; không phải bản Đối chứng đã chạy lại.'}</p><p class="note">Ba sổ paper dùng Rổ tháng. Lựa chọn ở đây chỉ đổi bản backtest đang xem.</p>${membership}</div>`;
 }
 async function loadPITData(){
   const r=await fetch('./research-300.json?v='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('Nghiên cứu chưa tải được');
@@ -751,7 +752,7 @@ async function boot(){
     try{await loadIntradayPaper(true);}catch(_){}
     try{await loadValueIntraday();}catch(_){}
     try{await loadValueIntraday(true);}catch(_){}
-    try{await loadPITData();}catch(_){study='legacy';DATA.warnings.unshift('Chưa tải được nghiên cứu 300; đang hiển thị mẫu 146 cũ đã xác minh.');}
+    try{await loadPITData();}catch(_){study='legacy';DATA.warnings.unshift('Chưa tải được Rổ tháng; đang hiển thị Bản cũ · 146 mã sống sót đã lưu.');}
     await loadReplayData();
     IDS=Object.keys(DATA.traders||{}).filter(k=>DATA.paper?.[k]&&DATA.backtests?.[k]);
     if(!IDS.length)throw new Error('No valid trader profiles');
