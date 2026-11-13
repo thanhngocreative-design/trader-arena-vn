@@ -118,8 +118,8 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
     </div>
   </div>
   <div class="switch" aria-label="Chọn chế độ thi đấu">
-<button id="modePaperMinute" onclick="setMode('paper_minute')">Paper phút</button><button id="modePaper" class="active" onclick="setMode('paper')">Paper ngày</button><button id="modePaperCombo" onclick="setMode('paper_combo')">Paper kết hợp ngày + phút</button>
-<button id="modeBacktestMinute" onclick="setMode('backtest_minute')">Backtest phút</button><button id="modeBacktest" onclick="setMode('backtest')">Backtest ngày</button><button id="modeHybrid" onclick="setMode('hybrid')">Backtest kết hợp ngày + phút</button></div>
+<button id="modePaperMinute" onclick="setMode('paper_minute')">Paper phút</button><button id="modePaper" class="active" onclick="setMode('paper')">Paper ngày</button><button id="modePaperCombo" onclick="setMode('paper_combo')">Paper ngày + phút</button>
+<button id="modeBacktestMinute" onclick="setMode('backtest_minute')">Backtest phút</button><button id="modeBacktest" onclick="setMode('backtest')">Backtest ngày</button><button id="modeHybrid" onclick="setMode('hybrid')">Backtest ngày + phút</button></div>
   <p class="note" id="hybridCoverage" style="margin:-8px 0 17px;color:#95d8c6">Đang kiểm tra dữ liệu nến 1 phút thật…</p>
   <div id="studyControls"></div>
   <div id="backtestTimePicker" style="display:none">
@@ -352,7 +352,7 @@ const vnd=x=>Math.round(n(x)).toLocaleString('vi-VN')+'đ';
 const pct=x=>(n(x)>=0?'+':'')+n(x).toFixed(2).replace('.',',')+'%';
 const color=x=>n(x)>=0?'green':'red';
 const isPaper=()=>['paper','paper_minute','paper_combo'].includes(mode);
-const MODE_LABEL={paper_minute:'Paper phút',paper:'Paper ngày',paper_combo:'Paper kết hợp ngày + phút',backtest_minute:'Backtest phút',backtest:'Backtest ngày',hybrid:'Backtest kết hợp ngày + phút'};
+const MODE_LABEL={paper_minute:'Paper phút',paper:'Paper ngày',paper_combo:'Paper ngày + phút',backtest_minute:'Backtest phút',backtest:'Backtest ngày',hybrid:'Backtest ngày + phút'};
 const MODE_ID={paper:'modePaper',paper_minute:'modePaperMinute',paper_combo:'modePaperCombo',backtest:'modeBacktest',backtest_minute:'modeBacktestMinute',hybrid:'modeHybrid'};
 const part=k=>mode==='paper'?DATA.paper[k]:mode==='paper_minute'?DATA.paper_minute?.[k]:mode==='paper_combo'?DATA.paper_combo?.[k]:mode==='hybrid'?historicalSource().hybrid_backtests?.[k]:mode==='backtest_minute'?historicalSource().minute_backtests?.[k]:periodData()?.[k];
 const nav=k=>n(part(k)?.nav);
@@ -508,7 +508,7 @@ function renderHome(){
   }
   if(isPaper()&&REPLAY_DATA){
     const p=REPLAY_DATA,done=!!p.last_session;
-    $('modePill').textContent=({'paper':'Paper ngày','paper_minute':'Paper phút','paper_combo':'Paper kết hợp'})[mode]+' · Replay cuối ngày';
+    $('modePill').textContent=({'paper':'Paper ngày','paper_minute':'Paper phút','paper_combo':'Paper ngày + phút'})[mode]+' · Replay cuối ngày';
     $('marketDay').textContent=done?'Đã replay phiên '+p.last_session:'Chờ hoàn tất phiên '+p.season_start;
     $('universeNotice').textContent='Paper replay cuối ngày · 300 mã mỗi tháng · mùa từ '+p.season_start+'. Sổ forward cũ đã lưu riêng; giao dịch cũ không được cộng lại.';
     $('hybridCoverage').textContent=done?'Đã kiểm tra và replay '+p.sessions.length+' phiên đến '+p.last_session+'. Khoảng trống và nến bị loại được công bố trong dữ liệu phiên.':'Chưa có phiên hoàn tất từ ngày bắt đầu mùa. Vốn khởi tạo 100 triệu/bot/sổ; chưa có kết quả giao dịch.';
@@ -567,7 +567,7 @@ function renderBookComparison(k){
     <table><caption class="note">Chạm tên sổ để xem chi tiết bên dưới.</caption><thead><tr><th scope="col">Sổ / Tài sản</th><th scope="col">Lãi/lỗ</th><th scope="col"><abbr title="Mức giảm sâu nhất từ đỉnh NAV đã ghi nhận">DD</abbr></th><th scope="col">Khớp</th></tr></thead><tbody>${rows}</tbody></table>
     <p class="note">DD: mức giảm sâu nhất từ đỉnh tài sản đã ghi nhận; paper tính cả vốn ban đầu. Khớp: số lần mua + bán, có thể gồm bán một phần. “—”: chưa có số liệu; paper chưa ghi NAV thì chưa tính DD.</p>
     ${DATA.traders?.[k]?.supported_modes?'<p class="note">Hai biến thể phút/kết hợp dùng chất lượng báo cáo năm đã biết từ phiên trước và luật vào/thoát phút thử nghiệm. Sổ kết hợp thêm giá/MA200 và thanh khoản ngày trước. Giới hạn 6/4 mã, phân bổ theo NAV; không dùng ATR để phân bổ hoặc stop ngày của 11 bot cũ.</p>':'<p class="note">Paper và backtest kết hợp dùng chung bộ lọc, ATR và stop ngày trước, xác nhận phút và khớp đúng phút kế tiếp. Hybrid thuần phút dùng đồng thuận tín hiệu phút.</p>'}
-    ${k==='Darvas'&&DATA.minute_backtest_audit?.bot_revisions?.Darvas?.revision==='darvas_prior_low20_v2'?'<p class="note">Darvas phút đã được tính lại sau khi sửa luật thoát: đáy của 20 nến trước không chứa nến đang xét. Paper phút và Paper kết hợp của Darvas áp dụng cùng bản sửa.</p>':''}
+    ${k==='Darvas'&&DATA.minute_backtest_audit?.bot_revisions?.Darvas?.revision==='darvas_prior_low20_v2'?'<p class="note">Darvas phút đã được tính lại sau khi sửa luật thoát: đáy của 20 nến trước không chứa nến đang xét. Paper phút và Paper ngày + phút của Darvas áp dụng cùng bản sửa.</p>':''}
   </section>`;
 }
 function renderBots(){
