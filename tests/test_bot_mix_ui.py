@@ -5,7 +5,7 @@ import pytest
 
 SITE=Path(__file__).resolve().parents[1]/'site'
 
-def test_mix_buttons_rank_all_18_scopes_and_preserve_each_selection(tmp_path):
+def test_mix_dimensions_stay_independent_and_match_all_18_leaderboards(tmp_path):
     node=shutil.which('node')
     if not node:pytest.skip('Node.js unavailable')
     html=(SITE/'index.html').read_text(encoding='utf8')
@@ -45,7 +45,7 @@ for(const universe of ['300','146','vn30'])for(const book of ['paper','paper_min
     assert.equal((mixControls().match(/aria-pressed="true"/g)||[]).length,1);
   }
   const scope=botSelectionScope();expectedScopes[scope]=[...activeKeys()];
-  assert.deepEqual(JSON.parse(storage.get('arena-bot-selections-v2'))[scope],hiddenBots);
+  assert.deepEqual(JSON.parse(storage.get('arena-mix-choice-v3')),{kind:'best',count:6});
 }
 assert.equal(Object.keys(expectedScopes).length,18);
 assert.ok(mixTotalMarkup(271801701,200000000).includes('+71,8 triệu'));
@@ -55,24 +55,29 @@ assert.ok(mixTotalMarkup(180000000,200000000).includes('-10,00%'));
 assert.ok(mixTotalMarkup(200000000,200000000).includes('0đ'));
 assert.ok(mixTotalMarkup(0,0).includes('Chưa bật bot nào'));
 assert.ok(studyPicker().includes('Cách chọn rổ &amp; dữ liệu'));
-for(const [scope,chosen] of Object.entries(expectedScopes)){
+// Moving either dimension preserves the preset count, recalculating that
+// scope's own leaders rather than restoring a different saved preset.
+for(const scope of Object.keys(expectedScopes)){
   const [universe,book]=scope.split(':');setStudy(universe);setMode(book);
-  assert.deepEqual(activeKeys(),chosen);
+  assert.deepEqual(mixChoice,{kind:'best',count:6});
+  assert.deepEqual(new Set(activeKeys()),new Set(mixRanking().slice(0,6).map(r=>r.bot)));
 }
-// Explicitly different two-, three- and four-bot choices survive switching.
-setStudy('vn30');setMode('backtest');applyBestMix(2);const a=[...activeKeys()];
-setMode('paper');applyBestMix(3);const b=[...activeKeys()];
-setStudy('146');applyBestMix(4);const c=[...activeKeys()];
-setStudy('vn30');assert.deepEqual(activeKeys(),b);setMode('backtest');assert.deepEqual(activeKeys(),a);
-setStudy('146');setMode('paper');assert.deepEqual(activeKeys(),c);
-// Reload stored selections, retaining legacy preferences as defaults only.
-const saved=storage.get('arena-bot-selections-v2');botSelections=JSON.parse(saved);hiddenBots={};loadBotSelection();assert.deepEqual(activeKeys(),c);
+setStudy('vn30');setMode('backtest');applyBestMix(2);
+setMode('paper');assert.equal(study,'vn30');assert.equal(mixChoice.count,2);assert.equal(activeKeys().length,2);
+setStudy('146');assert.equal(mode,'paper');assert.equal(mixChoice.count,2);assert.equal(activeKeys().length,2);
+applyBestMix(5);assert.equal(study,'146');assert.equal(mode,'paper');
+setStudy('300');assert.equal(mode,'paper');assert.equal(mixChoice.count,5);assert.equal(activeKeys().length,5);
+setMode('paper_combo');assert.equal(study,'300');assert.equal(mixChoice.count,5);assert.equal(activeKeys().length,5);
+const saved=storage.get('arena-mix-choice-v3');mixChoice=JSON.parse(saved);hiddenBots={};loadBotSelection();assert.equal(activeKeys().length,5);
 setStudy('vn30');setMode('backtest');period='3M';
 const quarter=Object.entries(PIT_DATA.cohorts.vn30.backtest_periods['3M']).sort((a,b)=>b[1].nav-a[1].nav).slice(0,2).map(x=>x[0]);
 applyBestMix(2);assert.deepEqual(new Set(activeKeys()),new Set(quarter));assert.ok(mixControls().includes('3 tháng'));
 setMode('paper');assert.ok(mixControls().includes('Paper ngày · mùa từ'));assert.ok(!mixControls().includes('Backtest ngày · 3 năm'));
 toggleBot('Munger');const manual={...hiddenBots};setMode('paper_minute');setMode('paper');assert.deepEqual(hiddenBots,manual);
 enableAllBots();assert.equal(activeKeys().length,13);
+assert.ok(mixControls().includes('class="chip active" aria-pressed="true" onclick="enableAllBots()"'));
+setStudy('300');setMode('backtest_minute');assert.equal(activeKeys().length,13);assert.equal(mixChoice.kind,'all');
+assert.ok(mixControls().includes('class="chip active" aria-pressed="true" onclick="enableAllBots()"'));
 assert.equal(JSON.stringify([PIT_DATA,REPLAY_DATA,FIXED_REPLAY_DATA,VN30_REPLAY_DATA]),before);
 '''
     file=tmp_path/'mix.cjs';file.write_text(script,encoding='utf8')
