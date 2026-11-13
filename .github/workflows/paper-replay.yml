@@ -1,4 +1,4 @@
-name: EOD paper replay — monthly300 + fixed146 + VN30, 117 books
+name: EOD paper replay — monthly300 + fixed146 + VN30, 144 books
 on:
   workflow_dispatch:
   schedule:
@@ -37,9 +37,9 @@ jobs:
         run: python -m pytest -q
       - name: Bank completed real sessions and replay monthly300 accounts
         run: python -u paper_replay.py
-      - name: Replay 39 independent fixed146 paper accounts
+      - name: Replay 48 independent fixed146 paper accounts
         run: python -u paper_fixed146.py
-      - name: Replay 39 independent effective-date VN30 paper accounts
+      - name: Replay 48 independent effective-date VN30 paper accounts
         run: python -u paper_vn30.py
       - name: Persist immutable source inputs and verified replay results
         run: |

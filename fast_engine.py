@@ -10,7 +10,8 @@ import pandas as pd
 from engine import TRADERS, Settings, make_features, stop_signal
 from execution import modeled_slippage, pass_cost_gate
 
-CORE = tuple(k for k in TRADERS if k != "Hybrid")
+# Keep the original Hybrid's candidate strategies unchanged when adding bots.
+CORE = ('Minervini','ONeil','Darvas','BNF','CIS','Qullamaggie','Unger','ThaiPham','DuongChung','PThai')
 KEYS = (
     "open", "high", "low", "close", "volume", "momentum60",
     "vol20_prev", "value20_prev", "atr14", "rsi14", "sma10", "sma20",
@@ -36,7 +37,7 @@ class FastContext:
             f=make_features(prices[symbol],self.benchmark,self.settings.min_average_value).reindex(self.dates)
             for k in KEYS:
                 self.a[k][i,:]=f[k].to_numpy(dtype=float)
-            for k in CORE:
+            for k in TRADERS:
                 self.buy[k][i,:]=f[f"buy_{k}"].to_numpy(dtype=bool)
         self.hybrid_winners={}
         self.hybrid_asof={}

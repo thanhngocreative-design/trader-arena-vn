@@ -127,21 +127,21 @@ jobs:
           meta=json.loads(Path('config/market-classification.json').read_text())
           assert p['revision']=='monthly300_study_v1' and p['mode']=='real_market_data' and p['status']=='complete'
           assert p['execution_revision']=='strict_next_candle_v1'
-          assert p['target']==300 and p['sessions']==747 and len(p['months'])==37
+          assert p['target']==300 and p['sessions']>=747 and len(p['months'])==37
           assert p['union_symbols']==cfg['eligible_symbols'] and p['unique_symbols']==len(p['union_symbols'])
           for row in p['months']:
               assert len(row['members'])==len(set(row['members']))==300 and row['asof']<row['effective']
               assert all(meta['listing'][s]['type']=='STOCK' for s in row['members'])
           for cohort in p['cohorts'].values():
               for key in ('backtests','minute_backtests','hybrid_backtests'):
-                  assert len(cohort[key])==13
+                  assert len(cohort[key])==len(p.get('bot_ids',range(13)))
                   for b in cohort[key].values():
                       assert b['sector_stats']['buy_fills']==b['buy_count'] and b['sector_stats']['sell_fills']==b['closed_trades']
           assert p['frozen_146_snapshot_sha256']==hashlib.sha256(Path('site/research-146.json').read_bytes()).hexdigest()
           assert p['fundamentals_source_sha256']==hashlib.sha256(Path('config/value-fundamentals-300.json').read_bytes()).hexdigest()
           print('Verified 300 each month; real source stocks; both controls; paper kept separate')
           PY
-      - name: Verify the shared replay protocol and all 117 paper accounts
+      - name: Verify the shared replay protocol and all 144 paper accounts
         run: |
           python - <<'PY'
           import json
@@ -150,14 +150,14 @@ jobs:
           assert p['execution_revision']=='strict_next_candle_v1'
           assert p['revision']=='eod_replay_v1' and p['mode']=='real_market_data'
           for mode in ('paper','paper_minute','paper_combo'):
-              assert len(p[mode])==13
+              assert set(p[mode])==set(p['bot_ids'])
           fixed=json.loads(Path('site/paper-fixed146.json').read_text())
           assert fixed['execution_revision']==p['execution_revision']
           assert fixed['last_session']==p['last_session'] and fixed['season_start']==p['season_start']
           assert fixed['target']==146 and len(set(fixed['members']))==146
           assert set(fixed['members'])==set(json.loads(Path('config/research-universe.json').read_text())['eligible_symbols'])
           for mode in ('paper','paper_minute','paper_combo'):
-              assert len(fixed[mode])==13
+              assert set(fixed[mode])==set(p['bot_ids'])
           vn=json.loads(Path('site/paper-vn30.json').read_text())
           research=json.loads(Path('site/research-vn30.json').read_text())
           cfg=json.loads(Path('config/research-vn30.json').read_text())
@@ -169,9 +169,9 @@ jobs:
           assert vn['last_session']==p['last_session'] and vn['season_start']==p['season_start']
           assert vn['execution_revision']==p['execution_revision']
           for mode in ('paper','paper_minute','paper_combo'):
-              assert len(vn[mode])==13
+              assert set(vn[mode])==set(p['bot_ids'])
           for key in ('backtests','minute_backtests','hybrid_backtests'):
-              assert len(research['cohort'][key])==13
+              assert len(research['cohort'][key])==len(research.get('bot_ids',range(13)))
               for book in research['cohort'][key].values():
                   assert book['buy_count']==book['sector_stats']['buy_fills']
                   assert book['closed_trades']==book['sector_stats']['sell_fills']

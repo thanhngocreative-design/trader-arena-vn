@@ -25,7 +25,7 @@ def contexts():
     control.buy={k:v.copy() for k,v in ctx.buy.items()};control.hybrid_winners={};control.hybrid_asof={}
     return {'300':ctx,'146':control},prices,config
 
-def run_minute(ctxs,frames,coverage,config,output=None):
+def run_minute(ctxs,frames,coverage,config,output=None,*,initial_state=None,bot_ids=None):
     output=output or ROOT/'data/pit_results'
     output.mkdir(parents=True,exist_ok=True)
     ctx=next(iter(ctxs.values()));dates=ctx.dates[(ctx.dates>=config['start'])&(ctx.dates<=config['end'])]
@@ -43,10 +43,22 @@ def run_minute(ctxs,frames,coverage,config,output=None):
         if key not in quality_cache:quality_cache[key]=quality(rs,date,bot)
         return quality_cache[key]
     accounts={c:{'minute':{**new_accounts(),**empty_accounts()},'value_combo':empty_accounts()} for c in ctxs}
+    if bot_ids is not None:
+        accounts={c:{m:{k:b for k,b in bots.items() if k in bot_ids} for m,bots in books.items()} for c,books in accounts.items()}
     curves={c:{m:{k:[] for k in b} for m,b in books.items()} for c,books in accounts.items()};marks={};seen={};done=-1
     signature=hashlib.sha256(b''.join((ROOT/p).read_bytes() for p in ('pit_intraday.py','pit_minute_data.py','minute_arena.py','value_intraday.py','pit_context.py','replay_rules.py'))+json.dumps(config,sort_keys=True).encode()+json.dumps({s:r.get('minute_sha256') for s,r in coverage.items()},sort_keys=True).encode()).hexdigest()
     checkpoint=output/'minute-checkpoint.json'
-    if checkpoint.exists():
+    if initial_state is not None:
+        saved=copy.deepcopy(initial_state)
+        prefix=[str(d.date()) for d in dates[:saved['seq']+1]]
+        if set(saved['accounts'])!=set(ctxs):raise ValueError('Minute resume cohorts changed')
+        for books in saved['curves'].values():
+            for bots in books.values():
+                for curve in bots.values():
+                    if [r['date'] for r in curve]!=prefix:raise ValueError('Minute resume calendar changed')
+        accounts=saved['accounts'];curves=saved['curves'];marks=saved['marks'];seen=saved['seen'];done=saved['seq']
+        if done>=len(dates)-1:raise ValueError('Minute resume requires a new completed session')
+    elif checkpoint.exists():
         saved=read(checkpoint)
         if saved['signature']==signature:accounts=saved['accounts'];curves=saved['curves'];marks=saved['marks'];seen=saved['seen'];done=saved['seq'];print('Resume PIT tape after',done+1,flush=True)
     core_views={c:{k:b for k,b in books['minute'].items() if k in TRADERS} for c,books in accounts.items()}

@@ -8,7 +8,7 @@ from test_engine import data
 
 
 def test_all_eleven_bots_are_independent_and_valid():
-    assert set(TRADERS) == {"Minervini","ONeil","Darvas","BNF","CIS","Qullamaggie","Unger","ThaiPham","DuongChung","PThai","Hybrid"}
+    assert set(TRADERS) == {"Minervini","ONeil","Darvas","BNF","CIS","Qullamaggie","Unger","ThaiPham","DuongChung","PThai","Hybrid","Beginner","Intermediate","Pro"}
     assert {TRADERS[k]["region"] for k in TRADERS} == {"US","JP","EU","VN","MIX"}
     prices, index = data(420)
     features = make_features(prices,index)
@@ -33,7 +33,7 @@ def test_same_day_upgrade_preserves_existing_paper_and_does_not_backdate(tmp_pat
     state_path.write_text(json.dumps(paper),encoding="utf-8")
     migrated, changed = update_paper({"FPT":prices.iloc[:end]},benchmark.iloc[:end],state_path)
     assert changed
-    assert len(migrated["bots"]) == 11
+    assert len(migrated["bots"]) == len(TRADERS)
     for key in ("Minervini","ONeil","Darvas"):
         assert migrated["bots"][key] == existing[key]
     for key in ("BNF","CIS","Qullamaggie","Unger"):

@@ -72,6 +72,8 @@ def _minute_enter(bot:str,now,prior,day_bar_index:int) -> bool:
     if not all(np.isfinite(float(now[k])) for k in ("close","vwap","ma5","close_before","high10_before")):
         return False
     price=float(now["close"])
+    if bot=='Beginner':
+        return price>float(now['ma5']) and price>float(now['vwap']) and price>float(now['close_before'])
     if bot=="BNF":
         # First recovery from intraday dip; avoid buying a falling minute.
         return (price>float(now["ma5"]) and price>float(now["close_before"])
@@ -99,6 +101,8 @@ def _minute_entry_mask(bot, frame):
     c=a['close'];v=a['volume']
     if bot=='BNF':
         return valid&(c>a['ma5'])&(c>a['close_before'])&(c>=a['vwap']*.995)&(v>=a['volume_mean10_before']*.6)
+    if bot=='Beginner':
+        return valid&(c>a['ma5'])&(c>a['vwap'])&(c>a['close_before'])
     if bot=='DuongChung':
         return valid&(c>a['ma5'])&(c>a['vwap'])&(c>a['close_before'])
     if bot=='CIS':
@@ -107,7 +111,7 @@ def _minute_entry_mask(bot, frame):
 
 
 def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
-              first:int, last:int, settings:Settings):
+              first:int, last:int, settings:Settings, *, initial_state=None, export_state=False):
     cash=float(settings.initial_cash)
     from portfolio import for_bot, allocation as position_budget
     settings=for_bot(settings,bot)
@@ -121,6 +125,22 @@ def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
     symbols=context.symbols
     inv=context.pos
     a=context.a
+    if initial_state is not None:
+        from copy import deepcopy
+        saved=deepcopy(initial_state)
+        if saved['bot']!=bot or saved['last_session']!=str(context.dates[first-1].date()):
+            raise ValueError('Combo resume must begin at the next benchmark session')
+        cash=saved['cash']
+        positions={inv[s]:p for s,p in saved['positions'].items()}
+        for p in positions.values():p['date']=pd.Timestamp(p['date'])
+        closed_at={inv[s]:t for s,t in saved['closed_at'].items()}
+        trades=saved['trades'];history=saved['history']
+        for trade in trades:
+            for key,value in trade.items():
+                if value is None:trade[key]=np.nan
+        for row in history:row['date']=pd.Timestamp(row['date'])
+        eligible_dates=saved['eligible_dates'];minute_bars=saved['minute_bars']
+        observed_symbols=set(saved['observed_symbols'])
     for t in range(first,last+1):
         date=context.dates[t]
         day=date.date()
@@ -308,7 +328,7 @@ def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
                          "pending_exit":p.get("exit_pending","")})
         if hasattr(context,'mark_info'):
             m=context.mark_info(i,last,fallback=p['price']);holdings[-1].update(last_price=m['price'],quote_date=m['quote_date'],quote_age_sessions=m['age'],valuation_reserve=round((m['price']-m['value_price'])*p['qty']),valuation_note='Dự phòng định giá khi thiếu giá; không phải lệnh bán hay giá thị trường 0' if m['reserve'] else 'Giá quan sát')
-    return {"trader":bot,"curve":curve,"trades":tdf,
+    result={"trader":bot,"curve":curve,"trades":tdf,
         "holdings":pd.DataFrame(holdings),"actions":pd.DataFrame([]),
         "nav":float(curve.nav.iloc[-1]),"cash":cash,
         "return_pct":float(curve.return_pct.iloc[-1]),
@@ -319,6 +339,18 @@ def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
         "buy_count":int((tdf.side=="MUA").sum()) if not tdf.empty else 0,
         "minute_bars_observed":minute_bars,"sessions_with_data":eligible_dates,
         "observed_symbols":sorted(observed_symbols)}
+    if export_state:
+        # Model state only: no raw minute candles. Keys use symbols so adding
+        # a new ticker cannot silently redirect an existing position.
+        import json
+        state=dict(bot=bot,last_session=str(context.dates[last].date()),cash=cash,
+            positions={symbols[i]:{**p,'date':p['date'].isoformat()} for i,p in positions.items()},
+            closed_at={symbols[i]:t for i,t in closed_at.items()},
+            trades=tdf.astype(object).where(pd.notna(tdf),None).to_dict('records'),
+            history=[{**r,'date':r['date'].isoformat()} for r in history],
+            eligible_dates=eligible_dates,minute_bars=minute_bars,observed_symbols=sorted(observed_symbols))
+        result['resume_state']=json.loads(json.dumps(state,allow_nan=False))
+    return result
 
 
 def build_hybrid_backtests(context:FastContext,minute:dict[str,pd.DataFrame],

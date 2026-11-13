@@ -15,7 +15,7 @@ from replay_rules import REVISION
 from sector_analytics import universe_distribution
 
 STATE=ROOT/'state/paper_seasons'/START/'paper_vn30.json';PUBLIC=ROOT/'site/paper-vn30.json'
-OUTPUT_BASE=ROOT/'data/pit_results/replay-vn30'/START
+OUTPUT_BASE=ROOT/'data/pit_results/replay-vn30'/START/'education-v1'
 
 def verify_previous(previous,ledgers,events):
     if not previous:return
@@ -29,6 +29,8 @@ def run(collect=True,now=None):
     now=now or datetime.now(VN);end=completed_date(now);cfg=configuration();classification=read(ROOT/'config/market-classification.json')
     current=sorted(membership(cfg,max(START,end)))
     payload=dict(revision='eod_replay_v1',execution_revision=REVISION,cohort='vn30',target=30,mode='real_market_data',season_start=START,paper_contest_start=START,updated_at=now.isoformat(),source=ENDPOINT,members=current,sector_universe=universe_distribution(current,classification),last_session=None,status='waiting_completed_session',membership_verified_through=cfg['verified_through'])
+    from bot_timeframes import timeframe_manifest
+    payload.update(bot_timeframes=timeframe_manifest(),bot_ids=BOTS,traders={k:TRADERS[k] for k in ('Beginner','Intermediate','Pro')})
     if end<START:
         payload.update({m:{b:blank() for b in BOTS} for m in ('paper','paper_minute','paper_combo')});write(PUBLIC,payload);return payload
     previous=read(STATE) if STATE.exists() else None
@@ -78,6 +80,6 @@ def run(collect=True,now=None):
     for s in union:
         f=prices[s].loc[:end].tail(780);write(ROOT/'site/replay-stocks'/f'{s}.json',[[str(d.date())]+[float(r[k]) for k in ('open','high','low','close','volume')] for d,r in f.iterrows()])
     write(STATE,dict(last_session=end,execution_revision=REVISION,cohort='vn30',membership_events=used_events,ledgers=ledgers,input_sha256=inputs));write(PUBLIC,payload)
-    print('Published verified VN30 paper',end,'39 independent accounts',flush=True);return payload
+    print('Published verified VN30 paper',end,''+str(3*len(BOTS))+' independent accounts',flush=True);return payload
 
 if __name__=='__main__':run()

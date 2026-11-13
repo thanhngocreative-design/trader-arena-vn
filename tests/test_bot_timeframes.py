@@ -7,26 +7,26 @@ def test_timeframe_categories_follow_the_active_engine_mode():
     frames=timeframe_manifest()
     for mode,description in frames.items():
         assert set(description['bots'])==set(TRADERS)
-        assert sum(description['counts'].values())==11
+        assert sum(description['counts'].values())==len(TRADERS)
         if mode in ('paper_minute','backtest_minute'):
-            assert description['counts']['minute_only']==11
+            assert description['counts']['minute_only']==len(TRADERS)
         elif mode=='paper_combo':
-            assert description['counts']['daily_and_minute']==11
+            assert description['counts']['daily_and_minute']==len(TRADERS)
         elif mode=='hybrid':
-            assert description['counts']['daily_and_minute']==11
+            assert description['counts']['daily_and_minute']==len(TRADERS)
             for name in ('BNF','CIS'):
                 assert description['bots'][name]['category']=='daily_and_minute'
                 assert description['bots'][name]['priority']=='phút'
                 assert 'ngày hôm trước' in description['bots'][name]['detail']
         else:
-            assert description['counts']['daily_only']==11
+            assert description['counts']['daily_only']==len(TRADERS)
             assert all(b['category']=='daily_only' for b in description['bots'].values())
 
 def test_published_timeframes_and_ui_have_mode_specific_labels():
     root=Path(__file__).resolve().parents[1]
     for name in ('dashboard.json','research-146.json'):
         data=json.loads((root/'site'/name).read_text(encoding='utf8'))
-        assert data['bot_timeframes']==timeframe_manifest()
+        assert data['bot_timeframes']==timeframe_manifest(data['backtests'])
     ui=(root/'site/index.html').read_text(encoding='utf8')
     assert 'function botFrame(k)' in ui
     assert 'DATA.bot_timeframes?.[mode]' in ui

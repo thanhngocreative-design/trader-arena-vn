@@ -5,7 +5,7 @@ import math
 # Research assumptions, not claims about the named traders' actual portfolios.
 LIMITS = dict(Minervini=6, ONeil=7, Darvas=5, BNF=3, CIS=3,
               Qullamaggie=5, Unger=8, ThaiPham=6, DuongChung=4,
-              PThai=8, Hybrid=6)
+              PThai=8, Hybrid=6, Beginner=4, Intermediate=6, Pro=8)
 
 def for_bot(settings, trader):
     if settings.portfolio_policy == 'baseline':

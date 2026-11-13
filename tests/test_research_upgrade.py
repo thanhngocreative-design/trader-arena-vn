@@ -13,7 +13,7 @@ def test_universe_is_broad_but_does_not_invent_prices():
     assert 120 <= len(universe) <= 210
     assert len(set(universe)) == len(universe)
     assert {"FPT","HPG","VCB","MWG","PNJ","SSI"}.issubset(universe)
-    assert len(TRADERS)==11 and "Hybrid" in TRADERS
+    assert len(TRADERS)==14 and "Hybrid" in TRADERS
 
 
 def test_cost_is_real_and_gets_worse_for_illiquid_orders():

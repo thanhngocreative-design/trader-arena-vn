@@ -11,7 +11,7 @@ from paper_replay import (ROOT,VN,START,MARKET,ENDPOINT,epoch,validate_wire,norm
 
 STATE=ROOT/'state/paper_seasons'/START/'paper_fixed146.json'
 PUBLIC=ROOT/'site/paper-fixed146.json'
-OUTPUT_BASE=ROOT/'data/pit_results/replay-fixed146'/START
+OUTPUT_BASE=ROOT/'data/pit_results/replay-fixed146'/START/'education-v1'
 
 def supplemental(day,symbols,collect=True,folder='fixed146-sessions'):
     """Never rewrite the already banked monthly-session source to add names."""
@@ -80,6 +80,8 @@ def run(collect=True,now=None):
     payload=dict(revision='eod_replay_v1',execution_revision=REVISION,cohort='146',target=146,
         mode='real_market_data',season_start=START,paper_contest_start=START,updated_at=now.isoformat(),
         source=ENDPOINT,members=fixed,sector_universe=universe_distribution(fixed,classification),last_session=None,status='waiting_completed_session')
+    from bot_timeframes import timeframe_manifest
+    payload.update(bot_timeframes=timeframe_manifest(),bot_ids=BOTS,traders={k:TRADERS[k] for k in ('Beginner','Intermediate','Pro')})
     if end<START:
         payload.update({m:{b:blank() for b in BOTS} for m in ('paper','paper_minute','paper_combo')})
         write(PUBLIC,payload);return payload
@@ -125,7 +127,7 @@ def run(collect=True,now=None):
         f=prices[s].loc[:cfg['end']].tail(780)
         write(ROOT/'site/replay-stocks'/f'{s}.json',[[str(d.date())]+[float(r[k]) for k in ('open','high','low','close','volume')] for d,r in f.iterrows()])
     write(STATE,dict(last_session=sessions[-1],execution_revision=REVISION,cohort='146',members=fixed,ledgers=ledgers,input_sha256=inputs));write(PUBLIC,payload)
-    print('Published verified fixed146 paper',sessions[-1],'39 independent accounts',flush=True)
+    print('Published verified fixed146 paper',sessions[-1],''+str(3*len(BOTS))+' independent accounts',flush=True)
     return payload
 
 if __name__=='__main__':run()

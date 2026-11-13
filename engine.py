@@ -87,6 +87,9 @@ TRADERS = {
     },
 }
 
+from education_bots import PROFILES as EDUCATION_PROFILES, daily_signals, daily_exit
+TRADERS.update(EDUCATION_PROFILES)
+
 @dataclass(frozen=True)
 class Settings:
     initial_cash: float = 100_000_000
@@ -215,6 +218,7 @@ def make_features(df: pd.DataFrame, benchmark: pd.DataFrame, min_average_value: 
     # Hybrid's signals require other strategies' *prior* out-of-sample NAVs.
     # They are built by fast_engine after preparing the entire market context.
     p["buy_Hybrid"] = False
+    for key,signal in daily_signals(p).items():p[f'buy_{key}']=signal
     for key in TRADERS:
         p[f"buy_{key}"] = (p[f"buy_{key}"] & p["liq_ok"]).fillna(False)
     return p
@@ -224,6 +228,8 @@ def stop_signal(trader: str, yesterday: pd.Series, position: dict) -> tuple[bool
     close = yesterday.get("close", np.nan)
     if pd.isna(close):
         return False, ""
+    if trader in EDUCATION_PROFILES and daily_exit(trader,yesterday,position):
+        return True, "Mất điều kiện xu hướng hoặc chạm ngưỡng rủi ro của mô hình học tập"
     if trader == "Minervini":
         if close < position["price"] * 0.93:
             return True, "Giảm quá 7% từ giá mua"

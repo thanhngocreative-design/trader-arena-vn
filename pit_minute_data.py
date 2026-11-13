@@ -5,6 +5,7 @@ import pandas as pd
 from intraday_data import normalize_minute
 from value_investing import ROOT,read,write
 from pit_universe import load_daily
+from education_bots import minute_signals
 
 def load_minutes(symbols=None):
     config=read(ROOT/'config/research-300.json');audit=read(ROOT/'data/pit_minute/audit.json');old=read(ROOT/'data/minute_history/audit.json');original=read(ROOT/'config/research-universe.json')['eligible_symbols']
@@ -75,6 +76,7 @@ Actual timestamps retain gaps and session resets. Padding never emits events.
         'ThaiPham':(c>hi20)&(c>ma5)&(m10>.007)&(vf>1.55),
         'DuongChung':(c<ma20*.995)&(m3>.004)&(m20<-.012)&(vf>.85),
         'PThai':(ma10>ma20)&(m20>.012)&(vol>.004)&(vol<.05)&(c>hi10)&(vf>1.10)}
+    raw.update(minute_signals(c,h,l,v,ma5,ma10,ma20,hi20,hi30,vf,m30,vol))
     for k,m in raw.items():p[k]=(valid&m).to_numpy()&warm[:,None]
     p['Hybrid']=sum(p[k].astype(int) for k in ('Minervini','ONeil','CIS','Qullamaggie','PThai'))>=2
     p['Buffett']=(valid&(c<=ma20*.998)&(c>before)&(vf>=.8)).to_numpy()&warm[:,None]

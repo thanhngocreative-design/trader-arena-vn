@@ -23,7 +23,7 @@ def test_quality_gates_are_required_and_combo_adds_prior_daily_gate():
     m.value_step(combo,'AAA',bar(),ts,0,{},gates(False),combo=True)
     assert all(b['pending'] for b in minute.values())
     assert all(not b['pending'] for b in combo.values())
-    assert set(new_accounts())==set(TRADERS) and len(new_accounts())==11
+    assert set(new_accounts())==set(TRADERS) and len(new_accounts())==len(TRADERS)
 
 def test_future_bar_only_and_actual_money_reconciles_with_partial_exit():
     a=m.empty_accounts();marks={};t=pd.Timestamp('2023-04-04 10:00')

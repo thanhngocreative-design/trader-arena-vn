@@ -11,6 +11,7 @@ from portfolio import for_bot, allocation
 from execution import modeled_slippage
 from paper_metrics import paper_metrics
 from replay_rules import can_fill, next_minute
+from education_bots import minute_signals
 BOT_SETTINGS={k:for_bot(Settings(portfolio_policy='atr_v1'),k) for k in TRADERS}
 
 
@@ -34,6 +35,7 @@ def features(f):
       'ThaiPham':(c>hi20)&(c>ma5)&(m10>.007)&(vf>1.55),
       'DuongChung':(c<ma20*.995)&(m3>.004)&(m20<-.012)&(vf>.85),
       'PThai':(ma10>ma20)&(m20>.012)&(vol>.004)&(vol<.05)&(c>hi10)&(vf>1.10)}
+    raw.update(minute_signals(c,h,l,v,ma5,ma10,ma20,hi20,hi30,vf,m30,vol))
     for k,mask in raw.items(): p[k]=(valid&mask&(pd.Series(range(len(f)),index=f.index)>=30)).fillna(False)
     p['Hybrid']=p[['Minervini','ONeil','CIS','Qullamaggie','PThai']].sum(axis=1)>=2
     p['atr']=pd.concat([h-l,(h-before).abs(),(l-before).abs()],axis=1).max(axis=1).rolling(14).mean()
@@ -60,6 +62,9 @@ def darvas_features(f):
 
 def exit_signal(bot,row,entry):
     c=row['close']; ma10=row['ma10']; ma20=row['ma20']
+    if bot=='Beginner':return ma10<ma20 or c<entry*.92
+    if bot=='Intermediate':return c<ma20 or c<entry*.93
+    if bot=='Pro':return c<ma20 or c<entry*.94
     if bot in ('BNF','DuongChung'): return c>=entry*1.018 or c<entry*.945 or c<ma20*.97
     if bot in ('CIS','ThaiPham'): return c<ma10*.994 or c<entry*.93
     if bot=='Darvas': return c<row['low20'] or c<entry*.9

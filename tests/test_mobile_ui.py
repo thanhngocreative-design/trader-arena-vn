@@ -149,7 +149,7 @@ assert.equal(stockBars().at(-1)[0],'2023-11-10');
 REPLAY_DATA=JSON.parse(fs.readFileSync(path.join(root,'paper-replay.json'),'utf8'));
 FIXED_REPLAY_DATA=JSON.parse(fs.readFileSync(path.join(root,'paper-fixed146.json'),'utf8'));VN30_REPLAY_DATA=JSON.parse(fs.readFileSync(path.join(root,'paper-vn30.json'),'utf8'));applyReplayData();
 for(const modeId of ['paper','paper_minute','paper_combo']){
-  mode=modeId;assert.equal(activeKeys().length,13);
+  mode=modeId;assert.equal(activeKeys().length,Object.keys(REPLAY_DATA[modeId]).length);
   for(const bot of IDS)assert.equal(part(bot),REPLAY_DATA[modeId][bot]);
   assert.equal(summaryBotRanking().sources.length,3);
   if(REPLAY_DATA.status==='waiting_completed_session'){

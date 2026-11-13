@@ -51,7 +51,7 @@ def test_completed_cutoff_does_not_replay_unfinished_or_weekend_sessions():
 def test_published_replay_has_actual_season_scope_and_preserved_archives():
     p=replay.read(replay.PUBLIC)
     assert p['execution_revision']=='strict_next_candle_v1' and len(set(p['members']))==300
-    assert all(len(p[m])==13 for m in ('paper','paper_minute','paper_combo'))
+    assert all(set(p[m])==set(replay.BOTS) for m in ('paper','paper_minute','paper_combo'))
     if p['status']=='waiting_completed_session':
         assert p['last_session'] is None
         assert all(not b['trades'] and not b['history'] and b['nav']==100_000_000 for m in ('paper','paper_minute','paper_combo') for b in p[m].values())

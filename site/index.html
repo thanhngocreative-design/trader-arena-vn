@@ -221,7 +221,7 @@ let IDS=['Minervini','ONeil','Darvas'];
 let regionFilter='ALL';
 const REGION={ALL:'🌍',US:'🇺🇸',JP:'🇯🇵',EU:'🇪🇺',VN:'🇻🇳',MIX:'🧬'};
 const EMOJI={Minervini:'🚀',ONeil:'🔎',Darvas:'📦',BNF:'🎯',CIS:'⚡',Qullamaggie:'🏄',Unger:'🧠',ThaiPham:'🌊',DuongChung:'🪃',PThai:'🧮',Hybrid:'🧬'};
-const SHORT={Minervini:'Minervini',ONeil:'O’Neil',Darvas:'Darvas',BNF:'BNF',CIS:'CIS',Qullamaggie:'Kullamägi',Unger:'Unger',ThaiPham:'Thái Phạm',DuongChung:'D.V. Chung',PThai:'P.Thai Quant',Hybrid:'Arena Hybrid'};
+const SHORT={Minervini:'Minervini',ONeil:'O’Neil',Darvas:'Darvas',BNF:'BNF',CIS:'CIS',Qullamaggie:'Kullamägi',Unger:'Unger',ThaiPham:'Thái Phạm',DuongChung:'D.V. Chung',PThai:'P.Thai Quant',Hybrid:'Arena Hybrid',Beginner:'Beginner',Intermediate:'Intermediate',Pro:'Pro'};
 const TEXT={Minervini:'Tìm cổ phiếu đang tăng rất khỏe. Chỉ mua khi giá vượt đỉnh cũ.',ONeil:'Săn cổ phiếu bứt phá với nhiều người mua, khi thị trường chung thuận lợi.',Darvas:'Tìm cổ phiếu thoát khỏi chiếc “hộp giá”, giữ đến khi xu hướng yếu đi.',BNF:'Săn cổ phiếu đã giảm sâu rồi bắt đầu hồi phục.',CIS:'Bám theo hướng tăng của giá, không cố bắt đáy.',Qullamaggie:'Chọn cổ phiếu tăng mạnh, nghỉ lấy sức rồi vượt đỉnh.',Unger:'Mua tín hiệu breakout khi biến động nằm trong mức chấp nhận.',ThaiPham:'Đọc giá và khối lượng để tìm dấu hiệu dòng tiền quay lại.',DuongChung:'Bắt nhịp hồi từ vùng giảm sâu.',PThai:'Xếp hạng đà tăng và kiểm soát rủi ro bằng dữ liệu.',Hybrid:'Đánh giá 126 phiên quá khứ để trộn tối đa ba chiến thuật thắng, cập nhật mỗi 21 phiên.'};
 let DATA={traders:{},paper:{},backtests:{},stocks:{},warnings:[]}, mode='paper', page='home', selected='Minervini', tradeFilter='ALL', demo=true;
 let expandedBot=null;
@@ -242,20 +242,22 @@ function loadBotSelection(){
 function saveBotSelection(){mixChoice={kind:'custom',hidden:{...hiddenBots}};persistMixChoice();}
 let liveApiBase='',livePoll=null;
 let hybridBankProgress=null;
-const BOT_POSITION_LIMITS={Minervini:6,ONeil:7,Darvas:5,BNF:3,CIS:3,Qullamaggie:5,Unger:8,ThaiPham:6,DuongChung:4,PThai:8,Hybrid:6,Buffett:6,Munger:4};
+const BOT_POSITION_LIMITS={Minervini:6,ONeil:7,Darvas:5,BNF:3,CIS:3,Qullamaggie:5,Unger:8,ThaiPham:6,DuongChung:4,PThai:8,Hybrid:6,Buffett:6,Munger:4,Beginner:4,Intermediate:6,Pro:8};
 let VALUE_DATA=null,VALUE_INTRADAY=null,PIT_DATA=null,study='300',studyMonth=null,studyListOpen=false,studyInfoOpen=false;
 let REPLAY_DATA=null,FIXED_REPLAY_DATA=null,VN30_REPLAY_DATA=null;
 function paperSource(){return study==='vn30'?VN30_REPLAY_DATA:study==='146'?FIXED_REPLAY_DATA:REPLAY_DATA;}
 function applyReplayData(){
   const p=paperSource();if(!p)return;
+  for(const [key,profile] of Object.entries(p.traders||{})){DATA.traders[key]=profile;EMOJI[key]=profile.emoji;TEXT[key]=profile.explain;if(!IDS.includes(key))IDS.push(key);}
   for(const key of ['paper','paper_minute','paper_combo'])DATA[key]={...p[key]};
   DATA.paper_contest_start=p.season_start;
+  if(p.bot_timeframes)DATA.bot_timeframes=p.bot_timeframes;
   DATA.intraday_paper_status={...p,last_observed_at:p.last_session?p.last_session+'T16:00:00+07:00':null};
 }
 async function loadReplayData(){
   const readPaper=async(file,target)=>{
     const r=await fetch(file+'?v='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('Chưa tải được paper replay '+target);
-    const p=await r.json();if(p.revision!=='eod_replay_v1'||p.execution_revision!=='strict_next_candle_v1'||p.target!==target||p.members?.length!==target||!['paper','paper_minute','paper_combo'].every(m=>Object.keys(p[m]||{}).length===13))throw new Error('Paper replay chưa được xác minh');return p;
+    const p=await r.json();if(p.revision!=='eod_replay_v1'||p.execution_revision!=='strict_next_candle_v1'||p.target!==target||p.members?.length!==target||!['paper','paper_minute','paper_combo'].every(m=>Object.keys(p[m]||{}).length===(p.bot_ids?.length||13)&&(!p.bot_ids||p.bot_ids.every(b=>p[m]?.[b]))))throw new Error('Paper replay chưa được xác minh');return p;
   };
   const [p,fixed,vn30]=await Promise.all([readPaper('./paper-replay.json',300),readPaper('./paper-fixed146.json',146),readPaper('./paper-vn30.json',30)]);
   if([fixed,vn30].some(x=>p.season_start!==x.season_start||p.last_session!==x.last_session))throw new Error('Các rổ paper chưa đồng bộ phiên');
@@ -284,7 +286,8 @@ async function loadPITData(){
   const r=await fetch('./research-300.json?v='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('Nghiên cứu chưa tải được');
   const p=await r.json();if(p.mode!=='real_market_data'||p.revision!=='monthly300_study_v1'||p.status!=='complete'||p.target!==300||!p.months?.every(x=>x.members.length===300&&x.asof<x.effective)||!p.cohorts?.['300']?.hybrid_backtests?.Munger)throw new Error('Nghiên cứu chưa đủ dữ liệu xác minh');
   const response=await fetch('./research-vn30.json?v='+Date.now(),{cache:'no-store'});if(!response.ok)throw new Error('Chưa tải được nghiên cứu VN30');
-  const v=await response.json();if(v.status!=='complete'||v.mode!=='real_market_data'||v.execution_revision!=='strict_next_candle_v1'||v.target!==30||!v.months?.every(x=>x.members.length===30&&new Set(x.members).size===30&&x.asof<x.effective)||!['backtests','minute_backtests','hybrid_backtests'].every(k=>Object.keys(v.cohort?.[k]||{}).length===13))throw new Error('VN30 chưa đủ kiểm chứng');
+  const v=await response.json();if(v.status!=='complete'||v.mode!=='real_market_data'||v.execution_revision!=='strict_next_candle_v1'||v.target!==30||!v.months?.every(x=>x.members.length===30&&new Set(x.members).size===30&&x.asof<x.effective)||!['backtests','minute_backtests','hybrid_backtests'].every(k=>Object.keys(v.cohort?.[k]||{}).length===(v.bot_ids?.length||13)))throw new Error('VN30 chưa đủ kiểm chứng');
+  if(p.backtest_options)DATA.backtest_options=p.backtest_options;
   PIT_DATA={...p,vn30:v,cohorts:{...p.cohorts,vn30:v.cohort},sector_universes:{...p.sector_universes,vn30:v.sector_universe}};
 }
 function applyValueIntraday(){
@@ -431,7 +434,7 @@ function selectRankBot(id){
 function selectProfile(id){if(!IDS.includes(id))return;selected=id;if(!supportsMode(id))setMode(isPaper()?'paper':'backtest');else render();}
 function openBotProfile(id){if(!IDS.includes(id))return;selectProfile(id);setPage('bots')}
 function botFrame(k){
-  if(DATA.traders?.[k]?.supported_modes){
+  if(['Buffett','Munger'].includes(k)){
     if(['paper_minute','backtest_minute'].includes(mode))return {label:'Phút · thử nghiệm',priority:'phút',detail:'Chất lượng báo cáo năm biết từ phiên trước + giá/khối lượng nến phút. Không dùng chỉ báo giá ngày; điểm vào/thoát phút là giả thuyết của Arena.'};
     if(['paper_combo','hybrid'].includes(mode))return {label:'Ngày + phút · thử nghiệm',priority:'phút',detail:'Bộ lọc tài chính, giá/MA200 và thanh khoản ngày hôm trước; tín hiệu vào/thoát trên nến phút. Không dùng giá đóng cửa của ngày đang giao dịch.'};
     return {label:'Chỉ ngày · dài hạn',priority:'ngày',detail:'Báo cáo năm đã công bố, xét mỗi tháng; dự kiến khớp phiên ngày tiếp theo.'};
@@ -540,8 +543,8 @@ function renderHome(){
   const shortDate=value=>String(value||'').split('-').reverse().join('/');
   $('paperSeasonNote').textContent=replay?'Season Paper đang chạy: từ '+shortDate(replay.season_start)+(replay.last_session?' · chốt '+shortDate(replay.last_session)+' · '+replay.sessions.length+' phiên':' · chờ phiên hoàn tất'):'';
   if(replay){
-    $('dateLabel').textContent=isPaper()?(replay.last_session?'Paper replay: '+replay.last_session:'Chờ paper sau phiên '+replay.season_start):'Lịch sử: '+DATA.last_session;
-    $('dataNotice').textContent=isPaper()?(replay.last_session?'📡 Paper đã replay đến '+replay.last_session+'.':'📡 Paper đang chờ phiên hoàn tất từ '+replay.season_start+'.')+' Tài khoản và lệnh đều là mô phỏng.':'📡 Backtest dùng dữ liệu lịch sử đến '+DATA.last_session+'. Tài khoản và lệnh đều là mô phỏng.';
+    $('dateLabel').textContent=isPaper()?(replay.last_session?'Paper replay: '+replay.last_session:'Chờ paper sau phiên '+replay.season_start):'Lịch sử: '+(PIT_DATA?.end||DATA.last_session);
+    $('dataNotice').textContent=isPaper()?(replay.last_session?'📡 Paper đã replay đến '+replay.last_session+'.':'📡 Paper đang chờ phiên hoàn tất từ '+replay.season_start+'.')+' Tài khoản và lệnh đều là mô phỏng.':'📡 Backtest dùng dữ liệu lịch sử đến '+(PIT_DATA?.end||DATA.last_session)+'. Tài khoản và lệnh đều là mô phỏng.';
   }
   $('studyControls').innerHTML=studyPicker()+mixControls();
   $('backtestTimePicker').style.display=mode==='backtest'?'block':'none';
@@ -608,8 +611,8 @@ function renderHome(){
     }
   }
   if(mode==='paper_minute'||mode==='paper_combo'){
-    const raw=DATA.traders?.[chartBot]?.supported_modes?DATA.value_intraday_status||{}:DATA.intraday_paper_status||{};
-    const p=DATA.traders?.[chartBot]?.supported_modes?{...raw,combo_gate_date:raw.gate_date,combo_gate_valid:raw.gate_valid}:raw;
+    const raw=['Buffett','Munger'].includes(chartBot)?DATA.value_intraday_status||{}:DATA.intraday_paper_status||{};
+    const p=['Buffett','Munger'].includes(chartBot)?{...raw,combo_gate_date:raw.gate_date,combo_gate_valid:raw.gate_valid}:raw;
     const observed=p.last_observed_at?new Date(p.last_observed_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'Chưa có nến mới sau khởi tạo';
     const stale=!p.last_observed_at||Date.now()-new Date(p.last_observed_at).getTime()>180000;
     $('hybridCoverage').textContent=(p.status==='scheduled_start'?'Đã hẹn bắt đầu mùa mới. ':p.status==='market_closed'?'Ngoài giờ giao dịch. ':stale?'Đang chờ nến phút mới. ':'Đã quan sát nến mới. ')+'Khởi tạo: '+(p.started_at?new Date(p.started_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'—')+' · Quan sát gần nhất: '+observed+' · '+(p.symbols_observed||[]).length+'/146 mã đã có nến mới. Cập nhật bảng khoảng 5 phút; tín hiệu xét trên nến phút thực nhận. Không chạy bù lịch sử.'+(mode==='paper_combo'?' Bộ lọc ngày: '+(p.combo_gate_date||'chưa có')+'.':'')+(p.errors?.length?' Có lỗi nguồn: '+p.errors.join('; '):'');
@@ -683,7 +686,7 @@ function renderBookComparison(k){
     <p class="note">Paper replay từ đầu mùa và backtest ba năm dùng cùng quy tắc khớp nến kế tiếp. Hai khoảng thời gian khác nhau, không xếp hạng chung. Bảng dùng toàn bộ ba năm cho ba backtest.</p>
     <table><caption class="note">Chạm tên sổ để xem chi tiết bên dưới.</caption><thead><tr><th scope="col">Sổ / Tài sản</th><th scope="col">Lãi/lỗ</th><th scope="col"><abbr title="Mức giảm sâu nhất từ đỉnh NAV đã ghi nhận">DD</abbr></th><th scope="col">Khớp</th></tr></thead><tbody>${rows}</tbody></table>
     <p class="note">DD: mức giảm sâu nhất từ đỉnh tài sản đã ghi nhận; paper tính cả vốn ban đầu. Khớp: số lần mua + bán, có thể gồm bán một phần. “—”: chưa có số liệu; paper chưa ghi NAV thì chưa tính DD.</p>
-    ${DATA.traders?.[k]?.supported_modes?'<p class="note">Hai biến thể phút/kết hợp dùng chất lượng báo cáo năm đã biết từ phiên trước và luật vào/thoát phút thử nghiệm. Sổ kết hợp thêm giá/MA200 và thanh khoản ngày trước. Giới hạn 6/4 mã, phân bổ theo NAV; không dùng ATR để phân bổ hoặc stop ngày của 11 bot cũ.</p>':'<p class="note">Paper và backtest kết hợp dùng chung bộ lọc, ATR và stop ngày trước, xác nhận phút và khớp đúng phút kế tiếp. Hybrid thuần phút dùng đồng thuận tín hiệu phút.</p>'}
+    ${['Buffett','Munger'].includes(k)?'<p class="note">Hai biến thể phút/kết hợp dùng chất lượng báo cáo năm đã biết từ phiên trước và luật vào/thoát phút thử nghiệm. Sổ kết hợp thêm giá/MA200 và thanh khoản ngày trước. Giới hạn 6/4 mã, phân bổ theo NAV; không dùng ATR để phân bổ hoặc stop ngày của 11 bot cũ.</p>':'<p class="note">Paper và backtest kết hợp dùng chung bộ lọc, ATR và stop ngày trước, xác nhận phút và khớp đúng phút kế tiếp. Hybrid thuần phút dùng đồng thuận tín hiệu phút.</p>'}
     ${k==='Darvas'&&DATA.minute_backtest_audit?.bot_revisions?.Darvas?.revision==='darvas_prior_low20_v2'?'<p class="note">Darvas phút đã được tính lại sau khi sửa luật thoát: đáy của 20 nến trước không chứa nến đang xét. Paper phút và Paper ngày + phút của Darvas áp dụng cùng bản sửa.</p>':''}
   </section>`;
 }
@@ -695,7 +698,7 @@ function renderBots(){
   const cloud=DATA.cloud_enabled?.[selected]!==false;
   const valueScope=historicalSource(),valueFacts=valueScope.fundamentals||VALUE_DATA?.fundamentals,valueAudit=valueScope.value_audit||VALUE_DATA?.audit;
   const valueLimits=activeStudy()==='legacy'?VALUE_DATA?.limitations:[(activeStudy()==='vn30'?'Thành phần VN30 lịch sử đã công bố; mã dự phòng không phải thành viên.':activeStudy()==='300'?'Mẫu được chọn lại theo tháng.':'Mẫu giữ cố định 146 mã sống sót trong ba năm, vẫn có sai lệch chọn mẫu.')+' Nguồn hiện tại và phần dữ liệu mã cũ còn lưu chưa phải danh mục lịch sử đầy đủ. Giá điều chỉnh và dữ liệu thiếu vẫn có thể gây sai lệch.',...(VALUE_DATA?.limitations||[]).slice(1)];
-  const valueNotes=DATA.traders?.[selected]?.supported_modes&&VALUE_DATA?`<div class="card"><strong>Phạm vi mô phỏng và biến thể</strong><p class="note">${valueFacts.comparable_nonfinancial_companies}/${valueFacts.requested_symbols} mã có báo cáo năm phi tài chính phù hợp; còn phải đạt bộ lọc tại ngày xét. Số mã đạt chất lượng trong backtest ngày: ${valueAudit[selected].quality_eligible_start} đầu kỳ → ${valueAudit[selected].quality_eligible_end} cuối kỳ. Không đồng nghĩa đều có tín hiệu mua.</p>${!['paper','backtest'].includes(mode)?`<p class="note"><strong>Biến thể phút thử nghiệm:</strong> vẫn lọc chất lượng báo cáo năm; dùng MA20/MA10 của nến phút để vào và thoát. Giữ tối thiểu 5 phiên, nghỉ 7 phiên sau bán, giới hạn 5% khối lượng nến trước; có phí, thuế và trượt giá. Sổ kết hợp thêm giá/MA200 và thanh khoản ngày trước. Đây là quy tắc Arena đặt để thử nghiệm, không phải cách hai ông thực sự giao dịch.</p>`:''}${valueLimits.map(s=>`<p class="note">${safe(s)}</p>`).join('')}<p class="note">Nguồn báo cáo: Vietcap IQ, lấy ngày ${safe(valueFacts.asof.slice(0,10))}. <a href="${safe(DATA.traders[selected].source)}" target="_blank" rel="noopener">Tư tưởng tham khảo: thư Berkshire 1989</a>.</p></div>`:'';
+  const valueNotes=['Buffett','Munger'].includes(selected)&&VALUE_DATA?`<div class="card"><strong>Phạm vi mô phỏng và biến thể</strong><p class="note">${valueFacts.comparable_nonfinancial_companies}/${valueFacts.requested_symbols} mã có báo cáo năm phi tài chính phù hợp; còn phải đạt bộ lọc tại ngày xét. Số mã đạt chất lượng trong backtest ngày: ${valueAudit[selected].quality_eligible_start} đầu kỳ → ${valueAudit[selected].quality_eligible_end} cuối kỳ. Không đồng nghĩa đều có tín hiệu mua.</p>${!['paper','backtest'].includes(mode)?`<p class="note"><strong>Biến thể phút thử nghiệm:</strong> vẫn lọc chất lượng báo cáo năm; dùng MA20/MA10 của nến phút để vào và thoát. Giữ tối thiểu 5 phiên, nghỉ 7 phiên sau bán, giới hạn 5% khối lượng nến trước; có phí, thuế và trượt giá. Sổ kết hợp thêm giá/MA200 và thanh khoản ngày trước. Đây là quy tắc Arena đặt để thử nghiệm, không phải cách hai ông thực sự giao dịch.</p>`:''}${valueLimits.map(s=>`<p class="note">${safe(s)}</p>`).join('')}<p class="note">Nguồn báo cáo: Vietcap IQ, lấy ngày ${safe(valueFacts.asof.slice(0,10))}. <a href="${safe(DATA.traders[selected].source)}" target="_blank" rel="noopener">Tư tưởng tham khảo: thư Berkshire 1989</a>.</p></div>`:'';
   $('botDetail').innerHTML=renderBookComparison(selected)+`<div class="card"><div class="bothead"><div class="avatar">${EMOJI[selected]}</div><div><strong>${safe(DATA.traders?.[selected]?.name||SHORT[selected])}</strong><div class="label">${safe(DATA.traders?.[selected]?.tag||'Chiến thuật công khai')}</div></div></div><p class="note" style="margin:13px 0 4px">${safe(DATA.traders?.[selected]?.explain||TEXT[selected])}</p><p class="note" style="margin:5px 0 4px">${safe(DATA.traders?.[selected]?.detail||'Mô phỏng quy tắc công khai; không phải giao dịch thật của trader.')}</p>
   <div class="card soft"><strong>⏱ ${frameBadge(selected)}</strong><p class="note" style="margin-top:6px">${safe(botFrame(selected).detail)}</p><p class="note">Mỗi tab có sổ và kết quả riêng: chỉ phút, chỉ ngày hoặc ngày + phút. Đây là khung dữ liệu của engine hiện tại, không phải cam kết về phong cách của trader ngoài đời.</p></div>
   ${selected==='Hybrid'&&mode!=='paper_minute'&&mode!=='backtest_minute'? `<div class="card soft"><strong>🧬 Chiến thuật được chọn gần nhất</strong><p class="note" style="margin-top:6px">${safe(Object.entries(DATA.hybrid_model?.leaders_latest||{}).map(([id,w])=>(SHORT[id]||id)+' · '+(w*100).toFixed(0)+'%').join(', ')||'Không có bot đủ lợi nhuận sau khi xét rủi ro; giữ tiền mặt.')}</p></div>`:''}
@@ -873,7 +876,7 @@ async function boot(){
     try{await loadValueIntraday(true);}catch(_){}
     await loadPITData();
     await loadReplayData();
-    IDS=Object.keys(DATA.traders||{}).filter(k=>DATA.paper?.[k]&&DATA.backtests?.[k]);
+    IDS=Object.keys(DATA.traders||{}).filter(k=>DATA.paper?.[k]);
     if(!IDS.length)throw new Error('No valid trader profiles');
     if(!IDS.includes(selected))selected=IDS[0];
   }catch(e){

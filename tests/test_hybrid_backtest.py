@@ -92,7 +92,8 @@ def test_no_lookahead_next_minute_fill_fees_lot_and_no_same_day_sale():
     ctx,minute=fixtures()
     results,audit=build_hybrid_backtests(ctx,minute)
     assert audit["status"]=="verified_1m_pilot"
-    assert len(results)==11
+    from engine import TRADERS
+    assert set(results)==set(TRADERS)
     trades=results["Darvas"]["trades"]
     assert not trades.empty
     buys=trades.loc[trades["side"]=="MUA"]

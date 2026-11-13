@@ -74,9 +74,9 @@ const quarter=Object.entries(PIT_DATA.cohorts.vn30.backtest_periods['3M']).sort(
 applyBestMix(2);assert.deepEqual(new Set(activeKeys()),new Set(quarter));assert.ok(mixControls().includes('3 tháng'));
 setMode('paper');assert.ok(mixControls().includes('Paper ngày · mùa từ'));assert.ok(!mixControls().includes('Backtest ngày · 3 năm'));
 toggleBot('Munger');const manual={...hiddenBots};setMode('paper_minute');setMode('paper');assert.deepEqual(hiddenBots,manual);
-enableAllBots();assert.equal(activeKeys().length,13);
+enableAllBots();assert.equal(activeKeys().length,Object.keys(paperSource().paper).length);
 assert.ok(mixControls().includes('class="chip active" aria-pressed="true" onclick="enableAllBots()"'));
-setStudy('300');setMode('backtest_minute');assert.equal(activeKeys().length,13);assert.equal(mixChoice.kind,'all');
+setStudy('300');setMode('backtest_minute');assert.equal(activeKeys().length,Object.keys(PIT_DATA.cohorts['300'].minute_backtests).length);assert.equal(mixChoice.kind,'all');
 assert.ok(mixControls().includes('class="chip active" aria-pressed="true" onclick="enableAllBots()"'));
 assert.equal(JSON.stringify([PIT_DATA,REPLAY_DATA,FIXED_REPLAY_DATA,VN30_REPLAY_DATA]),before);
 '''

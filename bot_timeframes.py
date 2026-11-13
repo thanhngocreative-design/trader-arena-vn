@@ -1,11 +1,11 @@
 """Describe the implemented engines, not the historical traders' usual style."""
 from engine import TRADERS
 
-def timeframe_manifest():
+def timeframe_manifest(bot_ids=None):
     result={}
     for mode in ('paper','paper_minute','paper_combo','backtest','backtest_minute','hybrid'):
         bots={}
-        for bot in TRADERS:
+        for bot in TRADERS if bot_ids is None else bot_ids:
             if mode in ('paper_minute','backtest_minute'):
                 info={'category':'minute_only','label':'Chỉ nến phút','priority':'phút','detail':'Tín hiệu thử nghiệm chỉ từ OHLCV phút đã đóng; ATR phút, lệnh ở nến tương lai, phí/T+ và giới hạn thanh khoản. Hybrid dùng đồng thuận tín hiệu phút.'}
             elif mode not in ('hybrid','paper_combo'):
