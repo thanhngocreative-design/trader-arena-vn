@@ -60,8 +60,9 @@ def publish():
     for name,selected in [('300',cfg['eligible_symbols']),('146',baseline)]:
         day=read(ROOT/'data/pit_results'/f'daily-{name}.json');minute=read(ROOT/'data/pit_results'/f'minute-{name}.json');combo=read(ROOT/'data/pit_results'/f'combo-{name}.json')
         current=months[-1]['members'] if name=='300' else baseline
+        first_members=months[0]['members'] if name=='300' else baseline
         data=dict(day,minute_backtests=minute['minute'],hybrid_backtests={**combo,**minute['value_combo']},universe=current,universe_union=selected,
-            value_audit={b:dict(quality_eligible_start=sum(quality(rs,dates[0],b) is not None for s,rs in reports.items() if s in selected),quality_eligible_end=sum(quality(rs,dates[-1],b) is not None for s,rs in reports.items() if s in selected)) for b in POLICY},
+            value_audit={b:dict(quality_eligible_start=sum(quality(rs,dates[0],b) is not None for s,rs in reports.items() if s in first_members),quality_eligible_end=sum(quality(rs,dates[-1],b) is not None for s,rs in reports.items() if s in current)) for b in POLICY},
             fundamentals=dict(source=bundle['source'],asof=bundle['asof'],requested_symbols=len(selected),comparable_nonfinancial_companies=sum(s in reports for s in selected)))
         for key in ('backtests','minute_backtests','hybrid_backtests'):
             if len(data[key])!=13:raise ValueError('Incomplete cohort '+name+' '+key)

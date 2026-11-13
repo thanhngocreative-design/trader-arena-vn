@@ -77,7 +77,7 @@ cuối. **Dự phòng không phải giá thị trường 0, lệnh bán, hay k�
 - Báo cáo tài chính là các phiên bản nhà cung cấp hiện trả; giữ lại đến ngày
   công bố/cập nhật +1 ngày giúp tránh dùng quá sớm, nhưng không tái tạo được
   toàn bộ phiên bản cũ. Mã thiếu báo cáo có thể tạo thêm sai lệch độ phủ.
-- Phân ngành là ICB hiện tại, dùng mô tả giao dịch; chưa có lịch sử ngành.
+- Phân ngành là ICB hiện tại, dùng mô tả giao dịch và giới hạn phi tài chính của hai bot giá trị; chưa có lịch sử ngành nên phần loại ngành này cũng chưa phải dữ liệu theo từng thời điểm.
 - Kết quả vẫn là mô phỏng với phí, thuế, trượt giá và giới hạn thanh khoản,
   không phải giao dịch broker hay kiểm chứng lợi nhuận tương lai.
 
