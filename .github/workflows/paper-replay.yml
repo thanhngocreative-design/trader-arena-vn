@@ -1,0 +1,66 @@
+name: EOD paper replay — 300 monthly stocks, 39 books
+on:
+  workflow_dispatch:
+  schedule:
+    # 16:47 and 18:47 Vietnam; the retry is idempotent and never double-fills.
+    - cron: '47 9,11 * * 1-5'
+  push:
+    branches: [main]
+    paths: ['paper_replay.py', 'replay_rules.py', '.github/workflows/paper-replay.yml']
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: trader-arena-paper-replay
+  cancel-in-progress: false
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements.txt
+      - name: Verify causal execution and paper accounting
+        run: python -m pytest -q
+      - name: Bank completed real sessions and replay all 39 paper accounts
+        run: python -u paper_replay.py
+      - name: Persist immutable source inputs and verified replay results
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add state/replay_market state/paper_replay.json site/paper-replay.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Persist verified completed-session paper replay [skip ci]'
+            git fetch origin main
+            git rebase origin/main
+            git push origin HEAD:main
+          fi
+      - name: Preserve source inputs if a provider or publication step fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: replay-recovery-${{ github.run_id }}
+          path: |
+            state/replay_market
+            state/paper_replay.json
+            site/paper-replay.json
+          retention-days: 30
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+      - uses: actions/deploy-pages@v4
+        id: deploy

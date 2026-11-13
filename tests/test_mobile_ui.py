@@ -41,6 +41,15 @@ assert.ok(elements.sectorContent.innerHTML.includes('Độ phủ mẫu 300 mã')
 assert.equal(sectorBookStats('hybrid','Munger').buy_fills,PIT_DATA.cohorts['300'].hybrid_backtests.Munger.buy_count);
 stockStudy=true;stockSymbol='SJF';PIT_STOCKS.SJF=JSON.parse(fs.readFileSync(path.join(root,'pit-stocks/SJF.json'),'utf8'));
 assert.equal(stockBars().at(-1)[0],'2023-11-10');
+REPLAY_DATA=JSON.parse(fs.readFileSync(path.join(root,'paper-replay.json'),'utf8'));applyReplayData();
+for(const modeId of ['paper','paper_minute','paper_combo']){
+  mode=modeId;assert.equal(activeKeys().length,13);
+  for(const bot of IDS)assert.equal(part(bot),REPLAY_DATA[modeId][bot]);
+}
+const replayBooks=JSON.stringify(DATA.paper);
+applyValueData();applyValueIntraday();assert.equal(JSON.stringify(DATA.paper),replayBooks);
+assert.equal(REPLAY_DATA.execution_revision,'strict_next_candle_v1');
+assert.ok(renderBookComparison('Buffett').includes('cùng quy tắc khớp nến kế tiếp'));
 '''
     p=tmp_path/'pit-ui.cjs';p.write_text(script,encoding='utf8')
     result=subprocess.run([node,str(p),str(SITE.parent)],capture_output=True,text=True,encoding='utf8')

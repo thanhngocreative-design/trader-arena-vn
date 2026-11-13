@@ -44,7 +44,7 @@ def test_paper_receipt_time_cannot_fill_an_already_started_bar_or_bridge_gap():
     step(a,'FPT',row(False),ts+pd.Timedelta(minutes=1),0,marks)
     assert not a['Minervini']['trades']
     step(a,'FPT',row(False),ts+pd.Timedelta(minutes=2),0,marks)
-    assert a['Minervini']['trades'][0]['time'].endswith('10:02:00')
+    assert not a['Minervini']['trades'] # late receipt cannot defer to minute +2
     a=new_accounts();marks={}
     step(a,'FPT',row(),ts+pd.Timedelta(minutes=2),0,marks)
     step(a,'FPT',row(False),ts+pd.Timedelta(minutes=6),0,marks)
@@ -95,7 +95,7 @@ def test_forward_worker_orders_shared_cash_by_bar_time_not_provider_order(tmp_pa
     worker.run()
     actual=json.loads((tmp_path/'state/paper_intraday.json').read_text())
     buys=actual['paper_minute']['Minervini']['trades']
-    assert len(buys)==1 and buys[0]['symbol']=='FPT'
+    assert not buys # both legacy pending requests missed their exact fill minute
     assert not actual['paper_combo']['Minervini']['trades']
     assert len(actual['paper_minute']['Minervini']['history'])==1
     assert actual['last_observed_at']=='2026-11-12T10:02:05+07:00'

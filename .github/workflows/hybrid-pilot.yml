@@ -1,101 +1,10 @@
-name: Trader Arena VN hybrid Daily plus 1m banking
+name: Retired small-universe minute pilot (archived)
 on:
   workflow_dispatch:
-    inputs:
-      symbols:
-        description: 'Up to 20 liquid VN equity symbols; BANKS ONLY actually observed trades'
-        required: false
-        default: 'FPT,HPG,ACB,MBB,SSI,MWG,STB,TCB'
-        type: string
-  schedule:
-    # 17:25 Vietnam time, weekdays. A missed session is permanently absent.
-    - cron: '25 10 * * 1-5'
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/hybrid-pilot.yml'
-      - 'intraday_data.py'
-      - 'run_hybrid_pilot.py'
-      - 'hybrid_backtest.py'
 permissions:
-  contents: write
-  pages: write
-  id-token: write
-concurrency:
-  group: trader-arena-daily
-  cancel-in-progress: false
+  contents: read
 jobs:
-  bank-and-research:
+  archived:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: true
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: pip
-      - name: Install existing free public EOD/tape adapter
-        run: python -m pip install -r requirements.txt
-      - name: Restore prior 1m bars (not published to website or git)
-        uses: actions/cache/restore@v4
-        with:
-          path: data/minute
-          key: arena-minute-2026-${{ github.run_id }}
-          restore-keys: |
-            arena-minute-2026-
-      - name: Test point-in-time execution and tape aggregation
-        run: python -m pytest -q
-      - name: Bank current actual trades and optionally publish audited research
-        id: bank
-        env:
-          PILOT_SYMBOLS: ${{ inputs.symbols || 'FPT,HPG,ACB,MBB,SSI,MWG,STB,TCB' }}
-        run: |
-          python run_hybrid_pilot.py --bank-only --symbols "$PILOT_SYMBOLS" --status-path "$RUNNER_TEMP/hybrid-result.json"
-          python - <<'PY'
-          import json,os
-          from pathlib import Path
-          r=json.loads((Path(os.environ['RUNNER_TEMP'])/'hybrid-result.json').read_text())
-          ready=bool(r.get('dashboard_updated'))
-          with open(os.environ['GITHUB_OUTPUT'],'a') as f:
-              f.write('ready='+('true' if ready else 'false')+'\n')
-          print('Real minute sessions available:',r['available_sessions'])
-          print('Derived hybrid dashboard updated:',ready)
-          PY
-      - name: Retain minute prices privately in Actions cache for next trading day
-        if: always() && steps.bank.outcome == 'success'
-        uses: actions/cache/save@v4
-        with:
-          path: data/minute
-          key: arena-minute-2026-${{ github.run_id }}
-      - name: Commit only coverage counts and verified pilot statistics
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
-            if [ "${{ steps.bank.outputs.ready }}" = "true" ]; then
-              echo "main advanced; refuse overwriting a newer Daily dashboard"
-              exit 1
-            fi
-            echo "main advanced, but only safe 1m coverage counts will be published"
-            git reset --hard origin/main
-          fi
-          git add site/dashboard.json site/hybrid-coverage.json
-          if ! git diff --cached --quiet; then
-            git commit -m "Verified Daily plus 1m hybrid pilot backtest [skip ci]"
-            git push origin HEAD:main
-          fi
-          test -z "$(git ls-files data/minute/)" || (echo 'ERROR minute CSV leaked to git' && exit 1)
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./site
-      - uses: actions/deploy-pages@v4
-        id: deploy
+      - run: echo 'The 300-stock EOD replay now banks actual minute history. Use paper-replay.yml.'

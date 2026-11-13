@@ -25,8 +25,10 @@ def contexts():
     control.buy={k:v.copy() for k,v in ctx.buy.items()};control.hybrid_winners={};control.hybrid_asof={}
     return {'300':ctx,'146':control},prices,config
 
-def run_minute(ctxs,frames,coverage,config):
-    ctx=ctxs['300'];dates=ctx.dates[(ctx.dates>=config['start'])&(ctx.dates<=config['end'])]
+def run_minute(ctxs,frames,coverage,config,output=None):
+    output=output or ROOT/'data/pit_results'
+    output.mkdir(parents=True,exist_ok=True)
+    ctx=next(iter(ctxs.values()));dates=ctx.dates[(ctx.dates>=config['start'])&(ctx.dates<=config['end'])]
     positions_in_calendar={str(d.date()):int(ctx.dates.get_loc(d)) for d in dates}
     daily={}
     for s,f in frames.items():
@@ -42,8 +44,8 @@ def run_minute(ctxs,frames,coverage,config):
         return quality_cache[key]
     accounts={c:{'minute':{**new_accounts(),**empty_accounts()},'value_combo':empty_accounts()} for c in ctxs}
     curves={c:{m:{k:[] for k in b} for m,b in books.items()} for c,books in accounts.items()};marks={};seen={};done=-1
-    signature=hashlib.sha256(b''.join((ROOT/p).read_bytes() for p in ('pit_intraday.py','pit_minute_data.py','minute_arena.py','value_intraday.py','pit_context.py','config/research-300.json'))+json.dumps({s:r.get('minute_sha256') for s,r in coverage.items()},sort_keys=True).encode()).hexdigest()
-    checkpoint=ROOT/'data/pit_results/minute-checkpoint.json'
+    signature=hashlib.sha256(b''.join((ROOT/p).read_bytes() for p in ('pit_intraday.py','pit_minute_data.py','minute_arena.py','value_intraday.py','pit_context.py','replay_rules.py'))+json.dumps(config,sort_keys=True).encode()+json.dumps({s:r.get('minute_sha256') for s,r in coverage.items()},sort_keys=True).encode()).hexdigest()
+    checkpoint=output/'minute-checkpoint.json'
     if checkpoint.exists():
         saved=read(checkpoint)
         if saved['signature']==signature:accounts=saved['accounts'];curves=saved['curves'];marks=saved['marks'];seen=saved['seen'];done=saved['seq'];print('Resume PIT tape after',done+1,flush=True)
@@ -99,7 +101,7 @@ def run_minute(ctxs,frames,coverage,config):
                     bots[bot]['pending'].clear()
         if seq%25==0 or seq==len(dates)-1:
             write(checkpoint,dict(signature=signature,seq=seq,accounts=accounts,curves=curves,marks=marks,seen=seen))
-            print('Shared PIT minute tape:',seq+1,'/747 sessions; both cohorts +13 bots +2 combo value bots',flush=True)
+            print('Shared PIT minute tape:',seq+1,'/',len(dates),'sessions;',list(ctxs),flush=True)
     for cohort,books in accounts.items():
         out={}
         for mode,bots in books.items():
@@ -112,27 +114,32 @@ def run_minute(ctxs,frames,coverage,config):
                         p=bots[bot]['positions'][h['symbol']];h.update(value=0,pnl=round(-p['cost']),pnl_pct=-100.,valuation_reserve=round(h['qty']*marks.get(h['symbol'],p['price'])),valuation_note='Dự phòng định giá; không phải giá thị trường 0 hoặc lệnh bán')
                 b.update(nav=last['nav'],return_pct=round(last['bot'],2),max_drawdown_pct=round(float((navs/np.maximum.accumulate(navs)-1).min()*100),2),benchmark_return_pct=last['index'],curve=[curve[i] for i in sorted(set(round(i*(len(curve)-1)/89) for i in range(90)))],actions=[],sector_stats=aggregate_trades(bots[bot]['trades'],classification,set(ctx.symbols)),valuation_audit=dict(final_reserve=int(reserve[-1]),maximum_reserve=int(reserve.max()),sessions_with_reserve=int((reserve>0).sum()),nav_last_quote_convention=round(unreserved[-1]),return_last_quote_pct=round((unreserved[-1]/100_000_000-1)*100,2)))
                 b.pop('history');b.pop('orders_next');b.pop('observed_history_points',None)
-                write(ROOT/'data/pit_results'/f'{mode}-{cohort}-{bot}-trades.json',bots[bot]['trades'])
+                write(output/f'{mode}-{cohort}-{bot}-trades.json',bots[bot]['trades'])
             out[mode]=result
-        write(ROOT/'data/pit_results'/f'minute-{cohort}.json',out)
+        write(output/f'minute-{cohort}.json',out)
 
-def run_combo(ctxs,prices,frames,config):
+def run_combo(ctxs,prices,frames,config,output=None):
+    output=output or ROOT/'data/pit_results'
+    output.mkdir(parents=True,exist_ok=True)
     classification=read(ROOT/'config/market-classification.json')['sectors']
-    signature=hashlib.sha256(b''.join((ROOT/p).read_bytes() for p in ('fast_engine.py','hybrid_backtest.py','pit_context.py'))+json.dumps({k:config[k] for k in ('months','start','end','daily_input_sha256')},sort_keys=True).encode()+json.dumps(read(ROOT/'data/pit_results/minute-coverage.json'),sort_keys=True).encode()).hexdigest()
+    coverage=config.get('minute_input_sha256')
+    if coverage is None:coverage=read(ROOT/'data/pit_results/minute-coverage.json')
+    signature=hashlib.sha256(b''.join((ROOT/p).read_bytes() for p in ('fast_engine.py','hybrid_backtest.py','pit_context.py','replay_rules.py'))+json.dumps({k:config[k] for k in ('months','start','end','daily_input_sha256')},sort_keys=True).encode()+json.dumps(coverage,sort_keys=True).encode()).hexdigest()
     for name,ctx in ctxs.items():
-        manifest=ROOT/'data/pit_results'/f'combo-{name}-inputs.json'
+        manifest=output/f'combo-{name}-inputs.json'
         if manifest.exists() and read(manifest)['signature']!=signature:raise ValueError('Combo cache inputs changed; recompute in a fresh output directory')
         write(manifest,dict(signature=signature))
         training={k:backtest(prices,ctx.benchmark,k,'2022-01-03',end_date=config['end'],settings=ctx.settings,features_cache=ctx)['curve'] for k in CORE}
         build_hybrid_signals(ctx,training);first=ctx.dates.searchsorted(config['start']);last=ctx.dates.searchsorted(config['end'],side='right')-1
         result={}
         for bot in TRADERS:
-            path=ROOT/'data/pit_results'/f'combo-{name}-{bot}.json'
+            path=output/f'combo-{name}-{bot}.json'
             if path.exists():result[bot]=read(path);continue
             r=_walk_one(ctx,bot,frames,first,last,ctx.settings);result[bot]=attach_summary(r,classification,set(ctx.symbols))
-            write(path,result[bot]);write(ROOT/'data/pit_results'/f'combo-{name}-{bot}-trades.json',r['trades'].astype(object).where(pd.notna(r['trades']),None).to_dict('records'))
+            if output!=ROOT/'data/pit_results':result[bot]['history']=[dict(date=str(d.date()),nav=round(float(row.nav))) for d,row in r['curve'].iterrows()]
+            write(path,result[bot]);write(output/f'combo-{name}-{bot}-trades.json',r['trades'].astype(object).where(pd.notna(r['trades']),None).to_dict('records'))
             print('PIT combo complete',name,bot,result[bot]['return_pct'],flush=True)
-        write(ROOT/'data/pit_results'/f'combo-{name}.json',result)
+        write(output/f'combo-{name}.json',result)
 
 def run(stage,cohort=None):
     ctxs,prices,config=contexts();frames,coverage=load_minutes()

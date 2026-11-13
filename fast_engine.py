@@ -74,8 +74,8 @@ def run_backtest(context: FastContext, trader: str, start_date: str,
     dates=context.dates
     first=int(dates.searchsorted(pd.Timestamp(start_date),"left"))
     last=int(dates.searchsorted(pd.Timestamp(end_date),"right")-1) if end_date else len(dates)-1
-    if last-first<1:
-        raise ValueError("Khoảng backtest cần >=2 phiên")
+    if last<first:
+        raise ValueError("Khoảng mô phỏng cần ít nhất một phiên")
     a=context.a
     cash=float(st.initial_cash)
     positions={}

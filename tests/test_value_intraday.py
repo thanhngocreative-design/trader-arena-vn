@@ -31,6 +31,11 @@ def test_future_bar_only_and_actual_money_reconciles_with_partial_exit():
     m.value_step(a,'AAA',bar(Buffett=False,Munger=False),t+pd.Timedelta(minutes=1),0,marks,gates())
     assert all(not b['trades'] for b in a.values())
     m.value_step(a,'AAA',bar(Buffett=False,Munger=False),t+pd.Timedelta(minutes=2),0,marks,gates())
+    assert all(not b['trades'] for b in a.values())
+    # A fresh signal can trade on its own exact next candle.
+    a=m.empty_accounts();marks={}
+    m.value_step(a,'AAA',bar(),t+pd.Timedelta(minutes=1),0,marks,gates())
+    m.value_step(a,'AAA',bar(Buffett=False,Munger=False),t+pd.Timedelta(minutes=2),0,marks,gates())
     for k,b in a.items():
         trade=b['trades'][0]
         assert trade['side']=='MUA' and trade['quality_asof']=='2023-04-03'

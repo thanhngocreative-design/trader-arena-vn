@@ -11,7 +11,7 @@ from generate_dashboard import summary_backtest
 from sector_analytics import aggregate_trades
 
 def merged_fundamentals():
-    bundle=read(ROOT/'data/pit_results/fundamentals.json');old=read(ROOT/'config/value-fundamentals.json')
+    bundle=read(ROOT/'config/value-fundamentals-300.json');old=read(ROOT/'config/value-fundamentals.json')
     bundle['companies']={**old['companies'],**bundle['companies']}
     return bundle
 

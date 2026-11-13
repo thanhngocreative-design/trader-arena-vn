@@ -1,0 +1,12 @@
+{
+  "state/paper_state.json": "f224efc88d2e599d4e49d176e3c284db993c1e1c884a9adbd83c6e843c12440f",
+  "state/paper_daily_gates.json": "f2d9a54b4a4e60afaefd5a7658cb69a048fb85d44e234cbe59a806fc925a92eb",
+  "state/paper_intraday.json": "4ecf360c89e7d92bc9f3c902673e24f8b8595cb9d5daa062ab7956240576ab8b",
+  "state/value_paper.json": "e0bbeb1be3d75697e3da78458c912f196aac84fa2b6dedf86862a887bf3d93c0",
+  "state/value_intraday.json": "2db6d2c9ab26625301b9d883abfa75694cd38182bad3e4c005e7cb8d392f5799",
+  "site/dashboard.json": "f343906a6d1914a7750a040022c9fadee8207c72d438a2c15a1b18d468f22260",
+  "site/paper-intraday.json": "4373e74b0cf2e5b17d2f635e7fb15047ac191189f2c947cbb594e12809401920",
+  "site/value-investing.json": "03726c9a0765cce1bcd457f1b11aab7e32a56f5370175f43d43b195444c00a12",
+  "site/value-intraday.json": "385d3247641680fac8eb865c5ef5f7899584e154641d5e58f6545a117c685706",
+  "site/research-300.json": "d60f4edeac1d599726e5d0ca560301fa1b55c5e4e063d95a498a6b6ef24b7b4e"
+}

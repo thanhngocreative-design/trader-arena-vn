@@ -74,6 +74,7 @@ def test_published_months_real_tickers_full_ledgers_and_source_snapshots():
     import hashlib
     p=read(ROOT/'site/research-300.json');cfg=read(ROOT/'config/research-300.json');meta=read(ROOT/'config/market-classification.json')
     assert p['status']=='complete' and p['mode']=='real_market_data' and p['sessions']==747
+    assert p['execution_revision']=='strict_next_candle_v1'
     assert len(p['months'])==37 and p['unique_symbols']==498
     assert p['union_symbols']==cfg['eligible_symbols']
     for month in p['months']:

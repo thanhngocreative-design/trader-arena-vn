@@ -1,8 +1,9 @@
 """Walk-forward Daily + 1m hybrid backtest, entirely separate from EOD contest.
 
 Historical equities only: no same-day sell after buying. Signals at completed
-minute t can only fill at the open of subsequent OBSERVED continuous-session bar
-t+1; no bar highs/lows or next bar volumes are used in signal decisions.
+minute t can only fill at the open exactly one clock minute later in the same
+continuous session; missing that bar expires the request. No future bar facts
+are used in signal decisions.
 Daily signals are from the previous completed session, never the session being
 executed. Minute price values are full VND per share.
 
@@ -17,9 +18,10 @@ import pandas as pd
 from engine import Settings, TRADERS, stop_signal
 from fast_engine import FastContext
 from execution import modeled_slippage, pass_cost_gate
+from replay_rules import next_minute
 
 MINUTE_VOLUME_PARTICIPATION = .05
-MINUTE_MAX_GAP = timedelta(minutes=3)
+MINUTE_MAX_GAP = timedelta(minutes=1)
 MIN_BARS_FOR_SIGNAL = 20
 SHORT_TERM = {"BNF","CIS"}
 RECOVERY = {"BNF","DuongChung"}
@@ -169,7 +171,7 @@ def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
             # First fill the request that was created at a prior completed
             # minute (using this observed bar OPEN, not a future close/high).
             req=pending.pop(sym,None)
-            if req and req["fill_at"]==ts:
+            if req and req["fill_at"]==ts and float(row['volume'])>0:
                 px0=float(row["open"])
                 if req["side"]=="SELL":
                     p=positions.get(i)
@@ -227,11 +229,12 @@ def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
                                     "slippage_rate":round(slip,6),
                                     "reason":"Previous Daily screen + completed 1m signal; next-bar open fill"})
             # Now evaluate current completed minute. The order can only fill
-            # on the next OBSERVED continuous bar, never this same minute.
-            if j==len(values)-1 or int(row["volume"])<=0:
+            # Schedule from the clock only. Never inspect the next source row
+            # to decide a signal or defer an order past a missing candle.
+            if int(row["volume"])<=0:
                 continue
-            next_ts=values[j+1]["time"]
-            if next_ts-ts>MINUTE_MAX_GAP:
+            next_ts=next_minute(ts)
+            if next_ts is None:
                 continue
             max_minute=(int(row["volume"]*MINUTE_VOLUME_PARTICIPATION)//settings.lot)*settings.lot
             if max_minute<settings.lot:

@@ -7,17 +7,20 @@ from value_investing import ROOT,VN,POLICY,quality,eligible_companies,read,write
 from pit_daily import merged_fundamentals
 from pit_universe import load_daily
 from sector_analytics import universe_distribution
+from replay_rules import can_fill, REVISION
 
-def audit_fills(cfg,prices,dates,baseline):
+def audit_fills(cfg,prices,dates,baseline,cohorts=('300','146')):
     """Check ALL ledgers, not merely the forty recent public rows."""
     @lru_cache(maxsize=4)
     def minute(symbol):return pd.read_pickle(ROOT/'data/pit_results/minute-normalized'/f'{symbol}.pkl')
     result={};date_pos={str(d.date()):i for i,d in enumerate(dates)}
+    full_calendar=pd.to_datetime(pd.read_csv(ROOT/'data/prices/VNINDEX_research.csv').date)
+    previous_session={str(full_calendar.iloc[i].date()):str(full_calendar.iloc[i-1].date()) for i in range(1,len(full_calendar))}
     def member(s,date,cohort):
         if cohort=='146':return s in baseline
         rows=[r for r in cfg['months'] if r['effective']<=date]
         return bool(rows and s in rows[-1]['members'])
-    for cohort in ('300','146'):
+    for cohort in cohorts:
         for mode in ('daily','minute','combo'):
             for bot in ('Minervini','ONeil','Darvas','BNF','CIS','Qullamaggie','Unger','ThaiPham','DuongChung','PThai','Hybrid','Buffett','Munger'):
                 prefix='value_combo' if mode=='combo' and bot in POLICY else mode
@@ -34,10 +37,10 @@ def audit_fills(cfg,prices,dates,baseline):
                         if actual.volume<=0 or abs(float(t['price'])-float(actual.open))>float(actual.open)*.0125+1.1:raise ValueError('Nontrading volume or unexplained fill price')
                         if t['qty']<=0 or t['qty']%100:raise ValueError('Invalid share lot')
                         if mode=='daily':
-                            if not t['signal_date']<t['date']:raise ValueError('Same/future daily signal')
+                            if t['signal_date']!=previous_session[t['date']]:raise ValueError('Daily fill must use immediately preceding benchmark session')
                         else:
                             age=(timestamp-pd.Timestamp(t['signal_time'])).total_seconds()
-                            if not 60<=age<=180:raise ValueError('Noncausal minute execution')
+                            if not can_fill(t['signal_time'],timestamp,t.get('submitted_at')):raise ValueError('Fill outside exact next continuous minute')
                         if t['side']=='MUA':
                             if qty or not member(s,t['date'],cohort):raise ValueError('Entry outside known monthly universe or duplicate holding')
                             if bot in POLICY:
@@ -79,7 +82,7 @@ def publish():
         for s in members[key]:
             if date in prices[s].index:positive_daily+=1;no_minute+=key in absent[s]
             mismatch+=key in bad[s]
-    public=dict(revision='monthly300_study_v1',mode='real_market_data',status='complete',generated_at=datetime.now(VN).isoformat(),start=cfg['start'],first_session=cfg['first_session'],end=cfg['end'],sessions=len(dates),target=300,monthly_reconstitution=True,
+    public=dict(revision='monthly300_study_v1',execution_revision=REVISION,mode='real_market_data',status='complete',generated_at=datetime.now(VN).isoformat(),start=cfg['start'],first_session=cfg['first_session'],end=cfg['end'],sessions=len(dates),target=300,monthly_reconstitution=True,
         months=[{k:r[k] for k in ('month','effective','asof','eligible_count','members')} for r in months],union_symbols=cfg['eligible_symbols'],unique_symbols=len(cfg['eligible_symbols']),retained_delisted_in_research=cfg['retained_delisted_in_research'],catalog_candidates=cfg['catalog_candidates'],catalog_retained_delisted=cfg['catalog_retained_delisted'],candidate_status_counts=cfg['candidate_status_counts'],selection_policy=cfg['policy'],source_catalog_asof=cfg['source_catalog_asof'],
         cohorts=cohorts,sector_universes=sector_universes,execution_audit=dict(status='all_fills_verified_against_real_bars',fills_by_book=execution_audit,total_fills=sum(execution_audit.values()),checks='Every buy in known membership; every fill on positive-volume observed bar, modeled slippage bounded; next-bar timing, 100-share lots, 5-session sale guard, financial publication timing; no synthetic delisting sales'),classification_asof=classification['asof'],fundamentals_source_sha256=hashlib.sha256((ROOT/'data/pit_results/fundamentals.json').read_bytes()).hexdigest(),
         minute_audit=dict(source='Vietcap real ONE_MINUTE, observed positive-volume common continuous sessions only',quality_by_symbol=coverage,input_symbols_including_control=len(coverage),research_symbols_with_bars=sum(coverage[s].get('bars',0)>0 for s in cfg['eligible_symbols']),member_days=len(dates)*300,member_days_with_positive_daily=positive_daily,member_days_no_positive_daily=len(dates)*300-positive_daily,member_days_daily_but_no_verified_continuous_minute=no_minute,member_days_price_mismatch_quarantined=mismatch,raw_bars=sum(r.get('raw_bars',0) for r in coverage.values()),normalized_bars=sum(r.get('bars',0) for r in coverage.values()),no_in_window_trades_consistent_daily=[s for s,r in coverage.items() if r['status']=='no_in_window_trades_consistent_daily'],no_interpolation=True),
@@ -88,7 +91,7 @@ def publish():
             'The 146 control is rerun on the same current daily/minute source, volume guards, membership-exit and stale-valuation conventions, so differences are not attributed solely to the sample by comparing unlike engines. Original 146 snapshots remain separately available.',
             'No candle/trade/exit is invented when quotes disappear. After20 market sessions without quotes, the conservative NAV reserves100% of stale exposure; last-observed-price NAV is also disclosed. A reserve is not an observed zero price, actual sale or assertion of total economic loss.',
             'Annual fundamentals are current provider versions withheld until actual publication/update+1day, not original vintages. Missing or non-comparable statements exclude only the two value-model screens; no financial values are fabricated.',
-            'Paper seasons and accounts retain their existing forward-only universe/history. This study changes historical backtests, not past paper trades.'
+            'All new backtests and EOD paper replay share strict_next_candle_v1. Legacy forward paper is archived separately; replay starts 2026-11-13 and cannot report an unfinished session.'
         ])
     for symbol in sorted(set(cfg['eligible_symbols'])|set(baseline)):
         f=prices[symbol].loc[:cfg['end']].tail(780)

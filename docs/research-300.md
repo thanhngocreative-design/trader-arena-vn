@@ -96,7 +96,8 @@ Khi thay quy tắc/nguồn phải dùng bộ đệm kết quả mới; dấu ki�
 sử dụng kết quả kết hợp với đầu vào khác. Báo cáo tài chính nguồn dùng cho
 nghiên cứu được đóng băng riêng, không ghi đè snapshot của hai bot cũ.
 
-Paper đang thi đấu giữ nguyên các tài khoản và phạm vi mùa; không phát lại
-nghiên cứu thành lịch sử paper. Workflow ngày không lấy nến ngày chưa đóng
-trong 09:00–16:00 ngày làm việc. Nghiên cứu mới được xuất thành tệp riêng rồi
-dashboard lựa chọn theo bộ mẫu, không sửa snapshot 146 cũ.
+Từ revision `strict_next_candle_v1`, cả ba backtest dùng đúng nến kế tiếp;
+thiếu nến đó thì bỏ lượt khớp, không dời lệnh qua 1–3 phút. Paper chuyển sang
+replay sau phiên từ 13/11/2026 và dùng chung bộ máy; sổ forward cũ được lưu
+nguyên byte. Không biến kết quả ba năm thành lịch sử paper. Xem
+[quy tắc và vận hành replay](replay-protocol.md). Snapshot 146 cũ vẫn giữ riêng.

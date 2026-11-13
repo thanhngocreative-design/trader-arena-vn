@@ -14,6 +14,7 @@ on:
       - site/value-investing.json
       - site/value-intraday.json
       - site/research-300.json
+      - site/paper-replay.json
       - site/pit-stocks/**
       - .github/workflows/pages-ui.yml
 permissions:
@@ -121,6 +122,7 @@ jobs:
           cfg=json.loads(Path('config/research-300.json').read_text())
           meta=json.loads(Path('config/market-classification.json').read_text())
           assert p['revision']=='monthly300_study_v1' and p['mode']=='real_market_data' and p['status']=='complete'
+          assert p['execution_revision']=='strict_next_candle_v1'
           assert p['target']==300 and p['sessions']==747 and len(p['months'])==37
           assert p['union_symbols']==cfg['eligible_symbols'] and p['unique_symbols']==len(p['union_symbols'])
           for row in p['months']:
@@ -134,6 +136,17 @@ jobs:
           assert p['frozen_146_snapshot_sha256']==hashlib.sha256(Path('site/research-146.json').read_bytes()).hexdigest()
           assert p['fundamentals_source_sha256']==hashlib.sha256(Path('config/value-fundamentals-300.json').read_bytes()).hexdigest()
           print('Verified 300 each month; real source stocks; both controls; paper kept separate')
+          PY
+      - name: Verify the shared replay protocol and all 39 paper accounts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('site/paper-replay.json').read_text())
+          assert p['execution_revision']=='strict_next_candle_v1'
+          assert p['revision']=='eod_replay_v1' and p['mode']=='real_market_data'
+          for mode in ('paper','paper_minute','paper_combo'):
+              assert len(p[mode])==13
           PY
       - uses: actions/configure-pages@v5
         with:

@@ -1,0 +1,201 @@
+{
+  "version": 1,
+  "started_at": "2026-11-13T00:00:00+07:00",
+  "contest_start_session": "2026-11-13",
+  "reset_id": "paper-2026-11-13",
+  "reset_at": "2026-11-12T23:26:55.364991+07:00",
+  "last_session": "2026-11-12",
+  "bots": {
+    "Minervini": {
+      "cash": 100000000,
+      "positions": {},
+      "orders_next": [],
+      "trades": [],
+      "history": [],
+      "latest": {
+        "date": null,
+        "nav": 100000000,
+        "cash": 100000000,
+        "return_pct": 0,
+        "holdings": []
+      }
+    },
+    "ONeil": {
+      "cash": 100000000,
+      "positions": {},
+      "orders_next": [],
+      "trades": [],
+      "history": [],
+      "latest": {
+        "date": null,
+        "nav": 100000000,
+        "cash": 100000000,
+        "return_pct": 0,
+        "holdings": []
+      }
+    },
+    "Darvas": {
+      "cash": 100000000,
+      "positions": {},
+      "orders_next": [
+        {
+          "side": "BUY",
+          "symbol": "CTD",
+          "reason": "Tín hiệu xác nhận thanh khoản và đủ biên độ so với chi phí",
+          "signal_date": "2026-11-12",
+          "vol20_prev": 643135.0,
+          "atr14": 2335.7142857142862,
+          "signal_close": 73500.0,
+          "value20_prev": 43073290500.0,
+          "score": 0.1909
+        },
+        {
+          "side": "BUY",
+          "symbol": "DPG",
+          "reason": "Tín hiệu xác nhận thanh khoản và đủ biên độ so với chi phí",
+          "signal_date": "2026-11-12",
+          "vol20_prev": 782370.0,
+          "atr14": 1364.285714285715,
+          "signal_close": 34600.0,
+          "value20_prev": 24026016250.0,
+          "score": 0.1434
+        },
+        {
+          "side": "BUY",
+          "symbol": "REE",
+          "reason": "Tín hiệu xác nhận thanh khoản và đủ biên độ so với chi phí",
+          "signal_date": "2026-11-12",
+          "vol20_prev": 361470.0,
+          "atr14": 885.7142857142857,
+          "signal_close": 49300.0,
+          "value20_prev": 16782062500.0,
+          "score": 0.0781
+        }
+      ],
+      "trades": [],
+      "history": [],
+      "latest": {
+        "date": null,
+        "nav": 100000000,
+        "cash": 100000000,
+        "return_pct": 0,
+        "holdings": []
+      }
+    },
+    "BNF": {
+      "cash": 100000000,
+      "positions": {},
+      "orders_next": [],
+      "trades": [],
+      "history": [],
+      "latest": {
+        "date": null,
+        "nav": 100000000,
+        "cash": 100000000,
+        "return_pct": 0,
+        "holdings": []
+      }
+    },
+    "CIS": {
+      "cash": 100000000,
+      "positions": {},
+      "orders_next": [],
+      "trades": [],
+      "history": [],
+      "latest": {
+        "date": null,
+        "nav": 100000000,
+        "cash": 100000000,
+        "return_pct": 0,
+        "holdings": []
+      }
+    },
+    "Qullamaggie": {
+      "cash": 100000000,
+      "positions": {},
+      "orders_next": [],
+      "trades": [],
+      "history": [],
+      "latest": {
+        "date": null,
+        "nav": 100000000,
+        "cash": 100000000,
+        "return_pct": 0,
+        "holdings": []
+      }
+    },
+    "Unger": {
+      "cash": 100000000,
+      "positions": {},
+      "orders_next": [],
+      "trades": [],
+      "history": [],
+      "latest": {
+        "date": null,
+        "nav": 100000000,
+        "cash": 100000000,
+        "return_pct": 0,
+        "holdings": []
+      }
+    },
+    "ThaiPham": {
+      "cash": 100000000,
+      "positions": {},
+      "orders_next": [],
+      "trades": [],
+      "history": [],
+      "latest": {
+        "date": null,
+        "nav": 100000000,
+        "cash": 100000000,
+        "return_pct": 0,
+        "holdings": []
+      }
+    },
+    "DuongChung": {
+      "cash": 100000000,
+      "positions": {},
+      "orders_next": [],
+      "trades": [],
+      "history": [],
+      "latest": {
+        "date": null,
+        "nav": 100000000,
+        "cash": 100000000,
+        "return_pct": 0,
+        "holdings": []
+      }
+    },
+    "PThai": {
+      "cash": 100000000,
+      "positions": {},
+      "orders_next": [],
+      "trades": [],
+      "history": [],
+      "latest": {
+        "date": null,
+        "nav": 100000000,
+        "cash": 100000000,
+        "return_pct": 0,
+        "holdings": []
+      }
+    },
+    "Hybrid": {
+      "cash": 100000000,
+      "positions": {},
+      "orders_next": [],
+      "trades": [],
+      "history": [],
+      "latest": {
+        "date": null,
+        "nav": 100000000,
+        "cash": 100000000,
+        "return_pct": 0,
+        "holdings": []
+      }
+    }
+  },
+  "warnings": [],
+  "rules_revision": 4,
+  "updated_at": "2026-11-13T01:22:05+07:00"
+}

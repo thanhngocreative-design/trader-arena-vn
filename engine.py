@@ -302,8 +302,8 @@ def backtest(prices: Dict[str, pd.DataFrame], benchmark: pd.DataFrame,
     start = pd.Timestamp(start_date)
     end = pd.Timestamp(end_date) if end_date else bench.index.max()
     dates = bench.index[(bench.index >= start) & (bench.index <= end)]
-    if len(dates) < 2:
-        raise ValueError("Khoảng backtest cần tối thiểu 2 phiên thị trường")
+    if len(dates) < 1:
+        raise ValueError("Khoảng mô phỏng cần ít nhất một phiên thị trường")
     # Large universes use a vectorized research engine. Existing callers
     # with plain DataFrame fixtures retain this reference implementation.
     if getattr(features_cache, "fast_context", False):

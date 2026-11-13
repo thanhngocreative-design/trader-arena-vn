@@ -1,20 +1,20 @@
 # Trader Arena VN
 
-Bảng xếp hạng **11 bot giao dịch chứng khoán Việt Nam bằng tiền ảo**: 10 mô hình lấy cảm hứng từ trader và 1 mô hình Arena Hybrid. **Không đặt lệnh thật, không đọc thông tin tài khoản chứng khoán.**
+Bảng xếp hạng **13 bot giao dịch chứng khoán Việt Nam bằng tiền ảo**: 10 mô hình trader, Arena Hybrid và hai mô phỏng Buffett/Munger. **Không đặt lệnh thật, không đọc thông tin tài khoản chứng khoán.**
 
 - 📱 **Dashboard iPhone**: https://thanhngocreative-design.github.io/trader-arena-vn/
-Dashboard có **6 tab và 11 bot trong mỗi tab**:
+Dashboard có **6 tab và 13 bot trong mỗi tab**. Quy tắc hiện hành: [rổ tháng và replay nến kế tiếp](docs/replay-protocol.md).
 
 | Tab | Dữ liệu và sổ giao dịch |
 | --- | --- |
-| Paper phút | Sổ mới `state/paper_intraday.json`, tín hiệu và ATR chỉ từ phút mới thực nhận. |
-| Paper ngày | Sổ mùa hiện tại `state/paper_state.json`; xử lý lệnh ngày đã ghi trước phiên. |
-| Paper kết hợp ngày + phút | Sổ mới riêng; bộ lọc ngày đã đóng + xác nhận, ATR và thoát theo phút. |
-| Backtest phút | 146 mã, 747 phiên, Vietcap 1 phút thật; không dùng bộ lọc/ATR ngày. |
-| Backtest ngày | Kết quả nghiên cứu 146 mã đã xác minh; 5 khoảng thời gian. |
-| Backtest kết hợp ngày + phút | Kết quả 146 mã: bộ lọc và stop ngày + xác nhận/khớp theo phút. |
+| Paper phút | Replay sau phiên, nến đã đóng → mở cửa đúng phút kế tiếp; thiếu thì bỏ lệnh. |
+| Paper ngày | Replay sau phiên; tín hiệu ngày → mở cửa phiên thị trường kế tiếp. |
+| Paper kết hợp ngày + phút | Bộ lọc ngày trước, quyết định phút; cùng quy tắc khớp phút với backtest. |
+| Backtest phút | 300 mã mỗi tháng, 498 mã từng xuất hiện; 747 phiên; nến phút thật, không nội suy. |
+| Backtest ngày | Rổ tháng chọn theo quá khứ; 13 bot, 5 khoảng thời gian; 146 đối chiếu riêng. |
+| Backtest kết hợp ngày + phút | Cùng rổ tháng, dữ liệu ngày trước + phút đã đóng; đúng phút kế tiếp. |
 
-**Mùa paper mới bắt đầu chung ngày 13/11/2026 theo yêu cầu reset**: cả 33 tài khoản (11 bot × 3 chế độ) về 100 triệu đồng, không có vị thế hay giao dịch mang sang. Lịch sử trước đó nằm trong `state/paper_archive/before-2026-11-13/`, có manifest kiểm tra hash; backtest giữ nguyên. Paper ngày được chuẩn bị tín hiệu thật đã đóng ngày 12/11 để có thể xét khớp phiên 13/11, nhưng chưa ghi giao dịch hoặc điểm NAV nào trước mùa mới. Nến phút trước ngày bắt đầu không được tạo lệnh.
+**Paper replay từ 13/11/2026**: 39 tài khoản (13 bot × 3 sổ), mỗi tài khoản 100 triệu đồng. Workflow `paper-replay.yml` chạy 16:47 và thử lại 18:47 giờ Việt Nam. Trước 16:00 không xử lý phiên hiện tại. Cùng phiên chạy lại không cộng thêm giao dịch; phiên mới không được sửa giao dịch đã chốt. Các sổ forward cuối cùng được lưu nguyên byte trong `state/paper_archive/before-eod-replay-2026-11-13/`; không cộng vào sổ replay. `state/paper_replay.json` giữ sổ đầy đủ; `site/paper-replay.json` là nguồn hiển thị ba paper. Các mục bên dưới về forward/146 mô tả triển khai cũ được giữ làm đối chiếu, không phải lịch chạy hiện hành.
 
 Ở trang **Các bot**, mỗi hồ sơ có bảng so sánh đủ 6 sổ: tài sản, lãi/lỗ tiền và %, drawdown đã ghi nhận, số lần mua/bán. Bảng luôn dùng toàn bộ 3 năm cho ba backtest; paper theo mùa hiện tại. Số liệu paper tính từ toàn bộ sổ, không từ danh sách giao dịch rút gọn. Chạm tên sổ để xem chi tiết. Khi chưa có NAV paper, DD hiển thị “—”.
 

@@ -10,6 +10,7 @@ from engine import Settings, TRADERS
 from portfolio import for_bot, allocation
 from execution import modeled_slippage
 from paper_metrics import paper_metrics
+from replay_rules import can_fill, next_minute
 BOT_SETTINGS={k:for_bot(Settings(portfolio_policy='atr_v1'),k) for k in TRADERS}
 
 
@@ -85,11 +86,7 @@ def step(accounts,symbol,row,ts,session,marks,*,submitted_at=None,entry_gates=No
         s=(bot_settings or BOT_SETTINGS)[bot]
         req=b['pending'].pop(symbol,None)
         if req:
-            age=(ts-pd.Timestamp(req['signal'])).total_seconds()
-            if 0<=age<=180 and pd.Timestamp(req['submitted'])>ts:
-                b['pending'][symbol]=req
-                continue
-            if pd.Timestamp(req['submitted'])<=ts and 60<=age<=180:
+            if can_fill(req['signal'],ts,req['submitted']):
                 px=float(row['open']); qty=req['qty']
                 slip=modeled_slippage(s,req['adv'],qty*px)
                 if req['side']=='BUY' and not p and len(b['positions'])<s.max_positions:
@@ -120,6 +117,7 @@ def step(accounts,symbol,row,ts,session,marks,*,submitted_at=None,entry_gates=No
             qty=min(cap,int(budget/(float(row['close'])*(1+s.fee_rate)))//100*100)
             if qty<100: continue
             req=dict(side='BUY',qty=qty,budget=budget)
+        if next_minute(ts) is None:continue
         req.update(signal=ts.isoformat(),submitted=pd.Timestamp(submitted_at or ts+pd.Timedelta(minutes=1)).isoformat(),adv=adv)
         b['pending'][symbol]=req
 
