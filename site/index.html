@@ -75,6 +75,7 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
 .rank-details-bottom button{border:1px solid #366481;background:#163d4a;color:#a4f1df;padding:9px 12px;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer}
 .rank-holdings{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .rank-holdings button{background:#193d51;color:#a9e9d8;border:1px solid #367e83;border-radius:9px;padding:7px 10px;font-size:12px;font-weight:750;cursor:pointer}
+.basket-summary{margin-top:20px}.basket-summary h2{font-size:18px}.basket-summary h3{font-size:15px;margin:18px 0 10px}.basket-summary .summary-bot{border:1px solid #2a405b;border-radius:12px;padding:12px;margin-top:9px;background:#10243a;min-width:0}.summary-bot .summary-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.summary-bot .summary-head button{border:0;background:transparent;color:#9aebd4;font-size:14px;font-weight:800;text-align:left;padding:0;cursor:pointer}.summary-bot .summary-score{font-size:17px;font-weight:850;white-space:nowrap}.summary-bot details{margin-top:10px}.summary-bot summary{font-size:12px;color:#a8c9d9;cursor:pointer}.summary-bot .summary-basket{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:9px 0;border-bottom:1px solid #263d55;font-size:12px}.summary-basket span{overflow-wrap:anywhere}.summary-basket small{display:block;color:#a7bdd2;margin-top:4px;font-size:11px}.summary-bot .summary-risk{font-size:12px;color:#b7cddd;margin-top:8px;line-height:1.6}
 
 .liveboard{padding:12px 14px;border-color:#28566b;background:#0b2636}
 .liveboard .live-title{display:flex;gap:8px;align-items:center;justify-content:space-between}
@@ -136,6 +137,7 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
   <div class="section-title"><h2>🏁 Bảng xếp hạng</h2><span class="hint">Chạm để mở ngay tại đây</span></div>
   <div class="scroll-chip" id="regionChips" aria-label="Chọn khu vực trader"></div>
   <div id="leaderboard" style="margin-top:10px"></div>
+  <section id="crossBasketSummary" class="basket-summary" aria-label="Tổng kết bot qua các rổ"></section>
   <div class="section-title"><h2>📈 Ai thắng thị trường?</h2><span class="hint" id="plotTime">Kết quả %</span></div>
   <div class="card"><div class="row"><div style="font-weight:790" id="chartTitle">Biểu đồ tăng trưởng</div><span class="pill" id="chartResult">—</span></div><div class="plot-wrap"><svg class="plot" id="mainChart" viewBox="0 0 360 160" aria-label="Biểu đồ hiệu suất"></svg><div class="legend"><span><i class="dot"></i>Bot</span><span id="legendIndex"><i class="dot index"></i>VN-Index</span></div></div><p class="note" id="chartNote" style="margin-top:10px"></p></div>
   <div class="section-title"><h2>📊 Bấm vào mã cổ phiếu</h2><span class="hint">Giá &amp; khối lượng thật</span></div>
@@ -412,6 +414,44 @@ function rankExtra(k){
 }
 function setTradeFilter(v){tradeFilter=v;renderTrades()}
 function setRegionFilter(r){regionFilter=r;const keys=IDS.filter(k=>r==='ALL'||DATA.traders?.[k]?.region===r);if(keys.length&&!keys.includes(selected))selected=keys[0];render()}
+function summaryBasketSources(){
+  if(isPaper())return [{id:'300',label:STUDY_LABELS['300'],books:DATA[mode]||{}}];
+  const key={backtest:'backtests',backtest_minute:'minute_backtests',hybrid:'hybrid_backtests'}[mode];
+  return Object.entries(STUDY_LABELS).map(([id,label])=>{
+    const cohort=PIT_DATA?.cohorts?.[id];
+    return {id,label,books:mode==='backtest'?cohort?.backtest_periods?.[period]:cohort?.[key]};
+  });
+}
+function summaryBotRanking(){
+  const sources=summaryBasketSources(),rows=[];let incomplete=0;
+  const numeric=x=>typeof x==='number'&&Number.isFinite(x);
+  for(const bot of IDS){
+    const supported=DATA.traders?.[bot]?.supported_modes;
+    if(supported&&!supported.includes(mode))continue;
+    const results=sources.map(source=>({...source,book:source.books?.[bot]}));
+    if(!results.length||results.some(r=>!r.book||!numeric(r.book.return_pct)||(isPaper()&&!(r.book.history?.length)))){incomplete++;continue;}
+    const score=results.reduce((sum,r)=>sum+r.book.return_pct,0)/results.length;
+    const drawdowns=results.map(r=>r.book.max_drawdown_pct);
+    const worstDD=drawdowns.every(numeric)?Math.min(...drawdowns):null;
+    rows.push({bot,score,worstDD,results});
+  }
+  rows.sort((a,b)=>(b.score-a.score)||((b.worstDD??-Infinity)-(a.worstDD??-Infinity))||a.bot.localeCompare(b.bot));
+  return {sources,rows,incomplete};
+}
+function crossBasketSummary(){
+  const {sources,rows,incomplete}=summaryBotRanking();
+  const option=DATA.backtest_options?.find(x=>x.key===period);
+  const span=isPaper()?'Mùa từ '+(DATA.paper_contest_start||'—'):mode==='backtest'?(option?.label||period):'Toàn bộ 3 năm';
+  const header=`<div class="card"><h2>🧭 Tổng kết qua các rổ</h2><p class="note">${safe(MODE_LABEL[mode])} · ${safe(span)}. Xét toàn bộ bot của sổ này, độc lập với rổ đang mở và bộ lọc theo dõi cá nhân.</p>`;
+  const scope=`<p class="note">${sources.length} rổ: ${sources.map(s=>safe(s.label)).join(' · ')}.</p>`;
+  const paperNote=isPaper()?'<p class="note">Paper hiện chỉ có Rổ tháng; chưa có tài khoản paper cho Rổ cố định. Không lấy backtest để điền vào paper.</p>':'';
+  if(!rows.length)return header+scope+paperNote+'<div class="empty">Chưa có đủ kết quả đã ghi nhận để xếp top 3 và nhóm kém nhất.'+(isPaper()?' Paper đang chờ phiên replay có NAV được xác minh.':' Mỗi bot cần kết quả ở đủ các rổ trong cùng khoảng thời gian.')+'</div></div>';
+  if(rows.length<6)return header+scope+paperNote+`<div class="empty">Mới có ${rows.length} bot đủ dữ liệu. Cần ít nhất 6 bot để tách hai nhóm top 3 không trùng nhau.</div></div>`;
+  if(rows.every(r=>Math.abs(r.score-rows[0].score)<1e-10))return header+scope+paperNote+`<div class="empty">${rows.length} bot đang đồng hạng ở ${pct(rows[0].score)} lợi nhuận trung bình. Chưa phân biệt được nhóm tốt nhất và kém nhất.</div></div>`;
+  const card=(r,rank)=>`<article class="summary-bot" data-summary-bot="${safe(r.bot)}"><div class="summary-head"><button type="button" onclick="openBotProfile('${r.bot}')">${rank}. ${safe(SHORT[r.bot]||r.bot)} ↗</button><span class="summary-score ${color(r.score)}">${pct(r.score)}</span></div><p class="summary-risk">${sources.length>1?'Lợi nhuận trung bình qua các rổ':'Lợi nhuận rổ đang có'} · DD sâu nhất giữa các rổ: <strong>${r.worstDD===null?'—':pct(r.worstDD)}</strong></p><details><summary>Xem kết quả từng rổ</summary>${r.results.map(x=>`<div class="summary-basket"><span>${safe(x.label)}<small>DD: ${x.book.max_drawdown_pct==null?'—':pct(x.book.max_drawdown_pct)} · ${Number.isFinite(x.book.buy_count)&&Number.isFinite(x.book.closed_trades)?(x.book.buy_count+x.book.closed_trades)+' lần khớp':'Chưa có số lần khớp'}</small></span><strong class="${color(x.book.return_pct)}">${pct(x.book.return_pct)}</strong></div>`).join('')}</details></article>`;
+  const top=rows.slice(0,3),bottom=[...rows.slice(-3)].reverse();
+  return header+scope+paperNote+'<p class="note">Xếp theo trung bình cộng lợi nhuận % sau chi phí, mỗi rổ có trọng số bằng nhau; mỗi bot xuất hiện một lần. Hòa lợi nhuận thì ưu tiên DD ít âm hơn, rồi theo tên bot. Đây là điểm tổng kết, không phải lợi nhuận của một tài khoản gộp; chưa phải thước đo lợi nhuận điều chỉnh rủi ro.</p>'+`<p class="note">${rows.length}/${rows.length+incomplete} bot đủ dữ liệu ở tất cả các rổ.${incomplete?' Bot thiếu kết quả được để ngoài bảng, không coi dữ liệu thiếu là 0%.':''}</p><h3>🏆 Top 3 tốt nhất</h3><div data-summary-group="top">${top.map((r,i)=>card(r,i+1)).join('')}</div><h3>📉 Top 3 kém nhất</h3><div data-summary-group="bottom">${bottom.map((r,i)=>card(r,i+1)).join('')}</div></div>`;
+}
 function graph(svg,series,showIndex){
   if(!series?.length){svg.innerHTML='<text x="180" y="82" text-anchor="middle" fill="#8ba3bd" font-size="13">Chưa có dữ liệu để vẽ</text>';return}
   const a=series.map(x=>n(x.bot)), b=showIndex?series.map(x=>n(x.index)):[];
@@ -462,6 +502,7 @@ function renderHome(){
     </button>
     ${expandedBot===k?rankExtra(k):''}
   </div>`).join(''):'<div class="card empty">Chưa có bot nào đang bật trong khu vực này. Bật lại ở mục Các bot.</div>');
+  $('crossBasketSummary').innerHTML=crossBasketSummary();
   const chartBot=sorted.includes(selected)?selected:(sorted[0]||IDS[0]);
   const bot=part(chartBot),series=isPaper()?(bot.history||[]).map(x=>({date:x.date,bot:x.return_pct})):bot.curve||[];
   $('chartTitle').textContent=SHORT[chartBot]+' Bot';$('chartResult').textContent=pct(ret(chartBot));$('chartResult').className='pill '+(ret(chartBot)>=0?'good':'warn');

@@ -8,6 +8,49 @@ import pytest
 
 SITE = Path(__file__).resolve().parents[1] / "site" / "index.html"
 
+def test_cross_basket_summary_rejects_missing_results_and_unobserved_paper(tmp_path):
+    """Synthetic summary metrics stay in temporary tests, never market outputs."""
+    node=shutil.which('node')
+    if not node:pytest.skip('Node.js unavailable')
+    html=SITE.read_text(encoding='utf8')
+    functions='function summaryBasketSources'+html.split('function summaryBasketSources',1)[1].split('function graph(',1)[0]
+    script=r'''
+const assert=require('node:assert/strict');
+let mode='backtest',period='ALL';const IDS=['A','B','C','D','E','F','G'];
+const STUDY_LABELS={'300':'Monthly','146':'Fixed'},MODE_LABEL={backtest:'Day',paper:'Paper'},SHORT={};
+const DATA={traders:{},backtest_options:[{key:'ALL',label:'All'}],paper_contest_start:'2026-11-13'};
+const book=(ret,dd=-10)=>({return_pct:ret,max_drawdown_pct:dd,buy_count:2,closed_trades:1,history:[]});
+const books=()=>Object.fromEntries(IDS.map((b,i)=>[b,book(30-i*10)]));
+const PIT_DATA={cohorts:{'300':{backtest_periods:{ALL:books()}},'146':{backtest_periods:{ALL:books()}},legacy:{backtest_periods:{ALL:Object.fromEntries(IDS.map(b=>[b,book(9999)]))}}}};
+const isPaper=()=>mode==='paper',safe=x=>String(x??''),pct=x=>x+'%',color=x=>x>=0?'green':'red';
+'''+functions+r'''
+let rank=summaryBotRanking();assert.equal(rank.sources.length,2);assert.equal(rank.rows.length,7);
+assert.deepEqual(rank.rows.slice(0,3).map(r=>r.bot),['A','B','C']);
+assert.deepEqual(rank.rows.slice(-3).reverse().map(r=>r.bot),['G','F','E']);
+assert.equal((crossBasketSummary().match(/data-summary-bot=/g)||[]).length,6);
+// Missing results cannot improve a score by silently dropping the losing basket.
+PIT_DATA.cohorts['146'].backtest_periods.ALL.A.return_pct=null;
+rank=summaryBotRanking();assert.equal(rank.rows.length,6);assert.equal(rank.incomplete,1);
+assert.ok(!rank.rows.some(r=>r.bot==='A'));
+PIT_DATA.cohorts['146'].backtest_periods.ALL.A.return_pct=30;
+PIT_DATA.cohorts['300'].backtest_periods.ALL.B.return_pct=30;
+PIT_DATA.cohorts['146'].backtest_periods.ALL.B.return_pct=30;
+PIT_DATA.cohorts['300'].backtest_periods.ALL.A.max_drawdown_pct=null;
+assert.equal(summaryBotRanking().rows[0].bot,'B');
+period='3M';assert.equal(summaryBotRanking().rows.length,0);
+period='ALL';for(const cohort of ['300','146'])for(const b of IDS)PIT_DATA.cohorts[cohort].backtest_periods.ALL[b].return_pct=0;
+assert.ok(crossBasketSummary().includes('đồng hạng'));assert.ok(!crossBasketSummary().includes('data-summary-bot='));
+mode='paper';DATA.paper=books();
+assert.equal(summaryBotRanking().sources.length,1);assert.equal(summaryBotRanking().rows.length,0);
+assert.ok(crossBasketSummary().includes('Paper đang chờ phiên replay'));
+for(const b of IDS)DATA.paper[b].history=[{date:'2026-11-13',nav:100000000}];
+assert.equal(summaryBotRanking().rows.length,7);assert.ok(crossBasketSummary().includes('chưa có tài khoản paper cho Rổ cố định'));
+'''
+    path=tmp_path/'summary.cjs';path.write_text(script,encoding='utf8')
+    result=subprocess.run([node,str(path)],capture_output=True,text=True,encoding='utf8')
+    assert result.returncode==0,result.stderr
+
+
 def test_monthly300_controls_switch_all_historical_books_without_rewriting_paper(tmp_path):
     node=shutil.which('node')
     if not node:pytest.skip('Node.js unavailable')
@@ -32,6 +75,20 @@ for(const cohort of ['300','146']){
   assert.equal(six.find(b=>b.id==='backtest').data,PIT_DATA.cohorts[cohort].backtests.Buffett);
   assert.equal(six.find(b=>b.id==='paper').data,DATA.paper.Buffett);
 }
+const untouched=JSON.stringify(PIT_DATA);
+for(const [m,key] of [['backtest','backtests'],['backtest_minute','minute_backtests'],['hybrid','hybrid_backtests']]){
+  mode=m;period='ALL';const ranking=summaryBotRanking();assert.equal(ranking.rows.length,13);assert.equal(ranking.sources.length,2);
+  for(const row of ranking.rows){
+    const a=PIT_DATA.cohorts['300'][key][row.bot],b=PIT_DATA.cohorts['146'][key][row.bot];
+    assert.equal(row.score,(a.return_pct+b.return_pct)/2);assert.equal(row.worstDD,Math.min(a.max_drawdown_pct,b.max_drawdown_pct));
+  }
+  const scores=ranking.rows.map(r=>[r.bot,r.score]);study='146';hiddenBots={Minervini:true};regionFilter='VN';
+  assert.deepEqual(summaryBotRanking().rows.map(r=>[r.bot,r.score]),scores);
+  const html=crossBasketSummary();assert.equal((html.match(/data-summary-bot=/g)||[]).length,6);
+}
+mode='backtest';period='3M';
+for(const r of summaryBotRanking().rows)assert.equal(r.score,(PIT_DATA.cohorts['300'].backtest_periods['3M'][r.bot].return_pct+PIT_DATA.cohorts['146'].backtest_periods['3M'][r.bot].return_pct)/2);
+assert.equal(JSON.stringify(PIT_DATA),untouched);hiddenBots={};regionFilter='ALL';study='146';period='ALL';
 assert.equal(JSON.stringify(DATA.paper),originalPaper);
 setStudy('legacy');mode='backtest';assert.equal(activeStudy(),'146');assert.equal(part('Minervini'),PIT_DATA.cohorts['146'].backtest_periods.ALL.Minervini);
 assert.ok(!studyPicker().includes("setStudy('legacy')"));assert.ok(!studyPicker().includes('Đối chứng'));
@@ -47,6 +104,11 @@ REPLAY_DATA=JSON.parse(fs.readFileSync(path.join(root,'paper-replay.json'),'utf8
 for(const modeId of ['paper','paper_minute','paper_combo']){
   mode=modeId;assert.equal(activeKeys().length,13);
   for(const bot of IDS)assert.equal(part(bot),REPLAY_DATA[modeId][bot]);
+  assert.equal(summaryBotRanking().sources.length,1);
+  if(REPLAY_DATA.status==='waiting_completed_session'){
+    assert.equal(summaryBotRanking().rows.length,0);assert.ok(!crossBasketSummary().includes('data-summary-bot='));
+    assert.ok(crossBasketSummary().includes('Paper đang chờ phiên replay'));
+  }
 }
 const replayBooks=JSON.stringify(DATA.paper);
 applyValueData();applyValueIntraday();assert.equal(JSON.stringify(DATA.paper),replayBooks);
