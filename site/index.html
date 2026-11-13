@@ -202,6 +202,7 @@ async function loadReplayData(){
   if(!r.ok)throw new Error('Chưa tải được paper replay');
   const p=await r.json();
   if(p.revision!=='eod_replay_v1'||p.execution_revision!=='strict_next_candle_v1'||!['paper','paper_minute','paper_combo'].every(m=>Object.keys(p[m]||{}).length===13))throw new Error('Paper replay chưa được xác minh');
+  if(REPLAY_DATA?.last_session!==p.last_session)REPLAY_STOCKS={};
   REPLAY_DATA=p;applyReplayData();
 }
 function historicalSource(){return study!=='legacy'&&PIT_DATA?.cohorts?.[study]||DATA;}
@@ -377,6 +378,10 @@ function graph(svg,series,showIndex){
   svg.innerHTML='<path class="gridline" d="M10 25 H350 M10 86 H350 M10 145 H350"></path>'+(showIndex?'<path class="index" d="'+path(b)+'"></path>':'')+'<path class="series" d="'+path(a)+'"></path>';
 }
 function renderHome(){
+  if(REPLAY_DATA){
+    $('dateLabel').textContent=isPaper()?(REPLAY_DATA.last_session?'Paper replay: '+REPLAY_DATA.last_session:'Chờ paper sau phiên '+REPLAY_DATA.season_start):'Lịch sử: '+DATA.last_session;
+    $('dataNotice').textContent=isPaper()?(REPLAY_DATA.last_session?'📡 Paper đã replay đến '+REPLAY_DATA.last_session+'.':'📡 Paper đang chờ phiên hoàn tất từ '+REPLAY_DATA.season_start+'.')+' Tài khoản và lệnh đều là mô phỏng.':'📡 Backtest dùng dữ liệu lịch sử đến '+DATA.last_session+'. Tài khoản và lệnh đều là mô phỏng.';
+  }
   $('studyControls').innerHTML=isPaper()?'':studyPicker();
   $('backtestTimePicker').style.display=mode==='backtest'?'block':'none';
   const meta=DATA.research_meta;
