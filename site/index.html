@@ -316,13 +316,9 @@ const periodData=()=>historicalSource().backtest_periods?.[period]||historicalSo
 function selectPeriod(p){if(!DATA.backtest_periods?.[p]&&p!=='ALL')return;period=p;render();}
 function toggleBot(k){if(!IDS.includes(k))return;hiddenBots[k]=!hiddenBots[k];saveBotSelection();render();}
 function mixRanking(){
-  const sourceMode={paper:'backtest',paper_minute:'backtest_minute',paper_combo:'hybrid'}[mode]||mode;
-  const source=historicalSource(),key={backtest:'backtests',backtest_minute:'minute_backtests',hybrid:'hybrid_backtests'}[sourceMode];
-  const sourcePeriod=mode==='backtest'?period:'ALL';
-  const books=sourceMode==='backtest'?source.backtest_periods?.[sourcePeriod]||(sourcePeriod==='ALL'?source.backtests:null):source[key];
   const numeric=x=>typeof x==='number'&&Number.isFinite(x);
-  return IDS.filter(bot=>supportsMode(bot)&&part(bot)&&numeric(books?.[bot]?.return_pct)).map(bot=>{
-    const book=books[bot];return {bot,score:numeric(book.nav)?(book.nav/100000000-1)*100:book.return_pct,dd:numeric(book.max_drawdown_pct)?book.max_drawdown_pct:-Infinity};
+  return IDS.filter(bot=>supportsMode(bot)&&numeric(part(bot)?.return_pct)&&(!isPaper()||(part(bot).history||[]).some(row=>numeric(row.nav)))).map(bot=>{
+    const book=part(bot);return {bot,score:numeric(book.nav)?(book.nav/100000000-1)*100:book.return_pct,dd:numeric(book.max_drawdown_pct)?book.max_drawdown_pct:-Infinity};
   }).sort((a,b)=>b.score-a.score||b.dd-a.dd||a.bot.localeCompare(b.bot));
 }
 function applyBestMix(count){
@@ -342,8 +338,8 @@ function mixTotalMarkup(total,capital){
 }
 function mixControls(){
   const ranking=mixRanking(),enabled=activeKeys(),chosen=new Set(enabled);
-  const label={paper:'Backtest ngày · 3 năm',paper_minute:'Backtest phút · 3 năm',paper_combo:'Backtest ngày + phút · 3 năm',backtest:'Backtest ngày · '+(DATA.backtest_options?.find(x=>x.key===period)?.label||period),backtest_minute:'Backtest phút · 3 năm',hybrid:'Backtest ngày + phút · 3 năm'}[mode];
-  return `<div class="card soft" data-mix-controls><strong>Chọn nhanh nhóm bot</strong><div class="chips" style="margin:10px 0">${[2,3,4,5,6].map(count=>{const active=enabled.length===count&&ranking.slice(0,count).every(r=>chosen.has(r.bot));return `<button type="button" class="chip ${active?'active':''}" aria-pressed="${active}" onclick="applyBestMix(${count})" ${ranking.length<count?'disabled':''}>Mix ${count} best bot</button>`;}).join('')}<button type="button" class="chip" onclick="enableAllBots()">Bật tất cả</button></div><p class="note">Top theo ${safe(label)} của rổ này: lợi nhuận sau chi phí, hòa thì xét drawdown. ${isPaper()?'Paper dùng thứ hạng backtest tương ứng. ':''}Không phải dự báo lợi nhuận.</p><p class="note">Đang theo dõi ${enabled.length}/${IDS.length} bot: ${enabled.map(bot=>safe(SHORT[bot]||bot)).join(', ')||'chưa bật bot nào'}.</p><p class="note">Mỗi bot vẫn có 100 triệu vốn đầu kỳ. Chỉ lọc hiển thị, không dừng chạy paper. Nhớ riêng từng rổ/sổ trên trình duyệt này.</p></div>`;
+  const label=isPaper()?MODE_LABEL[mode]+' · mùa từ '+(paperSource()?.season_start||DATA.paper_contest_start):{backtest:'Backtest ngày · '+(DATA.backtest_options?.find(x=>x.key===period)?.label||period),backtest_minute:'Backtest phút · 3 năm',hybrid:'Backtest ngày + phút · 3 năm'}[mode];
+  return `<div class="card soft" data-mix-controls><strong>Chọn nhanh nhóm bot</strong><div class="chips" style="margin:10px 0">${[2,3,4,5,6].map(count=>{const active=enabled.length===count&&ranking.slice(0,count).every(r=>chosen.has(r.bot));return `<button type="button" class="chip ${active?'active':''}" aria-pressed="${active}" onclick="applyBestMix(${count})" ${ranking.length<count?'disabled':''}>Mix ${count} best bot</button>`;}).join('')}<button type="button" class="chip" onclick="enableAllBots()">Bật tất cả</button></div><p class="note">Top đúng theo leaderboard ${safe(label)} của rổ này. Xếp bằng lợi nhuận chưa làm tròn; hòa thì xét drawdown, rồi tên bot. Không phải dự báo lợi nhuận.</p><p class="note">Đang theo dõi ${enabled.length}/${IDS.length} bot: ${enabled.map(bot=>safe(SHORT[bot]||bot)).join(', ')||'chưa bật bot nào'}.</p><p class="note">Mỗi bot vẫn có 100 triệu vốn đầu kỳ. Chỉ lọc hiển thị, không dừng chạy paper. Nhớ riêng từng rổ/sổ trên trình duyệt này.</p></div>`;
 }
 const chartRanges={ '1M':22,'3M':66,'6M':132,'1Y':252,'3Y':780 };
 async function openStock(symbol,studySource=false){
@@ -559,7 +555,8 @@ function renderHome(){
   $('totalNav').textContent=vnd(total);$('totalDelta').innerHTML=mixTotalMarkup(total,capital);
   $('totalInitial').textContent=money(capital);$('marketDay').textContent=mode==='hybrid'?String(DATA.hybrid_backtest_audit?.last||'—').split('-').reverse().join('/'):(mode==='backtest'&&opt?opt.end.split('-').reverse().join('/'):DATA.last_session.split('-').reverse().join('/'));
   const available=included.filter(k=>regionFilter==='ALL'||DATA.traders?.[k]?.region===regionFilter);
-  const sorted=available.sort((a,b)=>ret(b)-ret(a));
+  const rankOrder=new Map(mixRanking().map((row,i)=>[row.bot,i]));
+  const sorted=available.sort((a,b)=>(rankOrder.get(a)??Infinity)-(rankOrder.get(b)??Infinity));
   $('regionChips').innerHTML=Object.entries(REGION).map(([k,label])=>`<button class="chip ${regionFilter===k?'active':''}" onclick="setRegionFilter('${k}')">${label} · ${k==='ALL'?IDS.filter(t=>supportsMode(t)&&part(t)).length:IDS.filter(t=>supportsMode(t)&&part(t)&&DATA.traders?.[t]?.region===k).length}</button>`).join('');
   $('leaderboard').innerHTML=(sorted.length?sorted.map((k,i)=>`<div class="rankgroup">
     <button type="button" class="ranker ${k===selected?'selected':''}" aria-expanded="${expandedBot===k}" aria-controls="rankdetail-${k}" onclick="selectRankBot('${k}')">

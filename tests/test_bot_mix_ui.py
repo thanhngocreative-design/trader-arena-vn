@@ -27,14 +27,21 @@ const before=JSON.stringify([PIT_DATA,REPLAY_DATA,FIXED_REPLAY_DATA,VN30_REPLAY_
 const expectedScopes={};
 for(const universe of ['300','146','vn30'])for(const book of ['paper','paper_minute','paper_combo','backtest','backtest_minute','hybrid']){
   setStudy(universe);setMode(book);period='ALL';regionFilter='VN';
-  const c=PIT_DATA.cohorts[universe],key={paper:'backtests',paper_minute:'minute_backtests',paper_combo:'hybrid_backtests',backtest:'backtests',backtest_minute:'minute_backtests',hybrid:'hybrid_backtests'}[book];
-  const expected=Object.entries(c[key]).sort((a,b)=>b[1].nav-a[1].nav).map(x=>x[0]);
+  const c=PIT_DATA.cohorts[universe],key={backtest:'backtests',backtest_minute:'minute_backtests',hybrid:'hybrid_backtests'}[book];
+  const source=book.startsWith('paper')?paperSource()[book]:c[key];
+  const expected=Object.entries(source).sort((a,b)=>b[1].nav-a[1].nav||(b[1].max_drawdown_pct??-Infinity)-(a[1].max_drawdown_pct??-Infinity)||a[0].localeCompare(b[0])).map(x=>x[0]);
+  hiddenBots={};regionFilter='ALL';renderHome();
+  const leaderboard=()=>[...elements.leaderboard.innerHTML.matchAll(/onclick="selectRankBot\('([^']+)'\)"/g)].map(x=>x[1]);
+  assert.deepEqual(leaderboard(),expected);
   // Ranking must include hidden bots and ignore country filters.
   hiddenBots=Object.fromEntries(IDS.map(b=>[b,true]));
   assert.deepEqual(mixRanking().map(r=>r.bot),expected);
   for(const count of [2,3,4,5,6]){
     applyBestMix(count);assert.equal(regionFilter,'ALL');
     assert.deepEqual(new Set(activeKeys()),new Set(expected.slice(0,count)));
+    renderHome();assert.deepEqual(leaderboard(),expected.slice(0,count));
+    const total=activeKeys().reduce((sum,bot)=>sum+source[bot].nav,0);
+    assert.equal(elements.totalDelta.innerHTML,mixTotalMarkup(total,count*100000000));
     assert.equal((mixControls().match(/aria-pressed="true"/g)||[]).length,1);
   }
   const scope=botSelectionScope();expectedScopes[scope]=[...activeKeys()];
@@ -63,7 +70,7 @@ const saved=storage.get('arena-bot-selections-v2');botSelections=JSON.parse(save
 setStudy('vn30');setMode('backtest');period='3M';
 const quarter=Object.entries(PIT_DATA.cohorts.vn30.backtest_periods['3M']).sort((a,b)=>b[1].nav-a[1].nav).slice(0,2).map(x=>x[0]);
 applyBestMix(2);assert.deepEqual(new Set(activeKeys()),new Set(quarter));assert.ok(mixControls().includes('3 tháng'));
-setMode('paper');assert.ok(mixControls().includes('Backtest ngày · 3 năm'));
+setMode('paper');assert.ok(mixControls().includes('Paper ngày · mùa từ'));assert.ok(!mixControls().includes('Backtest ngày · 3 năm'));
 toggleBot('Munger');const manual={...hiddenBots};setMode('paper_minute');setMode('paper');assert.deepEqual(hiddenBots,manual);
 enableAllBots();assert.equal(activeKeys().length,13);
 assert.equal(JSON.stringify([PIT_DATA,REPLAY_DATA,FIXED_REPLAY_DATA,VN30_REPLAY_DATA]),before);
