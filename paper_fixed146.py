@@ -1,5 +1,6 @@
 """Independent fixed-146 paper accounts, sharing verified inputs and strict engines."""
 import hashlib,json,time
+from pathlib import PurePosixPath
 from datetime import datetime
 import httpx
 import pandas as pd
@@ -63,6 +64,13 @@ def verify_previous(previous,ledgers):
         prefix=[t for t in ledgers[key] if str(t['date'])[:10]<=previous['last_session']]
         if prefix!=old:raise ValueError('Prior fixed146 paper trades changed: '+key)
 
+def verify_inputs(inputs,market=MARKET):
+    for path,digest in inputs.items():
+        relative=PurePosixPath(path.replace('\\','/'))
+        if relative.is_absolute() or '..' in relative.parts:raise ValueError('Invalid frozen input path')
+        if hashlib.sha256(market.joinpath(*relative.parts).read_bytes()).hexdigest()!=digest:
+            raise ValueError('Frozen fixed146 source changed: '+path)
+
 def run(collect=True,now=None):
     now=now or datetime.now(VN);end=completed_date(now)
     fixed=read(ROOT/'config/research-universe.json')['eligible_symbols']
@@ -77,8 +85,7 @@ def run(collect=True,now=None):
     previous=read(STATE) if STATE.exists() else None
     if previous:
         if previous['members']!=fixed:raise ValueError('Fixed146 membership changed during paper season')
-        for path,digest in previous['input_sha256'].items():
-            if hashlib.sha256((MARKET/path).read_bytes()).hexdigest()!=digest:raise ValueError('Frozen fixed146 source changed: '+path)
+        verify_inputs(previous['input_sha256'])
     # The monthly collector must finish first. Reuse its immutable candidate days;
     # only missing fixed-universe minute tapes are requested here.
     prices,benchmark,frames,cfg,audits,sessions=source_inputs(end,False)
@@ -112,7 +119,7 @@ def run(collect=True,now=None):
     verify_previous(previous,ledgers)
     payload.update(status='completed_session_replay',last_session=sessions[-1],sessions=sessions,data_audit=audits,supplemental_data_audit=extra_audit,
         note='Rổ cố định 146 mã sống sót; tài khoản riêng từ 13/11/2026. Replay cuối ngày, khớp đúng nến kế tiếp; thiếu thì hủy lệnh.')
-    inputs={str(p.relative_to(MARKET)):hashlib.sha256(p.read_bytes()).hexdigest() for p in MARKET.rglob('*.gz')};payload['input_sha256']=inputs
+    inputs={p.relative_to(MARKET).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in MARKET.rglob('*.gz')};payload['input_sha256']=inputs
     for s in fixed:
         f=prices[s].loc[:cfg['end']].tail(780)
         write(ROOT/'site/replay-stocks'/f'{s}.json',[[str(d.date())]+[float(r[k]) for k in ('open','high','low','close','volume')] for d,r in f.iterrows()])
