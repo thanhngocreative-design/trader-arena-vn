@@ -57,7 +57,7 @@ def export_gates(bundle,prices,symbols,date,root=ROOT):
     write(root/'state/value_daily_gates.json',obj)
     return obj
 
-def value_step(accounts,symbol,row,ts,session,marks,gates,combo=False,submitted_at=None):
+def value_step(accounts,symbol,row,ts,session,marks,gates,combo=False,submitted_at=None,nav_calculator=None):
     row=dict(row);entry={}
     for bot in accounts:
         q=gates.get(bot,{}).get(symbol);row['quality_'+bot]=bool(q)
@@ -65,7 +65,7 @@ def value_step(accounts,symbol,row,ts,session,marks,gates,combo=False,submitted_
     prior={k:b['pending'].get(symbol) for k,b in accounts.items()}
     lengths={k:len(b['trades']) for k,b in accounts.items()}
     before={k:(b['cash'],dict(b['positions'].get(symbol,{}))) for k,b in accounts.items()}
-    step(accounts,symbol,row,ts,session,marks,submitted_at=submitted_at,entry_gates=entry,bot_settings=SETTINGS,exit_rule=exit_rule)
+    step(accounts,symbol,row,ts,session,marks,submitted_at=submitted_at,entry_gates=entry,bot_settings=SETTINGS,exit_rule=exit_rule,nav_calculator=nav_calculator)
     for bot,b in accounts.items():
         req=b['pending'].get(symbol)
         if req:

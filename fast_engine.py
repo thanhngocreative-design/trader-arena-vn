@@ -84,6 +84,9 @@ def run_backtest(context: FastContext, trader: str, start_date: str,
     curve=[]
     for t in range(first,last+1):
         prev=t-1
+        if hasattr(context,'forced_exit'):
+            for i,p in positions.items():
+                if context.forced_exit(i,t):p['exit_pending']='Ra khỏi danh mục theo kỳ chọn đã biết trước phiên'
         # Signal generation and exit checks use only completed bars < t.
         if prev>=0:
             for i,p in positions.items():
@@ -100,22 +103,31 @@ def run_backtest(context: FastContext, trader: str, start_date: str,
             opening=a["open"][i,t]
             if not np.isfinite(opening) or opening<=0 or a["volume"][i,t]<=0:continue
             adv=a["value20_prev"][i,max(prev,0)]
+            qty=p['qty']
+            if hasattr(context,'execution_liquidity'):
+                adv,avol=context.execution_liquidity(i,prev)
+                if not np.isfinite(adv) or adv<=0 or not np.isfinite(avol):continue
+                qty=min(qty,int(avol*st.max_daily_participation)//st.lot*st.lot)
+                if qty<st.lot:continue
             slip=modeled_slippage(st,adv,opening*p["qty"])
             px=float(opening)*(1-slip)
-            gross=px*p["qty"]
+            gross=px*qty
             fees=gross*st.fee_rate
             tax=gross*st.sell_tax
             proceeds=gross-fees-tax
-            pnl=proceeds-p["buy_cost"]
+            portion=p['buy_cost'] if qty==p['qty'] else p['buy_cost']*qty/p['qty']
+            pnl=proceeds-portion
             cash+=proceeds
             trades.append({"date":dates[t].date().isoformat(),"trader":trader,
-                "symbol":context.symbols[i],"side":"BÁN","qty":p["qty"],"price":round(px),
+                "symbol":context.symbols[i],"side":"BÁN","qty":qty,"price":round(px),
                 "gross":round(gross),"fees":round(fees),"tax":round(tax),"pnl":round(pnl),
                 "slippage_rate":round(slip,6),"reason":p["exit_pending"],
                 "signal_date":dates[prev].date().isoformat() if prev>=0 else "",
                 "buy_date":p["date"].date().isoformat()})
-            del positions[i]
-            last_sold[i]=t
+            p['qty']-=qty;p['buy_cost']-=portion
+            if not p['qty']:
+                del positions[i]
+                last_sold[i]=t
 
         if prev>=0:
             candidates=context.candidate_indices(trader,prev,positions,last_sold,t)
@@ -124,6 +136,7 @@ def run_backtest(context: FastContext, trader: str, start_date: str,
                 opening=a["open"][i,t]
                 if not np.isfinite(opening) or opening<=0 or a["volume"][i,t]<=0:continue
                 current_nav=cash+sum(p["qty"]*(
+                    context.mark_price(j,t,at_open=True,fallback=p['price']) if hasattr(context,'mark_price') else
                     float(a["open"][j,t]) if np.isfinite(a["open"][j,t]) else p["price"])
                     for j,p in positions.items())
                 allocation=position_budget(st,cash,current_nav,float(opening),a["atr14"][i,prev])
@@ -155,10 +168,11 @@ def run_backtest(context: FastContext, trader: str, start_date: str,
         invested=0.
         for i,p in positions.items():
             last_close=a["close"][i,t]
-            px=float(last_close) if np.isfinite(last_close) and last_close>0 else p["price"]
+            px=context.mark_price(i,t,fallback=p['price']) if hasattr(context,'mark_price') else float(last_close) if np.isfinite(last_close) and last_close>0 else p["price"]
             invested+=p["qty"]*px
         curve.append({"date":dates[t],"nav":cash+invested,"cash":cash,
                       "invested":invested,"position_count":len(positions)})
+        if hasattr(context,'reserve_value'):curve[-1]['valuation_reserve']=sum(context.reserve_value(i,t,p['qty']) for i,p in positions.items())
 
     history=pd.DataFrame(curve).set_index("date")
     history["return_pct"]=(history["nav"]/st.initial_cash-1)*100
@@ -172,7 +186,7 @@ def run_backtest(context: FastContext, trader: str, start_date: str,
     holdings=[]
     for i,p in positions.items():
         cl=a["close"][i,last]
-        price=float(cl) if np.isfinite(cl) else p["price"]
+        price=context.mark_price(i,last,fallback=p['price']) if hasattr(context,'mark_price') else float(cl) if np.isfinite(cl) else p["price"]
         value=p["qty"]*price
         holdings.append({"symbol":context.symbols[i],"qty":p["qty"],
             "buy_date":p["date"].date().isoformat(),"buy_price":round(p["price"]),
@@ -180,6 +194,8 @@ def run_backtest(context: FastContext, trader: str, start_date: str,
             "pnl":round(value-p["buy_cost"]),
             "pnl_pct":(value/p["buy_cost"]-1)*100,
             "pending_exit":p.get("exit_pending","")})
+        if hasattr(context,'mark_info'):
+            m=context.mark_info(i,last,fallback=p['price']);holdings[-1].update(last_price=round(m['price']),quote_date=m['quote_date'],quote_age_sessions=m['age'],valuation_reserve=round((m['price']-m['value_price'])*p['qty']),valuation_note='Dự phòng định giá 100% sau 20 phiên không có giá; không phải giá thị trường 0 và không phải lệnh bán' if m['reserve'] else 'Giá quan sát cuối; không tạo giao dịch khi thiếu giá')
     actions=[]
     for i,symbol in enumerate(context.symbols):
         if not np.isfinite(a["close"][i,last]):continue

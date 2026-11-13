@@ -8,6 +8,44 @@ import pytest
 
 SITE = Path(__file__).resolve().parents[1] / "site" / "index.html"
 
+def test_monthly300_controls_switch_all_historical_books_without_rewriting_paper(tmp_path):
+    node=shutil.which('node')
+    if not node:pytest.skip('Node.js unavailable')
+    html=SITE.read_text(encoding='utf8');js=re.search(r'<script>(.*?)</script>',html,re.S)[1].rsplit('boot();',1)[0]
+    script=r'''
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const elements={};global.document={getElementById:id=>elements[id]||=({innerHTML:'',style:{},classList:{toggle(){}}}),querySelectorAll:()=>[]};
+global.localStorage={getItem:()=>null};global.location={search:''};global.window={scrollTo(){}};
+'''+js+r'''
+const root=process.argv[2];DATA=JSON.parse(fs.readFileSync(path.join(root,'dashboard.json'),'utf8'));
+VALUE_DATA=JSON.parse(fs.readFileSync(path.join(root,'value-investing.json'),'utf8'));applyValueData();
+VALUE_INTRADAY=JSON.parse(fs.readFileSync(path.join(root,'value-intraday.json'),'utf8'));applyValueIntraday();
+PIT_DATA=JSON.parse(fs.readFileSync(path.join(root,'research-300.json'),'utf8'));IDS=Object.keys(DATA.traders);
+render=()=>{};const originalPaper=JSON.stringify(DATA.paper);
+for(const cohort of ['300','146']){
+  setStudy(cohort);assert.equal(activeStudy(),cohort);assert.equal(historicalSource(),PIT_DATA.cohorts[cohort]);
+  for(const [m,key] of [['backtest','backtests'],['backtest_minute','minute_backtests'],['hybrid','hybrid_backtests']]){
+    mode=m;period='ALL';assert.equal(activeKeys().length,13);
+    for(const bot of IDS)assert.equal(part(bot).return_pct,PIT_DATA.cohorts[cohort][key][bot].return_pct);
+  }
+  const six=comparisonBooks('Buffett');assert.equal(six.length,6);
+  assert.equal(six.find(b=>b.id==='backtest').data,PIT_DATA.cohorts[cohort].backtests.Buffett);
+  assert.equal(six.find(b=>b.id==='paper').data,DATA.paper.Buffett);
+}
+assert.equal(JSON.stringify(DATA.paper),originalPaper);
+setStudy('legacy');mode='backtest';assert.equal(part('Minervini'),DATA.backtest_periods.ALL.Minervini);
+setStudy('300');studyMonth='2023-11';assert.ok(studyPicker().includes('SJF'));
+assert.ok(studyPicker().includes('2023-10-31'));assert.equal(PIT_DATA.months[0].members.length,300);
+SECTOR_DATA=JSON.parse(fs.readFileSync(path.join(root,'sectors.json'),'utf8'));sectorMode='hybrid';sectorBot='Munger';renderSectors();
+assert.ok(elements.sectorContent.innerHTML.includes('Độ phủ mẫu 300 mã'));
+assert.equal(sectorBookStats('hybrid','Munger').buy_fills,PIT_DATA.cohorts['300'].hybrid_backtests.Munger.buy_count);
+stockStudy=true;stockSymbol='SJF';PIT_STOCKS.SJF=JSON.parse(fs.readFileSync(path.join(root,'pit-stocks/SJF.json'),'utf8'));
+assert.equal(stockBars().at(-1)[0],'2023-11-10');
+'''
+    p=tmp_path/'pit-ui.cjs';p.write_text(script,encoding='utf8')
+    result=subprocess.run([node,str(p),str(SITE.parent)],capture_output=True,text=True,encoding='utf8')
+    assert result.returncode==0,result.stderr
+
 def test_all_six_value_profiles_route_to_independent_real_ledgers(tmp_path):
     node=shutil.which('node')
     if not node:pytest.skip('Node.js unavailable')
@@ -100,7 +138,7 @@ def test_six_book_comparison_uses_distinct_sources_and_handles_missing_data(tmp_
     if not node: pytest.skip('Node.js unavailable')
     html=SITE.read_text(encoding='utf8')
     functions='function comparisonBooks'+html.split('function comparisonBooks',1)[1].split('function renderBots()',1)[0]
-    script=functions+'''
+    script="const historicalSource=()=>DATA,activeStudy=()=> 'legacy',studyPicker=()=>'',studyLabel=()=> '146 mã cũ';\n"+functions+'''
 const assert=require('node:assert/strict');
 const value=n=>({nav:n,return_pct:n-100,buy_count:n,closed_trades:0,max_drawdown_pct:null,history:[]});
 const DATA={capital_each:100,paper_minute:{Bot:value(101)},paper:{Bot:value(102)},paper_combo:{Bot:value(103)},minute_backtests:{Bot:value(104)},backtests:{Bot:value(105)},hybrid_backtests:{Bot:value(106)},backtest_periods:{'3M':{Bot:value(999)}}};
@@ -126,7 +164,7 @@ def test_sector_filters_use_buy_turnover_and_distinguish_missing_from_empty(tmp_
     if not node:pytest.skip('Node.js unavailable')
     html=SITE.read_text(encoding='utf8')
     functions='function sectorBookStats'+html.split('function sectorBookStats',1)[1].split('function render(){',1)[0]
-    script=functions+'''
+    script="const historicalSource=()=>DATA,activeStudy=()=> 'legacy',studyPicker=()=>'',studyLabel=()=> '146 mã cũ';\n"+functions+'''
 const assert=require('node:assert/strict');
 const stats={outside_146_fills:0,buy_fills:4,buy_value:100,sectors:[{icb_code:'A',sector:'Ngành A',buy_fills:3,sell_fills:8,buy_value:30,realized_pnl:-10,symbols:['AAA']},{icb_code:'B',sector:'Ngành B',buy_fills:1,sell_fills:0,buy_value:70,realized_pnl:0,symbols:['BBB']}]};
 let sectorMode='backtest_minute',sectorMetric='value',sectorBot='ALL',sectorRefreshError='';

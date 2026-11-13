@@ -70,12 +70,13 @@ def new_accounts():
     return {k:dict(cash=100_000_000.,positions={},pending={},closed={},trades=[],history=[]) for k in TRADERS}
 
 
-def step(accounts,symbol,row,ts,session,marks,*,submitted_at=None,entry_gates=None,bot_settings=None,exit_rule=None):
+def step(accounts,symbol,row,ts,session,marks,*,submitted_at=None,entry_gates=None,bot_settings=None,exit_rule=None,nav_calculator=None):
     """A request must exist before its fill bar START. Never same-bar fills.
 
     Paper supplies actual receipt time; history supplies the signal bar end.
     Minute volume participation uses only the preceding observed signal bar.
     """
+    if float(row['volume'])<=0:return
     ts=pd.Timestamp(ts); marks[symbol]=float(row['close'])
     for bot,b in accounts.items():
         p=b['positions'].get(symbol)
@@ -114,7 +115,7 @@ def step(accounts,symbol,row,ts,session,marks,*,submitted_at=None,entry_gates=No
             req=dict(side='SELL',qty=min(cap,p['qty']))
         else:
             if not gate or len(b['positions'])>=s.max_positions or session-b['closed'].get(symbol,-999)<s.cooldown_sessions: continue
-            nav=b['cash']+sum(x['qty']*marks.get(k,x['price']) for k,x in b['positions'].items())
+            nav=nav_calculator(bot,b,marks) if nav_calculator else b['cash']+sum(x['qty']*marks.get(k,x['price']) for k,x in b['positions'].items())
             budget=allocation(s,b['cash'],nav,float(row['close']),atr)
             qty=min(cap,int(budget/(float(row['close'])*(1+s.fee_rate)))//100*100)
             if qty<100: continue

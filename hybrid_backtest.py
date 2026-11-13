@@ -44,6 +44,7 @@ def _recent(f: pd.DataFrame) -> pd.DataFrame:
 def _eligible_daily(context:FastContext,bot:str,i:int,prev:int) -> bool:
     if prev < 0:
         return False
+    if hasattr(context,'allowed') and (prev+1>=len(context.dates) or not context.allowed[i,prev+1]):return False
     a=context.a
     def val(k):
         return float(a[k][i,prev])
@@ -143,6 +144,7 @@ def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
             eligible_dates+=1
         # Full previous daily candle is already observable at the start of t.
         for i,p in positions.items():
+            if hasattr(context,'forced_exit') and context.forced_exit(i,t):p['exit_pending']='Ra khỏi danh mục tháng đã biết trước phiên'
             if prev>=0 and np.isfinite(a["high"][i,prev]):
                 p["high_water"]=max(float(p["high_water"]),float(a["high"][i,prev]))
             if prev>=0:
@@ -176,6 +178,8 @@ def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
                         qty=(qty//settings.lot)*settings.lot
                         if qty>=settings.lot:
                             adv=float(a["value20_prev"][i,prev])
+                            if hasattr(context,'execution_liquidity'):adv,_=context.execution_liquidity(i,prev)
+                            if not np.isfinite(adv) or adv<=0:continue
                             slip=modeled_slippage(settings,adv,qty*px0)
                             price=px0*(1-slip)
                             gross=qty*price
@@ -259,6 +263,7 @@ def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
             # Budget uses yesterday's observable closes for holdings; today's
             # future EOD prices are never visible to this calculation.
             current_nav=cash+sum(
+                h['qty']*context.mark_price(k,prev,fallback=h['price']) if hasattr(context,'mark_price') and prev>=0 else
                 h["qty"]*float(a["close"][k,prev]) if prev>=0 and np.isfinite(a["close"][k,prev])
                 else h["qty"]*h["price"] for k,h in positions.items())
             budget=position_budget(settings,cash,current_nav,float(row["close"]),daily_prev.get("atr14",float("nan")))
@@ -276,9 +281,10 @@ def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
         for i,p in positions.items():
             # EOD marks do not generate same-day execution signals.
             close=a["close"][i,t]
-            invested+=p["qty"]*(float(close) if np.isfinite(close) else p["price"])
+            invested+=p["qty"]*(context.mark_price(i,t,fallback=p['price']) if hasattr(context,'mark_price') else float(close) if np.isfinite(close) else p["price"])
         history.append({"date":date,"nav":cash+invested,"cash":cash,
                         "invested":invested,"position_count":len(positions)})
+        if hasattr(context,'reserve_value'):history[-1]['valuation_reserve']=sum(context.reserve_value(i,t,p['qty']) for i,p in positions.items())
     curve=pd.DataFrame(history).set_index("date")
     curve["return_pct"]=(curve.nav/settings.initial_cash-1)*100
     curve["drawdown_pct"]=(curve.nav/curve.nav.cummax()-1)*100
@@ -290,13 +296,15 @@ def _walk_one(context: FastContext, bot:str, candles:dict[str,pd.DataFrame],
     for i,p in positions.items():
         sym=symbols[i]
         cl=a["close"][i,last]
-        price=float(cl) if np.isfinite(cl) else p["price"]
+        price=context.mark_price(i,last,fallback=p['price']) if hasattr(context,'mark_price') else float(cl) if np.isfinite(cl) else p["price"]
         value=price*p["qty"]
         holdings.append({"symbol":sym,"qty":p["qty"],"buy_date":p["date"].date().isoformat(),
                          "buy_price":round(p["price"]),"last_price":round(price),
                          "value":round(value),"pnl":round(value-p["buy_cost"]),
                          "pnl_pct":100*(value/p["buy_cost"]-1),
                          "pending_exit":p.get("exit_pending","")})
+        if hasattr(context,'mark_info'):
+            m=context.mark_info(i,last,fallback=p['price']);holdings[-1].update(last_price=m['price'],quote_date=m['quote_date'],quote_age_sessions=m['age'],valuation_reserve=round((m['price']-m['value_price'])*p['qty']),valuation_note='Dự phòng định giá khi thiếu giá; không phải lệnh bán hay giá thị trường 0' if m['reserve'] else 'Giá quan sát')
     return {"trader":bot,"curve":curve,"trades":tdf,
         "holdings":pd.DataFrame(holdings),"actions":pd.DataFrame([]),
         "nav":float(curve.nav.iloc[-1]),"cash":cash,

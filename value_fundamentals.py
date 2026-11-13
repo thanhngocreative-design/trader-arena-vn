@@ -55,8 +55,8 @@ def parse_reports(payloads,titles):
         reports.append(values)
     return reports
 
-def collect(refresh=False):
-    symbols=json.loads((ROOT/'config/research-universe.json').read_text(encoding='utf8'))['eligible_symbols']
+def collect(refresh=False,symbols=None,output=None,allow_missing=False):
+    symbols=symbols or json.loads((ROOT/'config/research-universe.json').read_text(encoding='utf8'))['eligible_symbols']
     out=ROOT/'data/value_fundamentals';out.mkdir(parents=True,exist_ok=True)
     halt=Event()
     def one(sym):
@@ -81,14 +81,16 @@ def collect(refresh=False):
     with ThreadPoolExecutor(max_workers=4) as pool:
         for n,future in enumerate(as_completed([pool.submit(one,s) for s in symbols]),1):
             s,row=future.result();result[s]=row
-            if n%10==0:print('Real dated annual statements:',n,'/146',flush=True)
-    if halt.is_set() or any(r['status'] in ('error','halted') for r in result.values()):
+            if n%10==0:print('Real dated annual statements:',n,'/',len(symbols),flush=True)
+    if halt.is_set() or (not allow_missing and any(r['status'] in ('error','halted') for r in result.values())):
         raise RuntimeError('Incomplete provider refresh; retained last verified bundle, no bypass')
     bundle=dict(asof=datetime.now(VN).isoformat(),source='Vietcap IQ financial-statement + metrics',universe=symbols,companies=result,availability_rule='max(publicDate, updateDate, createDate) + 1 calendar day; no inferred filing dates; snapshots lack original vintages; missing comparable nonfinancial fields excluded')
-    (out/'verified.json').write_text(json.dumps(bundle,ensure_ascii=False,allow_nan=False,separators=(',',':')),encoding='utf8')
+    target=Path(output) if output else out/'verified.json';target.parent.mkdir(parents=True,exist_ok=True)
+    target.write_text(json.dumps(bundle,ensure_ascii=False,allow_nan=False,separators=(',',':')),encoding='utf8')
     print('Usable annual reports:',sum(bool(r['reports']) for r in result.values()),'companies',flush=True)
     return bundle
 if __name__=='__main__':
     import argparse
-    parser=argparse.ArgumentParser();parser.add_argument('--refresh',action='store_true')
-    collect(parser.parse_args().refresh)
+    parser=argparse.ArgumentParser();parser.add_argument('--refresh',action='store_true');parser.add_argument('--config');parser.add_argument('--output');parser.add_argument('--allow-missing',action='store_true')
+    a=parser.parse_args();symbols=json.loads(Path(a.config).read_text(encoding='utf8'))['eligible_symbols'] if a.config else None
+    collect(a.refresh,symbols,a.output,a.allow_missing)

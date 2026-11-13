@@ -13,6 +13,8 @@ on:
       - site/expansion-audit.json
       - site/value-investing.json
       - site/value-intraday.json
+      - site/research-300.json
+      - site/pit-stocks/**
       - .github/workflows/pages-ui.yml
 permissions:
   contents: read
@@ -109,6 +111,29 @@ jobs:
           for mode in ('paper_minute','paper_combo'):
               assert set(paper[mode])=={'Buffett','Munger'}
           print('Verified six value books; real minute source and independent results')
+          PY
+      - name: Verify rolling 300 and same-method 146 controls
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          p=json.loads(Path('site/research-300.json').read_text())
+          cfg=json.loads(Path('config/research-300.json').read_text())
+          meta=json.loads(Path('config/market-classification.json').read_text())
+          assert p['revision']=='monthly300_study_v1' and p['mode']=='real_market_data' and p['status']=='complete'
+          assert p['target']==300 and p['sessions']==747 and len(p['months'])==37
+          assert p['union_symbols']==cfg['eligible_symbols'] and p['unique_symbols']==len(p['union_symbols'])
+          for row in p['months']:
+              assert len(row['members'])==len(set(row['members']))==300 and row['asof']<row['effective']
+              assert all(meta['listing'][s]['type']=='STOCK' for s in row['members'])
+          for cohort in p['cohorts'].values():
+              for key in ('backtests','minute_backtests','hybrid_backtests'):
+                  assert len(cohort[key])==13
+                  for b in cohort[key].values():
+                      assert b['sector_stats']['buy_fills']==b['buy_count'] and b['sector_stats']['sell_fills']==b['closed_trades']
+          assert p['frozen_146_snapshot_sha256']==hashlib.sha256(Path('site/research-146.json').read_bytes()).hexdigest()
+          assert p['fundamentals_source_sha256']==hashlib.sha256(Path('config/value-fundamentals-300.json').read_bytes()).hexdigest()
+          print('Verified 300 each month; real source stocks; both controls; paper kept separate')
           PY
       - uses: actions/configure-pages@v5
         with:
