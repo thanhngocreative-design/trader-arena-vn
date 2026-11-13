@@ -15,6 +15,7 @@ on:
       - site/value-intraday.json
       - site/research-300.json
       - site/paper-replay.json
+      - site/paper-fixed146.json
       - site/pit-stocks/**
       - .github/workflows/pages-ui.yml
 permissions:
@@ -137,7 +138,7 @@ jobs:
           assert p['fundamentals_source_sha256']==hashlib.sha256(Path('config/value-fundamentals-300.json').read_bytes()).hexdigest()
           print('Verified 300 each month; real source stocks; both controls; paper kept separate')
           PY
-      - name: Verify the shared replay protocol and all 39 paper accounts
+      - name: Verify the shared replay protocol and all 78 paper accounts
         run: |
           python - <<'PY'
           import json
@@ -147,6 +148,13 @@ jobs:
           assert p['revision']=='eod_replay_v1' and p['mode']=='real_market_data'
           for mode in ('paper','paper_minute','paper_combo'):
               assert len(p[mode])==13
+          fixed=json.loads(Path('site/paper-fixed146.json').read_text())
+          assert fixed['execution_revision']==p['execution_revision']
+          assert fixed['last_session']==p['last_session'] and fixed['season_start']==p['season_start']
+          assert fixed['target']==146 and len(set(fixed['members']))==146
+          assert set(fixed['members'])==set(json.loads(Path('config/research-universe.json').read_text())['eligible_symbols'])
+          for mode in ('paper','paper_minute','paper_combo'):
+              assert len(fixed[mode])==13
           PY
       - uses: actions/configure-pages@v5
         with:

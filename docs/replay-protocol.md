@@ -1,7 +1,8 @@
 # Monthly universe and six-book execution protocol
 
 Revision: `strict_next_candle_v1`. Thirteen bots each have three historical
-backtests and three independent EOD paper replay accounts.
+backtests and three independent EOD paper replay accounts in each of two
+universes: monthly top300 and fixed146 survivors (78 paper accounts total).
 
 ## Universe
 
@@ -49,7 +50,9 @@ the existing conservative NAV reserve remains separate from actual last price.
 ## Paper operation and recovery
 
 Paper replay starts 2026-11-13, with 100 million VND per bot per independent
-book. Old forward journals are retained byte-for-byte under
+book and universe. Monthly and fixed accounts never share cash, positions or
+trades. The fixed146 list is unchanged and retains its disclosed survivor
+selection bias; no new 164-name list is introduced. Old forward journals are retained byte-for-byte under
 `state/paper_archive/before-eod-replay-2026-11-13/` and are no longer advanced.
 They are not added to the new replay accounts. The original 146 and previous
 300 historical results also remain in the archive/Git history.
@@ -64,6 +67,16 @@ so future monthly ranking does not depend on current 300 membership. Minute
 data covers current and previously selected paper-season names, including
 potential retained holdings. New IPOs absent from that frozen catalog require
 an audited catalog update; this limitation is not silently hidden.
+
+After the monthly collector completes, `paper_fixed146.py` reuses those real
+inputs and banks any additional fixed146 minute tapes separately under
+`state/replay_market/fixed146-sessions/`. It never edits a frozen monthly wire
+reply to add a ticker. Independent full ledgers live in
+`state/paper_fixed146.json`; `site/paper-fixed146.json` publishes all 39 fixed
+accounts. The dashboard requires both universes to have the same season and
+last replayed session before comparing their performance. All six book views
+offer the fixed146 symbol-list dropdown; changing the universe switches all
+three paper books as well as historical books.
 
 The actual baseline daily histories and each collected session are compressed
 and retained in `state/replay_market/`, outside the public dashboard. Source

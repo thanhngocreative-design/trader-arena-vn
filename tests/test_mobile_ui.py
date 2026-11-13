@@ -46,7 +46,7 @@ def test_cross_basket_summary_rejects_missing_results_and_unobserved_paper(tmp_p
     functions='function summaryBasketSources'+html.split('function summaryBasketSources',1)[1].split('function graph(',1)[0]
     script=r'''
 const assert=require('node:assert/strict');
-let mode='backtest',period='ALL';const IDS=['A','B','C','D','E','F','G'];
+let mode='backtest',period='ALL',REPLAY_DATA=null,FIXED_REPLAY_DATA=null;const IDS=['A','B','C','D','E','F','G'];
 const STUDY_LABELS={'300':'Monthly','146':'Fixed'},MODE_LABEL={backtest:'Day',paper:'Paper'},SHORT={};
 const DATA={traders:{},backtest_options:[{key:'ALL',label:'All'}],paper_contest_start:'2026-11-13'};
 const book=(ret,dd=-10)=>({return_pct:ret,max_drawdown_pct:dd,buy_count:2,closed_trades:1,history:[]});
@@ -71,10 +71,13 @@ period='3M';assert.equal(summaryBotRanking().rows.length,0);
 period='ALL';for(const cohort of ['300','146'])for(const b of IDS)PIT_DATA.cohorts[cohort].backtest_periods.ALL[b].return_pct=0;
 assert.ok(crossBasketSummary().includes('đồng hạng'));assert.ok(!crossBasketSummary().includes('data-summary-bot='));
 mode='paper';DATA.paper=books();
-assert.equal(summaryBotRanking().sources.length,1);assert.equal(summaryBotRanking().rows.length,0);
+REPLAY_DATA={paper:DATA.paper};FIXED_REPLAY_DATA={paper:books()};
+assert.equal(summaryBotRanking().sources.length,2);assert.equal(summaryBotRanking().rows.length,0);
 assert.ok(crossBasketSummary().includes('Paper đang chờ phiên replay'));
 for(const b of IDS)DATA.paper[b].history=[{date:'2026-11-13',nav:100000000}];
-assert.equal(summaryBotRanking().rows.length,7);assert.ok(crossBasketSummary().includes('chưa có tài khoản paper cho Rổ cố định'));
+assert.equal(summaryBotRanking().rows.length,0);
+for(const b of IDS)FIXED_REPLAY_DATA.paper[b].history=[{date:'2026-11-13',nav:100000000}];
+assert.equal(summaryBotRanking().rows.length,7);assert.ok(!crossBasketSummary().includes('chưa có tài khoản paper cho Rổ cố định'));
 '''
     path=tmp_path/'summary.cjs';path.write_text(script,encoding='utf8')
     result=subprocess.run([node,str(path)],capture_output=True,text=True,encoding='utf8')
@@ -133,11 +136,12 @@ assert.ok(elements.sectorContent.innerHTML.includes('Độ phủ mẫu 300 mã')
 assert.equal(sectorBookStats('hybrid','Munger').buy_fills,PIT_DATA.cohorts['300'].hybrid_backtests.Munger.buy_count);
 stockStudy=true;stockSymbol='SJF';PIT_STOCKS.SJF=JSON.parse(fs.readFileSync(path.join(root,'pit-stocks/SJF.json'),'utf8'));
 assert.equal(stockBars().at(-1)[0],'2023-11-10');
-REPLAY_DATA=JSON.parse(fs.readFileSync(path.join(root,'paper-replay.json'),'utf8'));applyReplayData();
+REPLAY_DATA=JSON.parse(fs.readFileSync(path.join(root,'paper-replay.json'),'utf8'));
+FIXED_REPLAY_DATA=JSON.parse(fs.readFileSync(path.join(root,'paper-fixed146.json'),'utf8'));applyReplayData();
 for(const modeId of ['paper','paper_minute','paper_combo']){
   mode=modeId;assert.equal(activeKeys().length,13);
   for(const bot of IDS)assert.equal(part(bot),REPLAY_DATA[modeId][bot]);
-  assert.equal(summaryBotRanking().sources.length,1);
+  assert.equal(summaryBotRanking().sources.length,2);
   if(REPLAY_DATA.status==='waiting_completed_session'){
     assert.equal(summaryBotRanking().rows.length,0);assert.ok(!crossBasketSummary().includes('data-summary-bot='));
     assert.ok(crossBasketSummary().includes('Paper đang chờ phiên replay'));
@@ -147,6 +151,18 @@ for(const modeId of ['paper','paper_minute','paper_combo']){
 const replayBooks=JSON.stringify(DATA.paper);
 applyValueData();applyValueIntraday();assert.equal(JSON.stringify(DATA.paper),replayBooks);
 assert.equal(REPLAY_DATA.execution_revision,'strict_next_candle_v1');
+const monthlyBefore=JSON.stringify(REPLAY_DATA),fixedBefore=JSON.stringify(FIXED_REPLAY_DATA);
+for(const cohort of ['146','300','146']){
+  setStudy(cohort);const source=cohort==='146'?FIXED_REPLAY_DATA:REPLAY_DATA;
+  for(const m of ['paper','paper_minute','paper_combo']){
+    mode=m;for(const bot of IDS)assert.equal(part(bot),source[m][bot]);
+    assert.equal(summaryBotRanking().sources.length,2);
+  }
+}
+assert.equal(JSON.stringify(REPLAY_DATA),monthlyBefore);assert.equal(JSON.stringify(FIXED_REPLAY_DATA),fixedBefore);
+const fixedList=studyPicker();assert.ok(fixedList.includes('Xem danh sách 146 mã'));
+assert.equal((fixedList.match(/class="tickerbtn"/g)||[]).length,146);
+assert.ok(fixedList.includes('CHP'));assert.ok(fixedList.includes('TCL'));
 assert.ok(renderBookComparison('Buffett').includes('cùng quy tắc khớp nến kế tiếp'));
 '''
     p=tmp_path/'pit-ui.cjs';p.write_text(script,encoding='utf8')
@@ -245,7 +261,7 @@ def test_six_book_comparison_uses_distinct_sources_and_handles_missing_data(tmp_
     if not node: pytest.skip('Node.js unavailable')
     html=SITE.read_text(encoding='utf8')
     functions='function comparisonBooks'+html.split('function comparisonBooks',1)[1].split('function renderBots()',1)[0]
-    script="const historicalSource=()=>DATA,activeStudy=()=> 'legacy',studyPicker=()=>'',studyLabel=()=> '146 mã cũ';\n"+functions+'''
+    script="const historicalSource=()=>DATA,activeStudy=()=> 'legacy',studyPicker=()=>'',studyLabel=()=> '146 mã cũ',paperSource=()=>null;\n"+functions+'''
 const assert=require('node:assert/strict');
 const value=n=>({nav:n,return_pct:n-100,buy_count:n,closed_trades:0,max_drawdown_pct:null,history:[]});
 const DATA={capital_each:100,paper_minute:{Bot:value(101)},paper:{Bot:value(102)},paper_combo:{Bot:value(103)},minute_backtests:{Bot:value(104)},backtests:{Bot:value(105)},hybrid_backtests:{Bot:value(106)},backtest_periods:{'3M':{Bot:value(999)}}};
@@ -271,7 +287,7 @@ def test_sector_filters_use_buy_turnover_and_distinguish_missing_from_empty(tmp_
     if not node:pytest.skip('Node.js unavailable')
     html=SITE.read_text(encoding='utf8')
     functions='function sectorBookStats'+html.split('function sectorBookStats',1)[1].split('function render(){',1)[0]
-    script="const historicalSource=()=>DATA,activeStudy=()=> 'legacy',studyPicker=()=>'',studyLabel=()=> '146 mã cũ';\n"+functions+'''
+    script="const historicalSource=()=>DATA,activeStudy=()=> 'legacy',studyPicker=()=>'',studyLabel=()=> '146 mã cũ',paperSource=()=>null;\n"+functions+'''
 const assert=require('node:assert/strict');
 const stats={outside_146_fills:0,buy_fills:4,buy_value:100,sectors:[{icb_code:'A',sector:'Ngành A',buy_fills:3,sell_fills:8,buy_value:30,realized_pnl:-10,symbols:['AAA']},{icb_code:'B',sector:'Ngành B',buy_fills:1,sell_fills:0,buy_value:70,realized_pnl:0,symbols:['BBB']}]};
 let sectorMode='backtest_minute',sectorMetric='value',sectorBot='ALL',sectorRefreshError='';

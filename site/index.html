@@ -231,31 +231,34 @@ let liveApiBase='',livePoll=null;
 let hybridBankProgress=null;
 const BOT_POSITION_LIMITS={Minervini:6,ONeil:7,Darvas:5,BNF:3,CIS:3,Qullamaggie:5,Unger:8,ThaiPham:6,DuongChung:4,PThai:8,Hybrid:6,Buffett:6,Munger:4};
 let VALUE_DATA=null,VALUE_INTRADAY=null,PIT_DATA=null,study='300',studyMonth=null,studyListOpen=false;
-let REPLAY_DATA=null;
+let REPLAY_DATA=null,FIXED_REPLAY_DATA=null;
+function paperSource(){return study==='146'?FIXED_REPLAY_DATA:REPLAY_DATA;}
 function applyReplayData(){
-  if(!REPLAY_DATA)return;
-  for(const key of ['paper','paper_minute','paper_combo'])DATA[key]={...REPLAY_DATA[key]};
-  DATA.paper_contest_start=REPLAY_DATA.season_start;
-  DATA.intraday_paper_status={...REPLAY_DATA,last_observed_at:REPLAY_DATA.last_session?REPLAY_DATA.last_session+'T16:00:00+07:00':null};
+  const p=paperSource();if(!p)return;
+  for(const key of ['paper','paper_minute','paper_combo'])DATA[key]={...p[key]};
+  DATA.paper_contest_start=p.season_start;
+  DATA.intraday_paper_status={...p,last_observed_at:p.last_session?p.last_session+'T16:00:00+07:00':null};
 }
 async function loadReplayData(){
-  const r=await fetch('./paper-replay.json?v='+Date.now(),{cache:'no-store'});
-  if(!r.ok)throw new Error('Chưa tải được paper replay');
-  const p=await r.json();
-  if(p.revision!=='eod_replay_v1'||p.execution_revision!=='strict_next_candle_v1'||!['paper','paper_minute','paper_combo'].every(m=>Object.keys(p[m]||{}).length===13))throw new Error('Paper replay chưa được xác minh');
-  if(REPLAY_DATA?.last_session!==p.last_session)REPLAY_STOCKS={};
-  REPLAY_DATA=p;applyReplayData();
+  const readPaper=async(file,target)=>{
+    const r=await fetch(file+'?v='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('Chưa tải được paper replay '+target);
+    const p=await r.json();if(p.revision!=='eod_replay_v1'||p.execution_revision!=='strict_next_candle_v1'||p.target!==target||p.members?.length!==target||!['paper','paper_minute','paper_combo'].every(m=>Object.keys(p[m]||{}).length===13))throw new Error('Paper replay chưa được xác minh');return p;
+  };
+  const [p,fixed]=await Promise.all([readPaper('./paper-replay.json',300),readPaper('./paper-fixed146.json',146)]);
+  if(p.season_start!==fixed.season_start||p.last_session!==fixed.last_session)throw new Error('Hai rổ paper chưa đồng bộ phiên');
+  if(REPLAY_DATA?.last_session!==p.last_session||FIXED_REPLAY_DATA?.last_session!==fixed.last_session)REPLAY_STOCKS={};
+  REPLAY_DATA=p;FIXED_REPLAY_DATA=fixed;applyReplayData();
 }
 function historicalSource(){return study!=='legacy'&&PIT_DATA?.cohorts?.[study]||DATA;}
 function activeStudy(){return study!=='legacy'&&PIT_DATA?.cohorts?.[study]?study:'legacy';}
 const STUDY_LABELS={'300':'Rổ tháng · tối đa 300 mã','146':'Rổ cố định · 146 mã sống sót'};
 function studyLabel(){return STUDY_LABELS[activeStudy()]||'Chưa tải được rổ';}
-function setStudy(id){if(!['300','146'].includes(id)||!PIT_DATA)return;study=id;render();}
+function setStudy(id){if(!['300','146'].includes(id)||!PIT_DATA)return;study=id;applyReplayData();render();}
 function studyPicker(){
   if(!PIT_DATA)return '';
   const selectedMonth=PIT_DATA.months.find(m=>m.month===studyMonth)||PIT_DATA.months[PIT_DATA.months.length-1];
-  const membership=activeStudy()==='300'?`<details ${studyListOpen?'open':''}><summary class="note" onclick="studyListOpen=!this.parentElement.open">Kiểm tra danh sách từng tháng</summary><label class="note">Kỳ chọn <select aria-label="Kỳ chọn 300 mã" onchange="studyMonth=this.value;studyListOpen=true;render()" style="max-width:100%;margin:8px 0;padding:8px">${PIT_DATA.months.map(m=>`<option value="${m.month}" ${m.month===selectedMonth.month?'selected':''}>${m.month}</option>`).join('')}</select></label><p class="note">Chốt dữ liệu: ${safe(selectedMonth.asof)} · áp dụng: ${safe(selectedMonth.effective)}. ${selectedMonth.eligible_count} mã đạt điều kiện lịch sử trước kỳ; lấy 300 theo thanh khoản đã quan sát.</p><p class="note">${selectedMonth.members.map(s=>`<button class="tickerbtn" onclick="openStock('${s}',true)">${s}</button>`).join(' ')}</p></details>`:'';
-  return `<div class="card soft"><strong>Rổ cổ phiếu</strong><div class="chips" style="margin:10px 0">${['300','146'].map(id=>`<button class="chip ${activeStudy()===id?'active':''}" onclick="setStudy('${id}')">${STUDY_LABELS[id]}</button>`).join('')}</div><p class="note">${activeStudy()==='300'?'Chọn lại tối đa 300 mã mỗi tháng bằng dữ liệu đã có trước kỳ, không yêu cầu mã sống sót đến cuối ba năm. '+PIT_DATA.unique_symbols+' mã từng xuất hiện; '+PIT_DATA.retained_delisted_in_research.length+' mã hiện được nguồn xếp vào nhóm hủy niêm yết.':'Giữ nguyên 146 mã trong toàn bộ kỳ thử, được chọn vì có dữ liệu liên tục suốt ba năm nên vẫn có sai lệch chọn mã sống sót. Dùng cùng nguồn giá và phương pháp với Rổ tháng, gồm khớp đúng nến kế tiếp.'}</p><p class="note">Ba sổ paper dùng Rổ tháng. Lựa chọn ở đây chỉ đổi rổ backtest đang xem.</p>${membership}</div>`;
+  const membership=activeStudy()==='300'?`<details ${studyListOpen?'open':''}><summary class="note" onclick="studyListOpen=!this.parentElement.open">Kiểm tra danh sách từng tháng</summary><label class="note">Kỳ chọn <select aria-label="Kỳ chọn 300 mã" onchange="studyMonth=this.value;studyListOpen=true;render()" style="max-width:100%;margin:8px 0;padding:8px">${PIT_DATA.months.map(m=>`<option value="${m.month}" ${m.month===selectedMonth.month?'selected':''}>${m.month}</option>`).join('')}</select></label><p class="note">Chốt dữ liệu: ${safe(selectedMonth.asof)} · áp dụng: ${safe(selectedMonth.effective)}. ${selectedMonth.eligible_count} mã đạt điều kiện lịch sử trước kỳ; lấy 300 theo thanh khoản đã quan sát.</p><p class="note">${selectedMonth.members.map(s=>`<button class="tickerbtn" onclick="openStock('${s}',true)">${s}</button>`).join(' ')}</p></details>`:`<details ${studyListOpen?'open':''}><summary class="note" onclick="studyListOpen=!this.parentElement.open">Xem danh sách 146 mã</summary><p class="note">Rổ cố định gồm đúng 146 mã sống sót; danh sách giữ nguyên giữa các phiên và dùng cho cả paper lẫn backtest.</p><p class="note">${[...(PIT_DATA.cohorts['146'].universe||[])].sort().map(s=>`<button class="tickerbtn" onclick="openStock('${s}',!isPaper())">${s}</button>`).join(' ')}</p></details>`;
+  return `<div class="card soft"><strong>Rổ cổ phiếu</strong><div class="chips" style="margin:10px 0">${['300','146'].map(id=>`<button class="chip ${activeStudy()===id?'active':''}" onclick="setStudy('${id}')">${STUDY_LABELS[id]}</button>`).join('')}</div><p class="note">${activeStudy()==='300'?'Chọn lại tối đa 300 mã mỗi tháng bằng dữ liệu đã có trước kỳ, không yêu cầu mã sống sót đến cuối ba năm. '+PIT_DATA.unique_symbols+' mã từng xuất hiện; '+PIT_DATA.retained_delisted_in_research.length+' mã hiện được nguồn xếp vào nhóm hủy niêm yết.':'Giữ nguyên 146 mã trong toàn bộ kỳ thử, được chọn vì có dữ liệu liên tục suốt ba năm nên vẫn có sai lệch chọn mã sống sót. Dùng cùng nguồn giá và phương pháp với Rổ tháng, gồm khớp đúng nến kế tiếp.'}</p><p class="note">Mỗi rổ có ba tài khoản paper riêng cho từng bot, cùng bắt đầu mùa 13/11/2026. Lựa chọn rổ áp dụng cho cả paper và backtest đang xem.</p>${membership}</div>`;
 }
 async function loadPITData(){
   const r=await fetch('./research-300.json?v='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('Nghiên cứu chưa tải được');
@@ -301,8 +304,8 @@ const chartRanges={ '1M':22,'3M':66,'6M':132,'1Y':252,'3Y':780 };
 async function openStock(symbol,studySource=false){
   if(!/^[A-Z0-9]{2,7}$/.test(String(symbol)))return;
   stockSymbol=symbol;stockWindow='3M';stockSelectedBar=null;
-  stockReplay=!studySource&&isPaper()&&!!REPLAY_DATA?.last_session;
-  stockStudy=studySource||(!isPaper()&&activeStudy()!=='legacy')||(isPaper()&&!!REPLAY_DATA&&!stockReplay);
+  stockReplay=!studySource&&isPaper()&&!!paperSource()?.last_session;
+  stockStudy=studySource||(!isPaper()&&activeStudy()!=='legacy')||(isPaper()&&!!paperSource()&&!stockReplay);
   if(!DATA.stocks)DATA.stocks={};const cache=stockReplay?REPLAY_STOCKS:stockStudy?PIT_STOCKS:DATA.stocks;
   $('stockOverlay').classList.add('on');document.body.style.overflow='hidden';
   if(!DATA.stocks)DATA.stocks={};
@@ -312,7 +315,7 @@ async function openStock(symbol,studySource=false){
     $('stockGraph').innerHTML='';
     $('stockCursor').textContent='';
     try{
-      const response=await fetch((stockReplay?'./replay-stocks/':stockStudy?'./pit-stocks/':'./stocks/')+encodeURIComponent(symbol)+'.json'+(stockReplay?'?v='+REPLAY_DATA.last_session:''),{cache:'force-cache'});
+      const response=await fetch((stockReplay?'./replay-stocks/':stockStudy?'./pit-stocks/':'./stocks/')+encodeURIComponent(symbol)+'.json'+(stockReplay?'?v='+paperSource().last_session:''),{cache:'force-cache'});
       if(!response.ok)throw new Error('Not found');
       const bars=await response.json();
       if(!Array.isArray(bars)||!bars.length)throw new Error('Invalid candles');
@@ -432,7 +435,7 @@ function rankExtra(k){
 function setTradeFilter(v){tradeFilter=v;renderTrades()}
 function setRegionFilter(r){regionFilter=r;const keys=IDS.filter(k=>r==='ALL'||DATA.traders?.[k]?.region===r);if(keys.length&&!keys.includes(selected))selected=keys[0];render()}
 function summaryBasketSources(){
-  if(isPaper())return [{id:'300',label:STUDY_LABELS['300'],books:DATA[mode]||{}}];
+  if(isPaper())return Object.entries(STUDY_LABELS).map(([id,label])=>({id,label,books:(id==='300'?REPLAY_DATA:FIXED_REPLAY_DATA)?.[mode]||{}}));
   const key={backtest:'backtests',backtest_minute:'minute_backtests',hybrid:'hybrid_backtests'}[mode];
   return Object.entries(STUDY_LABELS).map(([id,label])=>{
     const cohort=PIT_DATA?.cohorts?.[id];
@@ -461,7 +464,7 @@ function crossBasketSummary(){
   const span=isPaper()?'Mùa từ '+(DATA.paper_contest_start||'—'):mode==='backtest'?(option?.label||period):'Toàn bộ 3 năm';
   const header=`<div class="card"><h2>🧭 Tổng kết qua các rổ · ${safe(MODE_LABEL[mode])}</h2><p class="note">${safe(span)}. Xét toàn bộ bot của sổ này, độc lập với rổ đang mở và bộ lọc theo dõi cá nhân.</p>`;
   const scope=`<p class="note">${sources.length} rổ: ${sources.map(s=>safe(s.label)).join(' · ')}.</p>`;
-  const paperNote=isPaper()?'<p class="note">Paper hiện chỉ có Rổ tháng; chưa có tài khoản paper cho Rổ cố định. Không lấy backtest để điền vào paper.</p>':'';
+  const paperNote=isPaper()&&sources.length===1?'<p class="note">Paper hiện chỉ có Rổ tháng; chưa có tài khoản paper cho Rổ cố định. Không lấy backtest để điền vào paper.</p>':'';
   if(!rows.length)return header+scope+paperNote+'<div class="empty">Chưa có đủ kết quả đã ghi nhận để xếp top 3 và nhóm kém nhất.'+(isPaper()?' Paper đang chờ phiên replay có NAV được xác minh.':' Mỗi bot cần kết quả ở đủ các rổ trong cùng khoảng thời gian.')+'</div></div>';
   if(rows.length<6)return header+scope+paperNote+`<div class="empty">Mới có ${rows.length} bot đủ dữ liệu. Cần ít nhất 6 bot để tách hai nhóm top 3 không trùng nhau.</div></div>`;
   if(rows.every(r=>Math.abs(r.score-rows[0].score)<1e-10))return header+scope+paperNote+`<div class="empty">${rows.length} bot đang đồng hạng ở ${pct(rows[0].score)} lợi nhuận trung bình. Chưa phân biệt được nhóm tốt nhất và kém nhất.</div></div>`;
@@ -477,11 +480,12 @@ function graph(svg,series,showIndex){
   svg.innerHTML='<path class="gridline" d="M10 25 H350 M10 86 H350 M10 145 H350"></path>'+(showIndex?'<path class="index" d="'+path(b)+'"></path>':'')+'<path class="series" d="'+path(a)+'"></path>';
 }
 function renderHome(){
-  if(REPLAY_DATA){
-    $('dateLabel').textContent=isPaper()?(REPLAY_DATA.last_session?'Paper replay: '+REPLAY_DATA.last_session:'Chờ paper sau phiên '+REPLAY_DATA.season_start):'Lịch sử: '+DATA.last_session;
-    $('dataNotice').textContent=isPaper()?(REPLAY_DATA.last_session?'📡 Paper đã replay đến '+REPLAY_DATA.last_session+'.':'📡 Paper đang chờ phiên hoàn tất từ '+REPLAY_DATA.season_start+'.')+' Tài khoản và lệnh đều là mô phỏng.':'📡 Backtest dùng dữ liệu lịch sử đến '+DATA.last_session+'. Tài khoản và lệnh đều là mô phỏng.';
+  const replay=paperSource();
+  if(replay){
+    $('dateLabel').textContent=isPaper()?(replay.last_session?'Paper replay: '+replay.last_session:'Chờ paper sau phiên '+replay.season_start):'Lịch sử: '+DATA.last_session;
+    $('dataNotice').textContent=isPaper()?(replay.last_session?'📡 Paper đã replay đến '+replay.last_session+'.':'📡 Paper đang chờ phiên hoàn tất từ '+replay.season_start+'.')+' Tài khoản và lệnh đều là mô phỏng.':'📡 Backtest dùng dữ liệu lịch sử đến '+DATA.last_session+'. Tài khoản và lệnh đều là mô phỏng.';
   }
-  $('studyControls').innerHTML=isPaper()?'':studyPicker();
+  $('studyControls').innerHTML=studyPicker();
   $('backtestTimePicker').style.display=mode==='backtest'?'block':'none';
   const meta=DATA.research_meta;
   let researchNote=document.getElementById('research146Note');
@@ -560,11 +564,11 @@ function renderHome(){
     $('universeNotice').textContent=DATA.paper_contest_start?'Mùa paper mới: cả 3 chế độ bắt đầu ngày '+DATA.paper_contest_start.split('-').reverse().join('/')+', mỗi bot 100 triệu đồng. Lịch sử trước reset được lưu riêng.':'Sổ paper riêng. Chỉ ghi nhận giao dịch từ nến mới thực nhận.';
     if(!p.last_observed_at)$('simpleMessage').textContent='Đã mở sổ, chưa có giao dịch mới. Chờ phiên giao dịch tiếp theo và dữ liệu phút đủ mới.';
   }
-  if(isPaper()&&REPLAY_DATA){
-    const p=REPLAY_DATA,done=!!p.last_session;
+  if(isPaper()&&replay){
+    const p=replay,done=!!p.last_session;
     $('modePill').textContent=({'paper':'Paper ngày','paper_minute':'Paper phút','paper_combo':'Paper ngày + phút'})[mode]+' · Replay cuối ngày';
     $('marketDay').textContent=done?'Đã replay phiên '+p.last_session:'Chờ hoàn tất phiên '+p.season_start;
-    $('universeNotice').textContent='Paper replay cuối ngày · 300 mã mỗi tháng · mùa từ '+p.season_start+'. Sổ forward cũ đã lưu riêng; giao dịch cũ không được cộng lại.';
+    $('universeNotice').textContent='Paper replay cuối ngày · '+studyLabel()+' · mùa từ '+p.season_start+'. Sổ forward cũ đã lưu riêng; giao dịch cũ không được cộng lại.';
     $('hybridCoverage').textContent=done?'Đã kiểm tra và replay '+p.sessions.length+' phiên đến '+p.last_session+'. Khoảng trống và nến bị loại được công bố trong dữ liệu phiên.':'Chưa có phiên hoàn tất từ ngày bắt đầu mùa. Vốn khởi tạo 100 triệu/bot/sổ; chưa có kết quả giao dịch.';
     if(!done)$('simpleMessage').textContent='Chờ dữ liệu sau phiên; không dùng nến đang chạy để tạo kết quả paper.';
   }
@@ -692,8 +696,9 @@ function renderSectors(){
   const target=$('sectorContent');if(!target)return;
   if(!SECTOR_DATA){target.innerHTML='<div class="card empty">Chưa tải được phân ngành đã xác minh. Hãy tải lại trang.</div>';return;}
   const useStudy=!['paper','paper_minute','paper_combo'].includes(sectorMode)&&activeStudy()!=='legacy';
-  const useReplay=typeof REPLAY_DATA!=='undefined'&&['paper','paper_minute','paper_combo'].includes(sectorMode)&&REPLAY_DATA?.sector_universe;
-  const d=useReplay?{...SECTOR_DATA,universe:REPLAY_DATA.sector_universe,universe_count:300}:useStudy?{...SECTOR_DATA,universe:PIT_DATA.sector_universes[activeStudy()],universe_count:activeStudy()==='300'?300:146}:SECTOR_DATA,shortDate=x=>String(x||'').slice(0,10).split('-').reverse().join('/');
+  const replay=paperSource();
+  const useReplay=['paper','paper_minute','paper_combo'].includes(sectorMode)&&replay?.sector_universe;
+  const d=useReplay?{...SECTOR_DATA,universe:replay.sector_universe,universe_count:replay.target}:useStudy?{...SECTOR_DATA,universe:PIT_DATA.sector_universes[activeStudy()],universe_count:activeStudy()==='300'?300:146}:SECTOR_DATA,shortDate=x=>String(x||'').slice(0,10).split('-').reverse().join('/');
   const missing=d.universe.filter(g=>!g.count&&g.market_count),present=d.universe.filter(g=>g.count).length;
   const sectorIds=IDS.filter(k=>!DATA.traders?.[k]?.supported_modes||DATA.traders[k].supported_modes.includes(sectorMode));
   if(sectorBot!=='ALL'&&!sectorIds.includes(sectorBot))sectorBot='ALL';
@@ -824,6 +829,7 @@ async function boot(){
   const requestedStudy=new URLSearchParams(location.search).get('study');
   if(['300','146'].includes(requestedStudy))study=requestedStudy;
   else if(requestedStudy==='legacy')study='146'; // Old links open the current fixed basket.
+  applyReplayData();
   const requested=new URLSearchParams(location.search).get('mode');
   if(MODE_ID[requested])setMode(requested);else if(requested==='minute')setMode('hybrid');
   setInterval(async()=>{try{await loadReplayData();}catch(_){}if(isPaper()||page==='bots'||page==='sectors')render();},60000);
