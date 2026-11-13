@@ -8,6 +8,36 @@ import pytest
 
 SITE = Path(__file__).resolve().parents[1] / "site" / "index.html"
 
+def test_expanded_bot_chart_uses_its_own_book_and_real_recorded_nav(tmp_path):
+    """Temporary account metrics only; no synthetic market output is published."""
+    node=shutil.which('node')
+    if not node:pytest.skip('Node.js unavailable')
+    html=SITE.read_text(encoding='utf8')
+    assert 'id="mainChart"' not in html
+    functions='function botChartData'+html.split('function botChartData',1)[1].split('function rankExtra(',1)[0]
+    script=r'''
+const assert=require('node:assert/strict');
+let mode='backtest',period='ALL',selected='A';
+const DATA={capital_each:100000000,backtest_options:[{key:'ALL',label:'3 years'}]},SHORT={A:'Alpha',B:'Beta'},MODE_LABEL={backtest:'Day',paper:'Paper'};
+const BOOKS={A:{return_pct:2,curve:[{date:'2026-11-12',bot:2,index:1}]},B:{return_pct:-3,curve:[{date:'2026-11-12',bot:-3,index:4}]}};
+const part=k=>BOOKS[k],isPaper=()=>mode==='paper',studyLabel=()=> 'Fixed',safe=x=>String(x??''),pct=x=>x+'%',color=x=>x>=0?'green':'red';
+'''+functions+r'''
+assert.deepEqual(botChartData('B').series,BOOKS.B.curve);assert.equal(botChartData('B').showIndex,true);
+assert.ok(rankChartMarkup('B').includes('id="rankChart-B"'));assert.ok(!rankChartMarkup('B').includes('rankChart-A'));
+assert.ok(rankChartMarkup('B').includes('Beta Bot'));
+mode='paper';BOOKS.B={return_pct:-10,curve:[],history:[{date:'2026-11-12',nav:90000000},{date:'2026-11-13',nav:null},{date:'2026-11-16',return_pct:0}]};
+const chart=botChartData('B');assert.equal(chart.series.length,2);assert.ok(Math.abs(chart.series[0].bot+10)<1e-9);assert.equal(chart.series[1].bot,0);assert.equal(chart.showIndex,false);
+delete DATA.capital_each;assert.equal(botChartData('B').series.length,1);
+BOOKS.B.history=[];BOOKS.B.curve=[{date:'2026-11-12',bot:999,index:1}];assert.deepEqual(botChartData('B').series,[]);
+assert.ok(rankChartMarkup('B').includes('Chưa có dữ liệu đã ghi nhận'));
+BOOKS.B.history=[{date:'2026-11-12',nav:90000000}];BOOKS.B.curve=[{date:'2026-11-12',bot:-10,index:2}];
+assert.equal(botChartData('B').showIndex,true);
+'''
+    path=tmp_path/'bot-chart.cjs';path.write_text(script,encoding='utf8')
+    result=subprocess.run([node,str(path)],capture_output=True,text=True,encoding='utf8')
+    assert result.returncode==0,result.stderr
+
+
 def test_cross_basket_summary_rejects_missing_results_and_unobserved_paper(tmp_path):
     """Synthetic summary metrics stay in temporary tests, never market outputs."""
     node=shutil.which('node')
@@ -85,6 +115,9 @@ for(const [m,key] of [['backtest','backtests'],['backtest_minute','minute_backte
   const scores=ranking.rows.map(r=>[r.bot,r.score]);study='146';hiddenBots={Minervini:true};regionFilter='VN';
   assert.deepEqual(summaryBotRanking().rows.map(r=>[r.bot,r.score]),scores);
   const html=crossBasketSummary();assert.equal((html.match(/data-summary-bot=/g)||[]).length,6);
+  assert.ok(html.includes('🧭 Tổng kết qua các rổ · '+MODE_LABEL[mode]));
+  for(const row of ranking.rows)assert.deepEqual(botChartData(row.bot).series,PIT_DATA.cohorts[study][key][row.bot].curve);
+  selected='Minervini';assert.ok(rankExtra('Darvas').includes('id="rankChart-Darvas"'));
 }
 mode='backtest';period='3M';
 for(const r of summaryBotRanking().rows)assert.equal(r.score,(PIT_DATA.cohorts['300'].backtest_periods['3M'][r.bot].return_pct+PIT_DATA.cohorts['146'].backtest_periods['3M'][r.bot].return_pct)/2);
@@ -108,6 +141,7 @@ for(const modeId of ['paper','paper_minute','paper_combo']){
   if(REPLAY_DATA.status==='waiting_completed_session'){
     assert.equal(summaryBotRanking().rows.length,0);assert.ok(!crossBasketSummary().includes('data-summary-bot='));
     assert.ok(crossBasketSummary().includes('Paper đang chờ phiên replay'));
+    for(const bot of IDS)assert.equal(botChartData(bot).series.length,0);
   }
 }
 const replayBooks=JSON.stringify(DATA.paper);

@@ -138,8 +138,6 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
   <div class="scroll-chip" id="regionChips" aria-label="Chọn khu vực trader"></div>
   <div id="leaderboard" style="margin-top:10px"></div>
   <section id="crossBasketSummary" class="basket-summary" aria-label="Tổng kết bot qua các rổ"></section>
-  <div class="section-title"><h2>📈 Ai thắng thị trường?</h2><span class="hint" id="plotTime">Kết quả %</span></div>
-  <div class="card"><div class="row"><div style="font-weight:790" id="chartTitle">Biểu đồ tăng trưởng</div><span class="pill" id="chartResult">—</span></div><div class="plot-wrap"><svg class="plot" id="mainChart" viewBox="0 0 360 160" aria-label="Biểu đồ hiệu suất"></svg><div class="legend"><span><i class="dot"></i>Bot</span><span id="legendIndex"><i class="dot index"></i>VN-Index</span></div></div><p class="note" id="chartNote" style="margin-top:10px"></p></div>
   <div class="section-title"><h2>📊 Bấm vào mã cổ phiếu</h2><span class="hint">Giá &amp; khối lượng thật</span></div>
   <div class="scroll-chip" id="stockShortcuts" style="margin-bottom:12px"></div>
   <div class="card soft"><div class="row"><strong>💡 Nói đơn giản</strong><span class="pill">Lớp 5</span></div><p class="note" id="simpleMessage" style="margin-top:8px"></p></div>
@@ -385,6 +383,24 @@ function botFrame(k){
   return DATA.bot_timeframes?.[mode]?.bots?.[k]||{label:'Chưa rõ khung',priority:'',detail:'Chưa có mô tả khung giao dịch được xác minh.'};
 }
 function frameBadge(k){const f=botFrame(k);return safe(f.label)+(mode==='hybrid'&&f.priority==='phút'?' · ưu tiên phút':'');}
+function botChartData(k){
+  const b=part(k),numeric=x=>typeof x==='number'&&Number.isFinite(x);
+  if(!b||(isPaper()&&!b.history?.length))return {series:[],showIndex:false};
+  let series=(b.curve||[]).filter(x=>numeric(x.bot));
+  if(isPaper()&&!series.length){
+    series=(b.history||[]).flatMap(x=>{
+      const value=numeric(x.return_pct)?x.return_pct:numeric(x.nav)&&numeric(DATA.capital_each)&&DATA.capital_each>0?(x.nav/DATA.capital_each-1)*100:null;
+      return value===null?[]:[{date:x.date,bot:value}];
+    });
+  }
+  return {series,showIndex:series.length>0&&series.every(x=>numeric(x.index))};
+}
+function rankChartMarkup(k){
+  const b=part(k),data=botChartData(k),option=DATA.backtest_options?.find(x=>x.key===period);
+  const scope=isPaper()?'Mùa từ '+(DATA.paper_contest_start||'—'):studyLabel()+' · '+(mode==='backtest'?(option?.label||period):'3 năm');
+  const note=!data.series.length?'Chưa có dữ liệu đã ghi nhận để vẽ biểu đồ.':data.showIndex?'Hiệu suất bot và VN-Index trong cùng khoảng thời gian; đường chỉ số không tính chi phí giao dịch của bot.':'Hiệu suất bot từ NAV đã ghi nhận; chưa có đường VN-Index cùng kỳ để đối chiếu.';
+  return `<section class="rank-chart" aria-label="Biểu đồ hiệu suất ${safe(SHORT[k]||k)}"><h3 style="font-size:15px;margin:15px 0 10px">📈 Ai đang thắng thị trường?</h3><div class="row"><strong style="font-size:13px">${safe(SHORT[k]||k)} Bot</strong><span class="pill ${color(b.return_pct)}">${pct(b.return_pct)}</span></div><p class="note" style="margin-top:7px">${safe(MODE_LABEL[mode])} · ${safe(scope)}</p><div class="plot-wrap"><svg class="plot" id="rankChart-${k}" viewBox="0 0 360 160" role="img" aria-label="Biểu đồ ${safe(SHORT[k]||k)} · ${safe(MODE_LABEL[mode])}"></svg><div class="legend"><span><i class="dot"></i>Bot</span>${data.showIndex?'<span><i class="dot index"></i>VN-Index</span>':''}</div></div><p class="note" style="margin-top:8px">${note}${b.valuation_audit?' NAV có áp dụng dự phòng khi thiếu giá; xem định giá trong hồ sơ bot.':''}</p></section>`;
+}
 function rankExtra(k){
   const b=part(k);
   if(!b)return '';
@@ -406,7 +422,8 @@ function rankExtra(k){
       <div class="rank-detail-metric"><span class="label">Đang nắm giữ</span><strong>${holdings.length} mã</strong></div>
       ${stop||`<div class="rank-detail-metric"><span class="label">Lãi / lỗ</span><strong class="${color(b.return_pct)}">${pct(b.return_pct)}</strong></div>`}
     </div>
-    <div class="note"><strong>👜 Cổ phiếu đang giữ</strong></div>
+    ${rankChartMarkup(k)}
+    <div class="note" style="margin-top:14px"><strong>👜 Cổ phiếu đang giữ</strong></div>
     ${holdingsMarkup}
     ${actionMarkup}
     <div class="rank-details-bottom"><button type="button" onclick="openBotProfile('${k}')">Xem hồ sơ đầy đủ ↗</button></div>
@@ -442,7 +459,7 @@ function crossBasketSummary(){
   const {sources,rows,incomplete}=summaryBotRanking();
   const option=DATA.backtest_options?.find(x=>x.key===period);
   const span=isPaper()?'Mùa từ '+(DATA.paper_contest_start||'—'):mode==='backtest'?(option?.label||period):'Toàn bộ 3 năm';
-  const header=`<div class="card"><h2>🧭 Tổng kết qua các rổ</h2><p class="note">${safe(MODE_LABEL[mode])} · ${safe(span)}. Xét toàn bộ bot của sổ này, độc lập với rổ đang mở và bộ lọc theo dõi cá nhân.</p>`;
+  const header=`<div class="card"><h2>🧭 Tổng kết qua các rổ · ${safe(MODE_LABEL[mode])}</h2><p class="note">${safe(span)}. Xét toàn bộ bot của sổ này, độc lập với rổ đang mở và bộ lọc theo dõi cá nhân.</p>`;
   const scope=`<p class="note">${sources.length} rổ: ${sources.map(s=>safe(s.label)).join(' · ')}.</p>`;
   const paperNote=isPaper()?'<p class="note">Paper hiện chỉ có Rổ tháng; chưa có tài khoản paper cho Rổ cố định. Không lấy backtest để điền vào paper.</p>':'';
   if(!rows.length)return header+scope+paperNote+'<div class="empty">Chưa có đủ kết quả đã ghi nhận để xếp top 3 và nhóm kém nhất.'+(isPaper()?' Paper đang chờ phiên replay có NAV được xác minh.':' Mỗi bot cần kết quả ở đủ các rổ trong cùng khoảng thời gian.')+'</div></div>';
@@ -503,11 +520,11 @@ function renderHome(){
     ${expandedBot===k?rankExtra(k):''}
   </div>`).join(''):'<div class="card empty">Chưa có bot nào đang bật trong khu vực này. Bật lại ở mục Các bot.</div>');
   $('crossBasketSummary').innerHTML=crossBasketSummary();
+  if(expandedBot&&sorted.includes(expandedBot)){
+    const data=botChartData(expandedBot);
+    graph($('rankChart-'+expandedBot),data.series,data.showIndex);
+  }
   const chartBot=sorted.includes(selected)?selected:(sorted[0]||IDS[0]);
-  const bot=part(chartBot),series=isPaper()?(bot.history||[]).map(x=>({date:x.date,bot:x.return_pct})):bot.curve||[];
-  $('chartTitle').textContent=SHORT[chartBot]+' Bot';$('chartResult').textContent=pct(ret(chartBot));$('chartResult').className='pill '+(ret(chartBot)>=0?'good':'warn');
-  $('legendIndex').style.display=isPaper()?'none':'';graph($('mainChart'),series,!isPaper());
-  $('chartNote').textContent=isPaper()?'Đường xanh là tiền ảo của bot qua các ngày đã chạy. Ban đầu có thể chỉ có một điểm vì cuộc thi mới bắt đầu.':mode==='hybrid'?'Chỉ dùng dữ liệu 1m để xét điểm vào/thoát trên nhóm mã có history. NAV đánh dấu theo nến ngày.':'Đường xanh là bot; đường nét đứt là VN-Index. Cả hai được so trong cùng thời gian.';
   const winner=sorted[0]||IDS[0];$('simpleMessage').textContent=!sorted.length?'Mày đã tắt theo dõi các bot trong khu vực này. Bật bot lên để xếp hạng.':isPaper()?(part(winner).history?.length<2?'Cuộc thi mới khởi động! Chưa đủ phiên để xếp hạng có ý nghĩa. Sau mỗi ngày thị trường mở cửa, bot sẽ ghi thêm kết quả.':`${SHORT[winner]} đang dẫn đầu với ${pct(ret(winner))}. Nhưng đây chỉ là tiền ảo, không có nghĩa bot chắc chắn kiếm được tiền thật.`):`${SHORT[winner]} có kết quả cao nhất trong lần thử trên dữ liệu lịch sử này (${pct(ret(winner))}). Kiểm tra cả mức lỗ sâu nhất và số giao dịch trước khi kết luận.`;
   $('modePill').textContent=MODE_LABEL[mode];
   $('totalLabel').textContent=MODE_LABEL[mode]+' · '+included.length+' bot';
@@ -515,12 +532,10 @@ function renderHome(){
   if(!isPaper()){
     researchNote.textContent='146 mã · '+meta.start+' đến '+meta.end+' · '+MODE_LABEL[mode]+'. '+(mode==='backtest_minute'?'11 bot gốc dùng tín hiệu/ATR phút; Buffett và Munger dùng thêm chất lượng báo cáo năm, phân bổ theo NAV. NAV theo nến phút cuối quan sát.':'')+' Phí, thuế, trượt giá, T+ và khoảng thiếu dữ liệu được giữ trong mô phỏng. Nhóm mã được chọn sau kỳ nghiên cứu, có sai lệch chọn mẫu.';
     $('marketDay').textContent=meta.end.split('-').reverse().join('/');
-    $('chartNote').textContent=mode==='backtest_minute'?(DATA.traders?.[chartBot]?.supported_modes?'Bộ lọc báo cáo năm đã biết từ phiên trước, điểm vào/thoát phút thử nghiệm. Lệnh ở nến quan sát sau; NAV dùng nến phút cuối quan sát.':'Chỉ nến phút đã đóng tạo tín hiệu; lệnh ở nến sau. Hybrid phút là đồng thuận các tín hiệu phút. NAV dùng nến phút cuối quan sát.'):'NAV cuối phiên và VN-Index; tín hiệu theo khung đã ghi trên tab.';
     if(activeStudy()!=='legacy'){
       $('universeNotice').textContent='📊 '+studyLabel()+' · '+(activeStudy()==='300'?PIT_DATA.unique_symbols+' mã từng có mặt. Không yêu cầu sống sót đến cuối kỳ.':'Tính lại cùng phương pháp để đối chiếu.')+' Mẫu vẫn có giới hạn dữ liệu; không khẳng định đã xóa hoàn toàn sai lệch.';
       $('hybridCoverage').textContent='Đã chạy '+PIT_DATA.sessions+' phiên thật, '+PIT_DATA.first_session+' – '+PIT_DATA.end+'. Không nội suy nến, không thay mã thiếu dữ liệu bằng mã khác. SJF không có giao dịch trong kỳ; vẫn giữ kỳ chọn ban đầu.';
       researchNote.textContent=studyLabel()+' · '+PIT_DATA.first_session+' – '+PIT_DATA.end+'. '+(activeStudy()==='300'?'Chọn theo quá khứ, có mã rời sàn và khoảng ngừng giao dịch.':'Giữ cố định 146 mã được chọn vì có dữ liệu liên tục suốt ba năm; còn sai lệch chọn mã sống sót.')+' Dùng cùng chi phí/thanh khoản; sau 20 phiên thiếu giá có dự phòng định giá, không tạo giá 0 hay lệnh bán giả. Nguồn còn thiếu danh mục/vintage đầy đủ; giá điều chỉnh và dữ liệu thiếu vẫn có thể gây sai lệch.';
-      $('chartNote').textContent+=' NAV thận trọng có dự phòng khi thiếu giá; xem chi tiết trong hồ sơ bot.';
     }
   }
   if(isPaper()&&DATA.paper_contest_start){
@@ -543,8 +558,6 @@ function renderHome(){
     if(mode==='paper_combo'&&p.status!=='market_closed'&&!p.combo_gate_valid)$('hybridCoverage').textContent+=' Đang tạm dừng xét lệnh kết hợp vì bộ lọc ngày chưa hợp lệ.';
     $('marketDay').textContent=observed;
     $('universeNotice').textContent=DATA.paper_contest_start?'Mùa paper mới: cả 3 chế độ bắt đầu ngày '+DATA.paper_contest_start.split('-').reverse().join('/')+', mỗi bot 100 triệu đồng. Lịch sử trước reset được lưu riêng.':'Sổ paper riêng. Chỉ ghi nhận giao dịch từ nến mới thực nhận.';
-    $('chartNote').textContent='NAV ghi từ những nến mới thực nhận sau khởi tạo. Các khoảng gián đoạn không được chạy bù.';
-    if(mode==='paper_combo')$('chartNote').textContent+=DATA.traders?.[chartBot]?.supported_modes?' Hai bot giá trị dùng báo cáo năm, giá/MA200 và thanh khoản ngày trước; điểm vào/thoát phút thử nghiệm, phân bổ theo NAV.':' Biến thể paper này dùng bộ lọc ngày và ATR/thoát phút; backtest kết hợp còn dùng stop ngày.';
     if(!p.last_observed_at)$('simpleMessage').textContent='Đã mở sổ, chưa có giao dịch mới. Chờ phiên giao dịch tiếp theo và dữ liệu phút đủ mới.';
   }
   if(isPaper()&&REPLAY_DATA){
@@ -553,7 +566,6 @@ function renderHome(){
     $('marketDay').textContent=done?'Đã replay phiên '+p.last_session:'Chờ hoàn tất phiên '+p.season_start;
     $('universeNotice').textContent='Paper replay cuối ngày · 300 mã mỗi tháng · mùa từ '+p.season_start+'. Sổ forward cũ đã lưu riêng; giao dịch cũ không được cộng lại.';
     $('hybridCoverage').textContent=done?'Đã kiểm tra và replay '+p.sessions.length+' phiên đến '+p.last_session+'. Khoảng trống và nến bị loại được công bố trong dữ liệu phiên.':'Chưa có phiên hoàn tất từ ngày bắt đầu mùa. Vốn khởi tạo 100 triệu/bot/sổ; chưa có kết quả giao dịch.';
-    $('chartNote').textContent='Cùng quy tắc với backtest: chỉ thấy dữ liệu đến nến đang xét. Phút khớp mở cửa đúng phút kế tiếp trong cùng buổi; thiếu thì bỏ lệnh. Ngày khớp phiên kế tiếp. NAV nối tiếp qua các ngày.';
     if(!done)$('simpleMessage').textContent='Chờ dữ liệu sau phiên; không dùng nến đang chạy để tạo kết quả paper.';
   }
 
