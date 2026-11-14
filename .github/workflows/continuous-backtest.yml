@@ -1,6 +1,9 @@
 name: Extend all Backtests after completed Paper
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/continuous-backtest.yml']
   workflow_run:
     workflows: ['EOD paper replay — monthly300 + fixed146 + VN30, 144 books']
     types: [completed]
@@ -13,7 +16,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   extend:
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 300
     environment:
