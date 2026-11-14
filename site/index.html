@@ -98,6 +98,7 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
 .book-comparison h3{font-size:16px;margin:0 0 9px}.book-comparison table{border-collapse:collapse;width:100%;font-size:12px;table-layout:fixed}.book-comparison caption{text-align:left;padding:7px 0}.book-comparison th,.book-comparison td{padding:11px 3px;border-bottom:1px solid #2a405b;text-align:right;vertical-align:top;overflow-wrap:anywhere}.book-comparison th:first-child{width:39%;text-align:left}.book-comparison thead th{font-size:11px;color:#b1c8df}.book-comparison small{display:block;font-weight:400;font-size:10px;color:#b1c8df;margin-top:5px;line-height:1.5}.book-comparison .book-status{font-size:9px}.book-current{background:#1b3648}.book-link{border:0;background:transparent;color:#8fe9d3;text-align:left;padding:0;font-size:12px;font-weight:700;cursor:pointer}.book-comparison abbr{text-decoration:none}
 
 .sector-controls{display:grid;gap:10px;margin:14px 0}.sector-controls label{font-size:12px;color:#b1c8df;display:grid;gap:5px}.sector-controls select{min-width:0;width:100%;background:#0b1c30;border:1px solid #35536b;color:#e9f3ff;border-radius:9px;padding:10px}.sector-line{padding:12px 0;border-bottom:1px solid #2a405b}.sector-line summary{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;cursor:pointer;font-size:12px;line-height:1.5}.sector-line summary span{white-space:nowrap;color:#82e7c9}.sector-line p{margin-top:7px}.sector-track{height:7px;background:#203750;border-radius:6px;margin:9px 0;overflow:hidden}.sector-line summary .sector-track{flex-basis:100%;width:100%;margin:6px 0 0}.sector-track span{display:block;height:100%;background:#64dec0;min-width:0}.sector-line .tickerbtn{margin:3px 0}.sector-bot{display:flex;justify-content:space-between;gap:10px;align-items:center;width:100%;background:transparent;color:#e9f3ff;border:0;border-bottom:1px solid #2a405b;text-align:left;padding:12px 0;font-size:12px;cursor:pointer}.sector-bot span{max-width:60%;color:#adc9dd;text-align:right}.sector-bot.active{color:#64dec0}
+.race-controls{display:grid;gap:10px;margin:12px 0}.race-controls label{display:grid;gap:5px;font-size:12px;color:#b1c8df}.race-controls select{width:100%;min-width:0;background:#0b1c30;color:#e9f3ff;padding:10px;border:1px solid #35536b;border-radius:10px;font:inherit}.race-slider{width:100%;accent-color:#67e8bf;min-height:44px;cursor:ew-resize}.race-date{font-size:23px;font-weight:850;font-variant-numeric:tabular-nums}.race-transport{display:flex;gap:8px;align-items:center;justify-content:center;margin:8px 0}.race-transport button{min-height:44px}.race-chart{display:block;width:100%;height:auto;touch-action:pan-y}.race-row{position:relative;display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:8px;padding:11px 8px;margin-top:7px;border-radius:11px;overflow:hidden;background:#0b1c30}.race-bar{position:absolute;inset:0 auto 0 0;opacity:.12;pointer-events:none}.race-row>*:not(.race-bar){position:relative}.race-name{font-size:12px;font-weight:780;overflow-wrap:anywhere}.race-change{display:block;font-size:10px;margin-top:3px;color:#a8bdd2;font-weight:400}.race-value{text-align:right;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}.race-value small{display:block;margin-top:3px}.race-caption{margin:9px 0;line-height:1.6}.race-key{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
 </style>
 </head>
 <body>
@@ -138,6 +139,11 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
   <div class="section-title"><h2>🏁 Bảng xếp hạng</h2><span class="hint">Chạm để mở ngay tại đây</span></div>
   <div class="scroll-chip" id="regionChips" aria-label="Chọn khu vực trader"></div>
   <div id="leaderboard" style="margin-top:10px"></div>
+  <details id="racePanel" class="card soft" style="margin-top:14px" ontoggle="renderRace()">
+    <summary style="font-size:16px;font-weight:800;cursor:pointer">📈 Diễn biến thứ hạng</summary>
+    <p id="raceScope" class="note" style="margin-top:8px"></p>
+    <div id="raceContent"></div>
+  </details>
   <section id="crossBasketSummary" class="basket-summary" aria-label="Tổng kết bot qua các rổ"></section>
   <div class="section-title"><h2>📊 Bấm vào mã cổ phiếu</h2><span class="hint">Giá &amp; khối lượng thật</span></div>
   <div class="scroll-chip" id="stockShortcuts" style="margin-bottom:12px"></div>
@@ -792,11 +798,86 @@ function renderSectors(){
   ${e?`<div class="card"><h2 style="font-size:18px">Mở rộng 500–600 mã</h2><p class="note">Nguồn Vietcap ngày ${shortDate(e.asof)} có ${e.listed_stock_candidates} mã loại cổ phiếu trên HOSE/HNX/UPCoM; đây là danh sách ứng viên, chưa phải số mã đủ dữ liệu ba năm.</p><p class="note">Đã thử ${e.probed_symbols} mã ngoài mẫu thuộc ngành đang thiếu: ${e.daily_pass_count} mã đủ cả 747 phiên ngày; ${e.minute_endpoint_pass_count} mã có mẫu nến phút ở đầu và cuối kỳ. <strong>Chưa kiểm tra toàn bộ nến phút cho các mã mới; chưa xác nhận có đủ 500–600 mã đạt chuẩn.</strong></p><details><summary>Xem kết quả kiểm tra thử</summary>${e.probes.map(p=>`<p class="note"><strong>${safe(p.symbol)}</strong> · ${safe(p.sector)} · ngày: ${n(p.daily_valid_sessions)}/${n(p.reference_sessions)} · mẫu phút: ${p.minute_endpoints_present?'có đầu/cuối':'chưa đủ'}${p.error?' · '+safe(p.error):''}</p>`).join('')}</details><p class="note">Giữ 146 mã làm baseline. Bước tiếp theo: kiểm tra nến ngày của danh sách rộng → tải và xác minh đầy đủ nến phút cho mã đạt chuẩn → tạo nghiên cứu 500–600 mã riêng, không đổi sổ paper.</p><p class="note">Nhiều mã giúp phủ ngành tốt hơn, chưa tự làm backtest chính xác hơn. Vẫn phải xử lý thanh khoản theo từng thời điểm, cổ phiếu mới/hủy niêm yết, quyền/cổ tức, chi phí và kiểm tra ngoài mẫu. Nếu giữ điều kiện đủ mọi phiên suốt ba năm, không được bù dữ liệu chỉ để đạt con số 600.</p></div>`:''}
   <p class="note">Nguồn phân ngành/danh sách: <a href="https://iq.vietcap.com.vn/api/iq-insight-service/v2/company/search-bar?language=1" target="_blank" rel="noopener">Vietcap IQ</a>. Phân ngành là metadata; kết quả giao dịch vẫn là mô phỏng trên giá thị trường thật.</p>`;
 }
+let raceDate=null,raceData={dates:[],bots:[],frames:[],omitted:[]},raceTimer=null;
+const RACE_COLORS=['#67e8bf','#f6c76b','#82b6ff','#f69bc7','#c4a0ff','#f59675','#94d877','#62d5e8','#e6dd86','#aab8ff','#e9b9a0','#6ce0a2','#ffa6ac','#b8d9eb','#d6bd78','#b7a7df'];
+function raceISO(value){
+  const text=String(value||'');let iso;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(text))iso=text;
+  else if(/^\d{2}\/\d{2}\/\d{2}$/.test(text)){const [d,m,y]=text.split('/');iso='20'+y+'-'+m+'-'+d;}
+  else return null;
+  const parsed=new Date(iso+'T00:00:00Z');return Number.isFinite(parsed.getTime())&&parsed.toISOString().slice(0,10)===iso?iso:null;
+}
+function raceRank(rows){
+  const sorted=rows.slice().sort((a,b)=>b.nav-a.nav||a.bot.localeCompare(b.bot));let rank=0,last=null;
+  return sorted.map((row,i)=>{if(row.nav!==last)rank=i+1;last=row.nav;return {...row,rank};});
+}
+function raceHistory(){
+  const bots=[],omitted=[],maps={};
+  for(const bot of activeKeys()){
+    const book=part(bot),source=isPaper()?book?.history:book?.curve,points=new Map();
+    for(const row of source||[]){const date=raceISO(row.date);if(!date||typeof row.nav!=='number'||!Number.isFinite(row.nav)||row.nav<0)continue;
+      if(points.has(date)&&points.get(date)!==row.nav)points.set(date,null);else if(!points.has(date))points.set(date,row.nav);
+    }
+    for(const [date,nav] of points)if(nav===null)points.delete(date);
+    if(!points.size){omitted.push(bot);continue;}bots.push(bot);maps[bot]=points;
+  }
+  const dates=bots.length?[...maps[bots[0]].keys()].filter(date=>bots.every(bot=>maps[bot].has(date))).sort():[];
+  return {dates,bots,omitted,frames:dates.map(date=>raceRank(bots.map(bot=>({bot,nav:maps[bot].get(date)}))))};
+}
+function stopRace(){if(raceTimer!==null){clearInterval(raceTimer);raceTimer=null;}}
+function raceIndex(){const i=raceData.dates.indexOf(raceDate);return i<0?raceData.dates.length-1:i;}
+function raceShortDate(iso){return iso?iso.split('-').reverse().join('/'):'—';}
+function raceLeaderText(index){
+  const rows=raceData.frames[index]||[],leaders=rows.filter(row=>row.rank===1).map(row=>row.bot),names=ids=>ids.map(bot=>SHORT[bot]||bot).join(', ');
+  if(!leaders.length)return 'Chưa có dữ liệu để xếp hạng.';
+  if(!index)return leaders.length>1?'Đồng hạng dẫn đầu: '+names(leaders)+'.':'Dẫn đầu tại mốc đầu: '+names(leaders)+'.';
+  const previous=raceData.frames[index-1].filter(row=>row.rank===1).map(row=>row.bot);
+  const same=leaders.length===previous.length&&leaders.every(bot=>previous.includes(bot));
+  return same?(leaders.length>1?'Nhóm đồng hạng vẫn dẫn đầu: ':'Vẫn giữ ngôi đầu: ')+names(leaders)+'.':(leaders.length>1?'Nhóm dẫn đầu mới: ':'Vươn lên dẫn đầu: ')+names(leaders)+'. Mốc trước: '+names(previous)+'.';
+}
+function raceChart(index){
+  const {dates,bots,frames}=raceData,maxRank=Math.max(2,bots.length),x=i=>29+i/Math.max(1,dates.length-1)*317,y=r=>18+(r-1)/(maxRank-1)*174;
+  const levels=[1,...(maxRank>3?[Math.ceil(maxRank/2)]:[]),maxRank];
+  const grid=levels.map(rank=>`<line x1="29" x2="346" y1="${y(rank)}" y2="${y(rank)}" stroke="#29405d" stroke-dasharray="3 5"/><text x="2" y="${y(rank)+4}" fill="#9eb6d0" font-size="10">#${rank}</text>`).join('');
+  const paths=bots.map(bot=>{const color=RACE_COLORS[IDS.indexOf(bot)%RACE_COLORS.length],rows=frames.slice(0,index+1).map(frame=>frame.find(row=>row.bot===bot)),last=rows[rows.length-1];return `<polyline points="${rows.map((row,i)=>x(i).toFixed(1)+','+y(row.rank).toFixed(1)).join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" opacity=".8"/><circle cx="${x(index)}" cy="${y(last.rank)}" r="3" fill="${color}"><title>${safe(SHORT[bot]||bot)} · #${last.rank}</title></circle>`;}).join('');
+  return `<svg class="race-chart" viewBox="0 0 360 222" role="img" aria-label="Thứ hạng các bot đến ${raceShortDate(dates[index])}; số 1 ở trên cùng" onclick="raceChartTap(event)">${grid}${paths}<line x1="${x(index)}" x2="${x(index)}" y1="12" y2="199" stroke="#e8f7ff" stroke-dasharray="3 4"/><text x="29" y="216" fill="#9eb6d0" font-size="10">${raceShortDate(dates[0])}</text><text x="346" y="216" text-anchor="end" fill="#9eb6d0" font-size="10">${raceShortDate(dates[dates.length-1])}</text></svg>`;
+}
+function paintRace(){
+  const index=raceIndex();if(index<0)return;
+  const rows=raceData.frames[index],previous=new Map((raceData.frames[index-1]||[]).map(row=>[row.bot,row.rank]));
+  $('raceDate').textContent=raceShortDate(raceDate);$('racePosition').textContent='Mốc '+(index+1)+' / '+raceData.dates.length;
+  $('raceSlider').value=index;$('raceSlider').setAttribute('aria-valuetext',raceShortDate(raceDate));
+  $('raceLeader').textContent=raceLeaderText(index);$('raceGraph').innerHTML=raceChart(index);
+  const capital=DATA.capital_each,maxNav=Math.max(1,...rows.map(row=>row.nav));
+  $('raceRows').innerHTML=rows.map(row=>{const delta=previous.has(row.bot)?previous.get(row.bot)-row.rank:null,change=delta===null?'Mốc đầu':delta>0?'↑ '+delta+' hạng':delta<0?'↓ '+Math.abs(delta)+' hạng':'Giữ hạng';return `<div class="race-row" data-race-bot="${safe(row.bot)}" data-race-rank="${row.rank}"><span class="race-bar" style="width:${row.nav/maxNav*100}%;background:${RACE_COLORS[IDS.indexOf(row.bot)%RACE_COLORS.length]}"></span><strong class="tnum">${row.rank}</strong><span class="race-name"><i class="race-key" style="background:${RACE_COLORS[IDS.indexOf(row.bot)%RACE_COLORS.length]}"></i>${safe(SHORT[row.bot]||row.bot)}<span class="race-change">${change}</span></span><span class="race-value">${money(row.nav)}${typeof capital==='number'&&capital>0?`<small class="${color(row.nav-capital)}">${pct((row.nav/capital-1)*100)}</small>`:''}</span></div>`;}).join('');
+  $('racePlay').textContent=raceTimer===null?'▶ Phát':'Ⅱ Tạm dừng';$('racePlay').setAttribute('aria-pressed',String(raceTimer!==null));
+  $('racePrev').disabled=index===0;$('raceNext').disabled=index===raceData.dates.length-1;
+}
+function seekRace(value,manual=true){
+  if(!raceData.dates.length)return;if(manual)stopRace();
+  const index=Math.max(0,Math.min(raceData.dates.length-1,Math.round(Number(value)||0)));raceDate=raceData.dates[index];paintRace();
+}
+function raceChartTap(event){const box=event.currentTarget.getBoundingClientRect();seekRace(((event.clientX-box.left)/box.width*360-29)/317*(raceData.dates.length-1));}
+function toggleRace(){
+  if(raceTimer!==null){stopRace();paintRace();return;}if(raceData.dates.length<2)return;
+  if(raceIndex()===raceData.dates.length-1)seekRace(0);
+  raceTimer=setInterval(()=>{if(page!=='home'||!$('racePanel').open||document.visibilityState==='hidden'){stopRace();paintRace();return;}const next=raceIndex()+1;if(next>=raceData.dates.length){stopRace();paintRace();return;}seekRace(next,false);if(next===raceData.dates.length-1){stopRace();paintRace();}},650);paintRace();
+}
+function renderRace(){
+  stopRace();if(!$('racePanel'))return;
+  $('raceScope').textContent=MODE_LABEL[mode]+' · '+studyLabel()+' · nhóm bot đang bật';
+  if(page!=='home'||!$('racePanel').open)return;
+  raceData=raceHistory();const {dates,bots,omitted}=raceData;
+  if(!dates.includes(raceDate))raceDate=dates.filter(date=>raceDate&&date<=raceDate).pop()||dates[dates.length-1]||null;
+  const periodLabel=mode==='backtest'?' · '+(DATA.backtest_options?.find(option=>option.key===period)?.label||period):'';
+  $('raceContent').innerHTML=`<p class="note race-caption">${safe(MODE_LABEL[mode]+periodLabel)} · ${safe(studyLabel())}<br>Xếp hạng trong ${bots.length} bot đang bật. Bộ lọc Mix giữ nhóm đã chọn, không chọn lại người thắng ở từng mốc quá khứ.</p>${!dates.length?'<div class="card empty">Chưa có mốc NAV chung đã ghi nhận cho các bot đang bật. Hãy đổi sổ hoặc bật bot; không tự tạo kết quả từ dữ liệu thiếu.</div>':`<div class="card"><div class="row"><strong id="raceDate" class="race-date"></strong><small id="racePosition"></small></div><label class="note" for="raceSlider">Kéo để xem thời điểm</label><input id="raceSlider" class="race-slider" type="range" min="0" max="${dates.length-1}" step="1" value="${raceIndex()}" oninput="seekRace(this.value)" aria-label="Thời điểm thứ hạng"><div class="race-transport"><button id="racePrev" class="chip" onclick="seekRace(raceIndex()-1)" aria-label="Mốc trước">← Trước</button><button id="racePlay" class="chip active" onclick="toggleRace()" aria-pressed="false">▶ Phát</button><button id="raceNext" class="chip" onclick="seekRace(raceIndex()+1)" aria-label="Mốc sau">Sau →</button></div><p id="raceLeader" class="note race-caption" aria-live="polite"></p><div id="raceGraph"></div><p class="note race-caption">#1 ở trên cùng. Mỗi màu là một bot; đường chỉ vẽ đến mốc đang xem.</p></div><div class="card"><strong>Thứ hạng tại thời điểm đã chọn</strong><div id="raceRows"></div></div>`}<p class="note">Dùng NAV cuối phiên đã lưu, gồm tiền và cổ phiếu sau chi phí. Bằng NAV thì đồng hạng; không dùng drawdown cuối kỳ để phá hòa trong quá khứ. ${isPaper()?'Paper dùng các phiên đã replay.':'Backtest dùng các mốc biểu đồ đã lưu, không có đủ mọi phiên.'} Không nội suy, không phải diễn biến từng phút; thay ngôi được ghi nhận giữa hai mốc, chưa xác định chính xác lúc vượt nhau trong khoảng đó. Chỉ so ngày mà mọi bot hiển thị cùng có NAV.${omitted.length?' Chưa có lịch sử: '+safe(omitted.map(bot=>SHORT[bot]||bot).join(', '))+'.':''}</p>`;
+  if(dates.length)paintRace();
+}
 function render(){
   if(mixChoice?.kind==='best')selectBestBots(mixChoice.count);
   $('positionLimitRows').innerHTML=Object.entries(BOT_POSITION_LIMITS).map(([k,limit])=>`<tr><th scope="row" style="text-align:left;padding:8px;font-weight:500;border-bottom:1px solid #233c51">${safe(SHORT[k]||k)}</th><td style="text-align:right;padding:8px;border-bottom:1px solid #233c51">${limit}</td></tr>`).join('');
   $('stockShortcuts').innerHTML=(DATA.stock_symbols||Object.keys(DATA.stocks||{})).map(symbol=>`<button class="chip" onclick="openStock('${symbol}')">📈 ${symbol}</button>`).join('')||'<span class="note">Giá cổ phiếu sẽ xuất hiện sau khi kết nối dữ liệu.</span>';
-  renderHome();renderBots();renderTrades();renderSectors();$('warnings').innerHTML=(DATA.warnings||[]).slice(0,6).map(x=>`<p style="margin:9px 0">• ${safe(x)}</p>`).join('')}
+  renderHome();renderBots();renderTrades();renderSectors();renderRace();$('warnings').innerHTML=(DATA.warnings||[]).slice(0,6).map(x=>`<p style="margin:9px 0">• ${safe(x)}</p>`).join('')}
 
 function liveFormat(ts){
   if(!ts)return 'Chưa có';
