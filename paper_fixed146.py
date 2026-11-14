@@ -11,7 +11,7 @@ from paper_replay import (ROOT,VN,START,MARKET,ENDPOINT,epoch,validate_wire,norm
 
 STATE=ROOT/'state/paper_seasons'/START/'paper_fixed146.json'
 PUBLIC=ROOT/'site/paper-fixed146.json'
-OUTPUT_BASE=ROOT/'data/pit_results/replay-fixed146'/START/'education-v1'
+OUTPUT_BASE=ROOT/'data/pit_results/replay-fixed146'/START/'calendar-v2'
 
 def supplemental(day,symbols,collect=True,folder='fixed146-sessions'):
     """Never rewrite the already banked monthly-session source to add names."""

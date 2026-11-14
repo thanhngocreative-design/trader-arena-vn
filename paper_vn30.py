@@ -15,7 +15,7 @@ from replay_rules import REVISION
 from sector_analytics import universe_distribution
 
 STATE=ROOT/'state/paper_seasons'/START/'paper_vn30.json';PUBLIC=ROOT/'site/paper-vn30.json'
-OUTPUT_BASE=ROOT/'data/pit_results/replay-vn30'/START/'education-v1'
+OUTPUT_BASE=ROOT/'data/pit_results/replay-vn30'/START/'calendar-v2'
 
 def verify_previous(previous,ledgers,events):
     if not previous:return
@@ -27,16 +27,19 @@ def verify_previous(previous,ledgers,events):
 
 def run(collect=True,now=None):
     now=now or datetime.now(VN);end=completed_date(now);cfg=configuration();classification=read(ROOT/'config/market-classification.json')
+    from vn30_current import verify_current
+    verified_through=verify_current(cfg,end,now=now)
     current=sorted(membership(cfg,max(START,end)))
     payload=dict(revision='eod_replay_v1',execution_revision=REVISION,cohort='vn30',target=30,mode='real_market_data',season_start=START,paper_contest_start=START,updated_at=now.isoformat(),source=ENDPOINT,members=current,sector_universe=universe_distribution(current,classification),last_session=None,status='waiting_completed_session',membership_verified_through=cfg['verified_through'])
     from bot_timeframes import timeframe_manifest
-    payload.update(bot_timeframes=timeframe_manifest(),bot_ids=BOTS,traders={k:TRADERS[k] for k in ('Beginner','Intermediate','Pro')})
+    payload.update(bot_timeframes=timeframe_manifest(),bot_ids=BOTS,traders={k:TRADERS[k] for k in ('Beginner','Intermediate','Pro')},membership_verified_through=verified_through)
     if end<START:
         payload.update({m:{b:blank() for b in BOTS} for m in ('paper','paper_minute','paper_combo')});write(PUBLIC,payload);return payload
     previous=read(STATE) if STATE.exists() else None
     if previous:verify_inputs(previous['input_sha256'])
     prices,benchmark,frames,_,audits,sessions=source_inputs(end,False)
     if not sessions:raise ValueError('No completed real paper session')
+    for day in sessions:verify_current(cfg,day,now=now)
     end=sessions[-1];cfg={**cfg,'start':START,'end':end,'paper_cohort':'vn30'}
     union=sorted(set.union(*(membership(cfg,d) for d in sessions)))
     extra_audit={};extra={}

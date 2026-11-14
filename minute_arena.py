@@ -82,8 +82,9 @@ def step(accounts,symbol,row,ts,session,marks,*,submitted_at=None,entry_gates=No
     Paper supplies actual receipt time; history supplies the signal bar end.
     Minute volume participation uses only the preceding observed signal bar.
     """
-    if float(row['volume'])<=0:return
+    if float(row['volume'])<=0:return any(symbol in b['positions'] or symbol in b['pending'] for b in accounts.values())
     ts=pd.Timestamp(ts); marks[symbol]=float(row['close'])
+    interested=False
     for bot,b in accounts.items():
         p=b['positions'].get(symbol)
         gate=bool(row.get(bot,False)) if entry_gates is None else bool(entry_gates.get(bot,False))
@@ -109,6 +110,7 @@ def step(accounts,symbol,row,ts,session,marks,*,submitted_at=None,entry_gates=No
                     p['qty']-=qty; p['cost']-=cost
                     if not p['qty']: del b['positions'][symbol]; b['closed'][symbol]=session
         p=b['positions'].get(symbol)
+        interested=interested or bool(p)
         cap=int(float(row['volume'])*.05)//100*100
         adv=float(row['adv']); atr=float(row['atr'])
         if cap<100 or not math.isfinite(adv) or adv<=0: continue
@@ -125,6 +127,8 @@ def step(accounts,symbol,row,ts,session,marks,*,submitted_at=None,entry_gates=No
         if next_minute(ts) is None:continue
         req.update(signal=ts.isoformat(),submitted=pd.Timestamp(submitted_at or ts+pd.Timedelta(minutes=1)).isoformat(),adv=adv)
         b['pending'][symbol]=req
+        interested=True
+    return interested
 
 
 def snapshot(accounts,marks):

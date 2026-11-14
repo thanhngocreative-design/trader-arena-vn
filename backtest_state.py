@@ -8,8 +8,10 @@ STATE=ROOT/'state/backtest_continuous'
 MODEL_FILES=('engine.py','fast_engine.py','hybrid_backtest.py','pit_intraday.py',
     'pit_context.py','minute_arena.py','pit_minute_data.py','portfolio.py',
     'execution.py','value_investing.py','value_intraday.py','pit_daily.py','replay_rules.py',
-    'education_bots.py','config/value-fundamentals.json','config/value-fundamentals-300.json',
-    'config/market-classification.json')
+    'education_bots.py','paper_replay.py','paper_fixed146.py','vn30.py','config/value-fundamentals.json','config/value-fundamentals-300.json',
+    'config/market-classification.json','intraday_data.py','historical_minute.py',
+    'collect_pit_daily.py','pit_universe.py','vn30_current.py',
+    'continuous_backtest.py','backtest_state.py','requirements.txt')
 
 
 def model_digest():
@@ -21,7 +23,7 @@ def frozen_sources():
     return {p.relative_to(MARKET).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in MARKET.rglob('*.gz')}
 
 
-def verify_manifest(saved,dates,memberships,*,market=MARKET,model=None):
+def verify_manifest(saved,dates,memberships,*,market=MARKET,model=None,state_root=STATE):
     if saved['model_sha256']!=(model or model_digest()):
         raise ValueError('Strategy changed: bootstrap from retained original candles; never append incompatible state')
     prefix=[str(d.date()) for d in dates if str(d.date())<=saved['last_session']]
@@ -34,6 +36,11 @@ def verify_manifest(saved,dates,memberships,*,market=MARKET,model=None):
         if relative.is_absolute() or '..' in relative.parts:raise ValueError('Invalid source checkpoint path')
         if hashlib.sha256(market.joinpath(*relative.parts).read_bytes()).hexdigest()!=digest:
             raise ValueError('Previously consumed real market input changed: '+name)
+    for name,digest in saved.get('checkpoint_sha256',{}).items():
+        relative=PurePosixPath(name)
+        if relative.is_absolute() or '..' in relative.parts:raise ValueError('Invalid account-state checkpoint path')
+        if hashlib.sha256(state_root.joinpath(*relative.parts).read_bytes()).hexdigest()!=digest:
+            raise ValueError('Previously saved account state changed: '+name)
 
 
 def options(end):

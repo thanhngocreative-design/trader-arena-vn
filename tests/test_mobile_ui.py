@@ -209,7 +209,7 @@ for(const m of ['paper_minute','paper','paper_combo','backtest_minute','backtest
 }
 // A missing ledger is absent, never silently replaced by zero or daily returns.
 mode='paper_minute';delete DATA.paper_minute.Munger;assert.equal(activeKeys().length,12);
-renderBots();assert.ok(elements.botDetail.innerHTML.includes('Chưa tải được sổ này'));
+renderBots();assert.ok(elements.botDetail.innerHTML.includes('Sổ này chưa có kết quả đã xác minh'));
 applyValueIntraday();assert.equal(activeKeys().length,13);
 // Replacing the base daily payload must retain all six overlay sources.
 DATA=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));applyValueData();assert.ok(DATA.paper.Buffett&&DATA.paper_minute.Buffett);

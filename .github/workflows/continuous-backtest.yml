@@ -1,0 +1,69 @@
+name: Extend all Backtests after completed Paper
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['EOD paper replay — monthly300 + fixed146 + VN30, 144 books']
+    types: [completed]
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: trader-arena-continuous-backtest
+  cancel-in-progress: false
+jobs:
+  extend:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements.txt -r requirements-live.txt
+      - name: Verify causal resume, accounting, and independent bot selection
+        run: python -m pytest -q
+      - name: Verify exact resume using retained real VN30 observations
+        run: python -u verify_real_resume.py --audit-output state/backtest_continuous/real-resume-audit.json
+      - name: Append new real sessions to minute and combined books; recompute daily windows
+        run: python -u continuous_backtest.py
+      - name: Persist verified states and public results
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add state/backtest_continuous site/research-300.json site/research-vn30.json site/backtest-status.json site/backtest-archive site/pit-stocks
+          if [ -d state/replay_market/backtest-sessions ]; then git add state/replay_market/backtest-sessions; fi
+          if [ -d state/vn30_membership_checks ]; then git add state/vn30_membership_checks; fi
+          if ! git diff --cached --quiet; then
+            git commit -m 'Extend audited continuous backtests to latest Paper session [skip ci]'
+            git fetch origin main
+            git rebase origin/main
+            git push origin HEAD:main
+          fi
+      - name: Preserve a failed update for inspection
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: continuous-backtest-recovery-${{ github.run_id }}
+          path: |
+            state/backtest_continuous
+            state/replay_market/backtest-sessions
+            state/vn30_membership_checks
+          retention-days: 7
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+      - uses: actions/deploy-pages@v4
+        id: deploy

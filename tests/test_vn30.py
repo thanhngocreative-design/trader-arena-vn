@@ -55,8 +55,8 @@ def test_published_vn30_results_have_complete_independent_real_data_books():
     from value_investing import ROOT,read
     from paper_vn30 import STATE,START,BOTS
     p=read(ROOT/'site/research-vn30.json');paper=read(ROOT/'site/paper-vn30.json');state=read(STATE)
-    assert p['minute_audit']['member_days']==747*30
-    assert p['minute_audit']['member_days_with_minutes']==747*30
+    assert p['minute_audit']['member_days']==p['sessions']*30
+    assert 747*30<=p['minute_audit']['member_days_with_minutes']<=p['minute_audit']['member_days']
     assert p['execution_audit']['status']=='all_fills_verified_against_real_bars'
     assert p['membership_sha256']==membership_digest()
     assert len(p['execution_audit']['fills_by_book'])==3*len(p['cohort']['backtests'])

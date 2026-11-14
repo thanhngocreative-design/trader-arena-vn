@@ -6,7 +6,7 @@ on:
     - cron: '47 9,11 * * 1-5'
   push:
     branches: [main]
-    paths: ['paper_replay.py', 'paper_fixed146.py', 'paper_vn30.py', 'vn30.py', 'config/research-vn30.json', 'replay_rules.py', '.github/workflows/paper-replay.yml']
+    paths: ['paper_replay.py', 'paper_fixed146.py', 'paper_vn30.py', 'education_bots.py', 'vn30_current.py', 'vn30.py', 'config/research-vn30.json', 'replay_rules.py', '.github/workflows/paper-replay.yml']
 permissions:
   contents: write
   pages: write
@@ -47,11 +47,12 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add state/replay_market state/paper_replay.json site/paper-replay.json state/paper_fixed146.json site/paper-fixed146.json state/paper_vn30.json site/paper-vn30.json
           git add state/paper_seasons
+          if [ -d state/vn30_membership_checks ]; then git add state/vn30_membership_checks; fi
           if [ -d site/replay-stocks ]; then git add site/replay-stocks; fi
           if ! git diff --cached --quiet; then
             git commit -m 'Persist verified completed-session paper replay [skip ci]'
             git fetch origin main
-            git rebase origin/main
+            git rebase --autostash origin/main
             git push origin HEAD:main
           fi
       - name: Preserve source inputs if a provider or publication step fails
@@ -60,15 +61,34 @@ jobs:
         with:
           name: replay-recovery-${{ github.run_id }}
           path: |
-            state/replay_market
+            state/replay_market/sessions
+            state/replay_market/candidate-days
+            state/replay_market/fixed146-sessions
+            state/replay_market/vn30-sessions
+            state/replay_market/backtest-sessions
             state/paper_replay.json
             state/paper_fixed146.json
             state/paper_vn30.json
             state/paper_seasons
+            state/vn30_membership_checks
             site/paper-replay.json
             site/paper-fixed146.json
             site/paper-vn30.json
-          retention-days: 30
+          retention-days: 7
+      - name: Retain newly observed source records even when replay fails
+        if: failure()
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git reset
+          git add state/replay_market
+          if [ -d state/vn30_membership_checks ]; then git add state/vn30_membership_checks; fi
+          if ! git diff --cached --quiet; then
+            git commit -m 'Retain immutable market observations after failed replay [skip ci]'
+            git fetch origin main
+            git rebase --autostash origin/main
+            git push origin HEAD:main
+          fi
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

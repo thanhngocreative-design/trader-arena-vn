@@ -20,6 +20,17 @@ def test_auction_only_tape_is_empty_but_invalid_candles_still_fail():
     assert len(replay.observed_minutes(raw.assign(time='2026-11-02 09:30:00')))==1
 
 
+def test_non_tradable_benchmark_preserves_observed_close_calendar_without_repairing_ohlc():
+    # Actual malformed vendor index row: not an executable equity candle.
+    rows=[dict(date='2021-08-23',open=1329.43,high=1326.07,low=1298.86,close=1298.86,volume=761345100.)]
+    assert replay.frame(rows).empty
+    index=replay.benchmark_frame(rows)
+    assert index.index.tolist()==[pd.Timestamp('2021-08-23')]
+    assert index.iloc[0]['open']==1329.43 and index.iloc[0]['high']==1326.07
+    assert index.iloc[0]['close']==1298.86
+    assert replay.benchmark_frame([{**rows[0],'close':float('nan')}]).empty
+
+
 def test_month_selection_cannot_see_later_rows_in_initial_daily_bank(tmp_path,monkeypatch):
     market=tmp_path/'market';market.mkdir()
     rows=[dict(date=d,open=10000,high=10000,low=10000,close=10000,volume=100) for d in ['2026-10-30','2026-11-02','2026-11-12']]

@@ -30,7 +30,7 @@ START = '2026-11-02'
 MARKET = ROOT/'state/replay_market'
 STATE = ROOT/'state/paper_seasons'/START/'paper_replay.json'
 PUBLIC = ROOT/'site/paper-replay.json'
-OUTPUT_BASE = ROOT/'data/pit_results/replay'/START/'education-v1'
+OUTPUT_BASE = ROOT/'data/pit_results/replay'/START/'calendar-v2'
 BOTS = list(TRADERS)+list(POLICY)
 
 
@@ -56,6 +56,23 @@ def frame(rows):
     f=pd.DataFrame(rows);f['date']=pd.to_datetime(f.date)
     if f.date.duplicated().any():raise ValueError('Duplicate source dates')
     return f.loc[valid_rows(f)].set_index('date').sort_index()
+
+
+def benchmark_frame(rows):
+    """The non-tradable index supplies a calendar and observed closes only.
+
+    A malformed vendor index OPEN/HIGH must not remove a genuine close/volume
+    observation and shift Hybrid's 21-session training schedule. Those OHL
+    fields are retained as received, never repaired or used to execute trades.
+    Equity candles still pass the full strict OHLCV validator in frame().
+    """
+    import numpy as np
+    if not rows:return frame(rows)
+    f=pd.DataFrame(rows);f['date']=pd.to_datetime(f.date)
+    if f.date.duplicated().any():raise ValueError('Duplicate benchmark source dates')
+    close=pd.to_numeric(f.close,errors='coerce');volume=pd.to_numeric(f.volume,errors='coerce')
+    valid=np.isfinite(close)&(close>0)&np.isfinite(volume)&(volume>0)
+    return f.loc[valid].set_index('date').sort_index()
 
 def observed_minutes(raw):
     """An actual auction-only session is an empty continuous tape, not an error.
@@ -105,7 +122,7 @@ def source_inputs(end, collect=True):
     # the initial information set when a season starts earlier than its asof.
     cutoff=pd.Timestamp(START)
     prices={s:frame(rows).loc[lambda f:f.index<cutoff] for s,rows in base['prices'].items()}
-    benchmark=frame(base['benchmark']).loc[lambda f:f.index<cutoff]
+    benchmark=benchmark_frame(base['benchmark']).loc[lambda f:f.index<cutoff]
     calendar=pd.bdate_range(START,end)
     audits={};frames={};sessions=[]
     for date in calendar:
@@ -152,9 +169,9 @@ def source_inputs(end, collect=True):
                     if n%200==0:print('Paper candidate daily',day,n,'/',len(prices),flush=True)
             pack(daily_path,daily)
         else:raise ValueError('Missing frozen candidate daily '+day)
-        def convert(rows):
-            return frame([{**r,'date':r['date'] if 'date' in r else str(pd.Timestamp(r['time']).tz_convert(VN).date())} for r in rows])
-        benchmark=pd.concat([benchmark,convert(data['replies']['VNINDEX']['ONE_DAY'])])
+        def convert(rows,index=False):
+            return (benchmark_frame if index else frame)([{**r,'date':r['date'] if 'date' in r else str(pd.Timestamp(r['time']).tz_convert(VN).date())} for r in rows])
+        benchmark=pd.concat([benchmark,convert(data['replies']['VNINDEX']['ONE_DAY'],index=True)])
         if date not in benchmark.index:raise ValueError('Invalid benchmark observation')
         for s,rows in daily.items():
             observed=convert(rows)

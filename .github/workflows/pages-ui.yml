@@ -14,6 +14,7 @@ on:
       - site/value-investing.json
       - site/value-intraday.json
       - site/research-300.json
+      - site/backtest-status.json
       - site/paper-replay.json
       - site/paper-fixed146.json
       - site/research-vn30.json
@@ -127,8 +128,8 @@ jobs:
           meta=json.loads(Path('config/market-classification.json').read_text())
           assert p['revision']=='monthly300_study_v1' and p['mode']=='real_market_data' and p['status']=='complete'
           assert p['execution_revision']=='strict_next_candle_v1'
-          assert p['target']==300 and p['sessions']>=747 and len(p['months'])==37
-          assert p['union_symbols']==cfg['eligible_symbols'] and p['unique_symbols']==len(p['union_symbols'])
+          assert p['target']==300 and p['sessions']>=747 and len(p['months'])>=37
+          assert set(cfg['eligible_symbols'])<=set(p['union_symbols']) and p['unique_symbols']==len(set(p['union_symbols']))
           for row in p['months']:
               assert len(row['members'])==len(set(row['members']))==300 and row['asof']<row['effective']
               assert all(meta['listing'][s]['type']=='STOCK' for s in row['members'])
@@ -163,7 +164,7 @@ jobs:
           cfg=json.loads(Path('config/research-vn30.json').read_text())
           assert research['status']=='complete' and research['execution_revision']==p['execution_revision']
           assert research['membership_sha256']==__import__('hashlib').sha256(json.dumps(cfg,sort_keys=True,separators=(',',':'),ensure_ascii=True).encode('utf8')).hexdigest()
-          assert research['sessions']==747 and research['unique_symbols']==36
+          assert research['sessions']>=747 and research['unique_symbols']>=36
           assert all(len(set(r['members']))==30 and r['asof']<r['effective'] for r in cfg['months'])
           assert vn['target']==30 and len(set(vn['members']))==30
           assert vn['last_session']==p['last_session'] and vn['season_start']==p['season_start']

@@ -49,6 +49,8 @@ def test_minute_resume_matches_full_run_with_only_new_session_tapes(tmp_path,mon
     full=read(tmp_path/'full/minute-checkpoint.json');resumed=read(tmp_path/'resumed/minute-checkpoint.json')
     for key in ('accounts','curves','marks','seen','seq'):assert full[key]==resumed[key]
     assert read(tmp_path/'full/minute-test.json')==read(tmp_path/'resumed/minute-test.json')
+    run_minute({'test':ctx},{}, {},cfg,tmp_path/'complete',initial_state=full)
+    assert read(tmp_path/'complete/minute-test.json')==read(tmp_path/'full/minute-test.json')
     state['curves']['test']['minute']['Darvas'][0]['date']='1999-01-01'
     with pytest.raises(ValueError,match='calendar changed'):
         run_minute({'test':ctx},new_tape,{},cfg,tmp_path/'bad',initial_state=state)

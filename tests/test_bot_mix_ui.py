@@ -5,6 +5,38 @@ import pytest
 
 SITE=Path(__file__).resolve().parents[1]/'site'
 
+
+def test_background_refresh_keeps_selection_and_rejects_unmatched_universe_dates(tmp_path):
+    node=shutil.which('node')
+    if not node:pytest.skip('Node.js unavailable')
+    js=re.search(r'<script>(.*?)</script>',(SITE/'index.html').read_text(encoding='utf8'),re.S)[1].rsplit('boot();',1)[0]
+    script=r'''
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+global.localStorage={getItem:()=>null,setItem(){}};
+global.document={getElementById:()=>({style:{},classList:{toggle(){}}}),querySelectorAll:()=>[]};
+global.location={search:''};global.window={scrollTo(){}};
+'''+js+r'''
+(async()=>{
+const root=process.argv[2],read=f=>JSON.parse(fs.readFileSync(path.join(root,f),'utf8'));
+const p=read('research-300.json'),v=read('research-vn30.json');
+DATA={backtest_options:[{key:'sentinel'}]};PIT_DATA={end:'old'};
+study='vn30';mode='hybrid';mixChoice={kind:'best',count:4};hiddenBots={Munger:true};
+const before=JSON.stringify({study,mode,mixChoice,hiddenBots}),original=PIT_DATA;
+let queue=[p,{...v,end:'2099-01-01'}];
+global.fetch=async()=>({ok:true,json:async()=>queue.shift()});
+await assert.rejects(loadPITData(),/đồng bộ phiên/);
+assert.equal(PIT_DATA,original);assert.deepEqual(DATA.backtest_options,[{key:'sentinel'}]);
+queue=[p,{...v,end:p.end}];await loadPITData();
+assert.equal(PIT_DATA.end,p.end);assert.equal(JSON.stringify({study,mode,mixChoice,hiddenBots}),before);
+queue=[{status:'complete',end:p.end,generated_at:p.generated_at}];
+assert.equal(await refreshBacktests(),false);
+assert.equal(JSON.stringify({study,mode,mixChoice,hiddenBots}),before);
+})().catch(e=>{console.error(e);process.exitCode=1});
+'''
+    out=tmp_path/'refresh.cjs';out.write_text(script,encoding='utf8')
+    result=subprocess.run([node,str(out),str(SITE)],capture_output=True,text=True,encoding='utf8')
+    assert result.returncode==0,result.stderr
+
 def test_mix_dimensions_stay_independent_and_match_all_18_leaderboards(tmp_path):
     node=shutil.which('node')
     if not node:pytest.skip('Node.js unavailable')
