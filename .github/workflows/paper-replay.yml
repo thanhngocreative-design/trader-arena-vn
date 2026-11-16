@@ -96,3 +96,7 @@ jobs:
           path: ./site
       - uses: actions/deploy-pages@v4
         id: deploy
+  backtests:
+    name: Extend Backtests after verified Paper publication
+    needs: replay
+    uses: ./.github/workflows/continuous-backtest.yml
