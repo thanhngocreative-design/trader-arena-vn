@@ -3,7 +3,8 @@ on:
   workflow_dispatch:
   schedule:
     # 16:47 and 18:47 Vietnam; the retry is idempotent and never double-fills.
-    - cron: '47 9,11 * * 1-5'
+    - cron: '47 9 * * 1-5'
+    - cron: '47 11 * * 1-5'
   push:
     branches: [main]
     paths: ['paper_replay.py', 'paper_fixed146.py', 'paper_vn30.py', 'education_bots.py', 'vn30_current.py', 'vn30.py', 'config/research-vn30.json', 'replay_rules.py', '.github/workflows/paper-replay.yml']
