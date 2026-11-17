@@ -57,7 +57,7 @@ function mock({p = stale(), b = backtest('2026-11-13'), runs = [], marketStatus 
   const calls = [];
   return {calls, fetcher: async (url, options = {}) => {
     calls.push({url, options});
-    assert.equal(options.redirect, 'error');
+    assert.equal(options.redirect, 'manual', 'Workers supports manual, not error; never forward credentials to a redirect');
     if (!url.startsWith(API)) assert.equal(options.headers?.Authorization, undefined, 'Do not send GitHub credentials to another host');
     if (url === MARKET) return Response.json(wire, {status: marketStatus});
     if (url.startsWith(SITE + 'replay-status.json')) return Response.json(p);
@@ -100,6 +100,23 @@ test('provider errors, absent credential and dispatch rejection fail visibly', a
 test('public HTTP endpoint cannot dispatch', async () => {
   assert.equal((await worker.fetch(new Request('https://watchdog.example/', {method: 'POST'}))).status, 405);
   assert.equal((await worker.fetch(new Request('https://watchdog.example/'))).status, 200);
+});
+
+test('redirect responses fail closed on every upstream read and on dispatch', async () => {
+  for (const redirected of [MARKET, SITE + 'replay-status.json', SITE + 'backtest-status.json', API + '/actions/runs?', API + '/actions/workflows/']) {
+    const m = mock();let redirectedCalls = 0;
+    const fetcher = async (url, options) => {
+      assert.equal(options.redirect, 'manual');
+      if (url.startsWith(redirected)) {
+        redirectedCalls++;
+        return new Response(null, {status: 302, headers: {Location: 'https://untrusted.example/token-sink'}});
+      }
+      assert.equal(new URL(url).hostname === 'untrusted.example', false);
+      return m.fetcher(url, options);
+    };
+    await assert.rejects(check({DRY_RUN: 'false', GITHUB_TOKEN: 'test-only-placeholder'}, {fetcher, now}), /HTTP 302/);
+    assert.equal(redirectedCalls, 1);
+  }
 });
 
 test('commissioning requires the exact observed target and retains all dispatch guards', async () => {

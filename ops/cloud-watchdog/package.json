@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test worker.test.mjs",
+    "test:runtime": "node --test worker.runtime.test.mjs",
     "build": "wrangler deploy --dry-run",
     "deploy": "wrangler deploy",
     "login": "wrangler login"

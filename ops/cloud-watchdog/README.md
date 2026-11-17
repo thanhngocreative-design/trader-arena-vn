@@ -12,8 +12,16 @@ The commissioning flag was subsequently set back to `disabled`. Reloading the
 settings confirmed only the two normal weekday expressions remained, along
 with DRY_RUN=false and the encrypted GITHUB_TOKEN.
 
-During that test, the stored/live log views showed no scheduled-handler decision
-and GitHub's workflow_dispatch listing showed no new run. The existing successful
+Logs arrived after the test and confirmed scheduled invocations at 02:15:25 and
+02:16:25 Vietnam time. Both failed before network I/O because Workers does not
+support `redirect: "error"`. The fix uses `manual` and rejects non-success statuses
+without following redirects or forwarding credentials. Fixed production version:
+`0741bf8d`. A native workerd regression test now exercises all request construction,
+current-book checks, dispatch receipts and redirect rejection with isolated HTTP
+contract fixtures and a retained real benchmark candle. These test fixtures never
+become published trading results.
+
+GitHub's workflow_dispatch listing showed no new cloud-dispatched run. The existing successful
 GitHub scheduled run began at 01:45:54 Vietnam time; the 30-minute dispatch cooldown
 would also have prevented a commissioning dispatch until 02:15:54. These are
 observed limits of this test, not evidence that unattended execution works.
@@ -80,7 +88,8 @@ Immediately disable this flag after the verified dispatch. The deployed value
 is currently `disabled`; it is deliberately absent from the normal config.
 
 Validation after activation: all 128 repository tests passed with
-`python -m pytest -q tests`; the cloud watchdog's 13 Node tests passed; GitHub CI
+`python -m pytest -q tests`; the cloud watchdog's 14 Node tests and its native
+workerd runtime test passed; GitHub CI
 run 44153009968 passed for commit dab7638. Bare local pytest also discovers tests
 in the ignored upstream skill installation clone; those unrelated Bash-based
 tests fail on this Windows machine where Bash is unavailable. The clean GitHub
@@ -92,6 +101,7 @@ checkout does not include that ignored installation clone.
 python replay_health.py
 python -m pytest -q tests/test_replay_health.py
 node ops/cloud-watchdog/probe.mjs
+npm --prefix ops/cloud-watchdog run test:runtime
 ```
 
 The last command reads live public endpoints without any credential or write.

@@ -71,6 +71,13 @@ jobs:
         run: python -c "from live.service import app; print('FastAPI app:',app.title)"
       - name: Test real-time ledger without any broker credentials
         run: python -m pytest -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify watchdog in Cloudflare's workerd runtime
+        run: |
+          npm ci --prefix ops/cloud-watchdog --ignore-scripts
+          npm --prefix ops/cloud-watchdog run test:runtime
       - name: Confirm no order endpoint or DNSE order method
         run: |
           if grep -R -E 'place_order|send_order|submit_order' live/; then

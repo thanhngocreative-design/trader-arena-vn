@@ -64,7 +64,9 @@ export function plan({paper, backtest, runs, target, now, verifyTarget}) {
 }
 
 async function json(fetcher, url, options = {}) {
-  const response = await fetcher(url, {...options, redirect: 'error', signal: AbortSignal.timeout(20000)});
+  // Workers does not implement redirect:error. Reject 3xx below without ever
+  // following a Location header (especially with a GitHub Authorization header).
+  const response = await fetcher(url, {...options, redirect: 'manual', signal: AbortSignal.timeout(20000)});
   if (!response.ok) throw Error(`HTTP ${response.status} reading ${new URL(url).hostname}`);
   return response.json();
 }
@@ -78,15 +80,14 @@ export async function check(env, {fetcher = fetch, now = new Date()} = {}) {
   if (env.GITHUB_TOKEN) headers.Authorization = 'Bearer ' + env.GITHUB_TOKEN;
   // Consult main-branch Actions before dispatching, including old runs re-run today.
   const actions = await json(fetcher, API + '/actions/runs?branch=main&per_page=100', {headers});
-  const result = plan({paper, backtest, runs: actions.workflow_runs, target, now, verifyTarget: env.VERIFY_DISPATCH_TARGET});
-  result.observed_cutoff = end;
+  const result = {...plan({paper, backtest, runs: actions.workflow_runs, target, now, verifyTarget: env.VERIFY_DISPATCH_TARGET}), observed_cutoff: end};
   if (!result.action.startsWith('dispatch_')) return result;
   if (env.DRY_RUN !== 'false') return {...result, action: 'would_' + result.action};
   if (!env.GITHUB_TOKEN) throw Error('GitHub Actions token is not configured');
   const workflow = result.action === 'dispatch_paper' ? 'paper-replay.yml' : 'continuous-backtest.yml';
   const response = await fetcher(API + '/actions/workflows/' + workflow + '/dispatches', {
     method: 'POST', headers: {...headers, 'Content-Type': 'application/json'},
-    body: JSON.stringify({ref: 'main'}), redirect: 'error', signal: AbortSignal.timeout(20000)
+    body: JSON.stringify({ref: 'main'}), redirect: 'manual', signal: AbortSignal.timeout(20000)
   });
   if (![200, 204].includes(response.status)) throw Error('GitHub dispatch failed: HTTP ' + response.status);
   if (response.status === 200) {
