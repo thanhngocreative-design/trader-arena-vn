@@ -16,7 +16,7 @@ Logs arrived after the test and confirmed scheduled invocations at 02:15:25 and
 02:16:25 Vietnam time. Both failed before network I/O because Workers does not
 support `redirect: "error"`. The fix uses `manual` and rejects non-success statuses
 without following redirects or forwarding credentials. Fixed production version:
-`0741bf8d`. A native workerd regression test now exercises all request construction,
+`28d06680` (including read-only health diagnostics). A native workerd regression test now exercises all request construction,
 current-book checks, dispatch receipts and redirect rejection with isolated HTTP
 contract fixtures and a retained real benchmark candle. These test fixtures never
 become published trading results.
@@ -30,6 +30,13 @@ Do not describe GitHub's daily schedule as fixed merely because manual replay wo
 
 Worker: https://trader-arena-cloud-watchdog.thanhngo-creative.workers.dev/
 The public endpoint responds correctly; this alone does not verify scheduled execution.
+The production `/health` endpoint subsequently returned
+`{"action":"current","target":"2026-11-17","observed_cutoff":"2026-11-17"}`.
+This verifies real provider, published metadata and authenticated GitHub reads
+from Cloudflare after the fix. It does not prove a scheduled dispatch succeeds.
+`/health` always overrides DRY_RUN=true and disables commissioning; it never
+dispatches even with production credentials. Successful replies are cached for
+five minutes under a normalized key, and errors are uncached HTTP 503 responses.
 The published Paper and Backtest health both report session 2026-11-17 and the
 Paper-to-Backtest run 44133793842 completed successfully, including Pages deployment.
 
@@ -57,7 +64,8 @@ API errors fail visibly in Cloudflare logs; they never generate trading results.
    or configuration files.
 3. Authenticate the official Wrangler CLI with the owner's Cloudflare account.
    From the repository root, install the pinned project version and deploy in
-   the default read-only mode:
+   the mode recorded in wrangler.toml (currently production; set DRY_RUN=true
+   explicitly when commissioning a separate installation):
 
    ```powershell
    npm ci --prefix ops/cloud-watchdog
@@ -76,7 +84,7 @@ API errors fail visibly in Cloudflare logs; they never generate trading results.
 
 The public HTTP endpoint is read-only and cannot dispatch workflows. A cloud
 scheduled event is the only execution entry point. The token is never returned
-or logged. Dry-run is the default; absent credentials cannot silently activate
+or logged. Dry-run is the code default; absent credentials cannot silently activate
 writes. Configuring this Worker does not weaken the simulation's candle, causal
 execution, accounting or checkpoint verification.
 
@@ -88,9 +96,9 @@ Immediately disable this flag after the verified dispatch. The deployed value
 is currently `disabled`; it is deliberately absent from the normal config.
 
 Validation after activation: all 128 repository tests passed with
-`python -m pytest -q tests`; the cloud watchdog's 14 Node tests and its native
+`python -m pytest -q tests`; the cloud watchdog's 15 Node tests and its native
 workerd runtime test passed; GitHub CI
-run 44153009968 passed for commit dab7638. Bare local pytest also discovers tests
+run 44158026048 passed for commit 0cdffce, including native runtime tests. Bare local pytest also discovers tests
 in the ignored upstream skill installation clone; those unrelated Bash-based
 tests fail on this Windows machine where Bash is unavailable. The clean GitHub
 checkout does not include that ignored installation clone.

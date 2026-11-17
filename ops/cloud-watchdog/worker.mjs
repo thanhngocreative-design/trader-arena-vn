@@ -98,13 +98,32 @@ export async function check(env, {fetcher = fetch, now = new Date()} = {}) {
   return {...result, dispatched: true};
 }
 
+export async function health(env, options) {
+  // Public diagnostics can read published/source health but must never dispatch.
+  return check({...env, DRY_RUN: 'true', VERIFY_DISPATCH_TARGET: undefined}, options);
+}
+
 export default {
   async scheduled(_event, env) {
     const result = await check(env);
     console.log(JSON.stringify(result));
   },
-  async fetch(request) {
+  async fetch(request, env, ctx) {
     if (!['GET', 'HEAD'].includes(request.method)) return new Response('Method not allowed', {status: 405});
+    if (new URL(request.url).pathname === '/health') {
+      // Normalize the cache key so arbitrary query strings cannot bypass caching.
+      const key = new Request(new URL('/health', request.url), {method: 'GET'});
+      const cache = caches.default, cached = await cache.match(key);
+      if (cached) return cached;
+      try {
+        const result = await health(env);
+        const response = Response.json(result, {headers: {'Cache-Control': 'public, max-age=300'}});
+        ctx.waitUntil(cache.put(key, response.clone()));
+        return response;
+      } catch (error) {
+        return Response.json({status: 'error', message: error.message}, {status: 503, headers: {'Cache-Control': 'no-store'}});
+      }
+    }
     return Response.json({service: 'trader-arena-cloud-watchdog', version: 1, http: 'read-only; execution requires a scheduled event'});
   }
 };

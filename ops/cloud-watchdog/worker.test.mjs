@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
-import worker, {check, cutoff, latestSession, plan, API, SITE, MARKET} from './worker.mjs';
+import worker, {check, health, cutoff, latestSession, plan, API, SITE, MARKET} from './worker.mjs';
 
 const bank = JSON.parse(gunzipSync(readFileSync(new URL('../../state/replay_market/sessions/2026-11-16.json.gz', import.meta.url))));
 const rows = bank.replies.VNINDEX.ONE_DAY;
@@ -100,6 +100,15 @@ test('provider errors, absent credential and dispatch rejection fail visibly', a
 test('public HTTP endpoint cannot dispatch', async () => {
   assert.equal((await worker.fetch(new Request('https://watchdog.example/', {method: 'POST'}))).status, 405);
   assert.equal((await worker.fetch(new Request('https://watchdog.example/'))).status, 200);
+});
+
+test('public health always disables writes and commissioning even with production bindings', async () => {
+  for (const opts of [{}, {p: paper(), b: backtest('2026-11-16')}]) {
+    const m = mock(opts);
+    const result = await health({DRY_RUN:'false', GITHUB_TOKEN:'test-only-placeholder', VERIFY_DISPATCH_TARGET:'2026-11-16'}, {fetcher:m.fetcher, now});
+    assert.equal(result.action, opts.p ? 'current' : 'would_dispatch_paper');
+    assert.equal(m.calls.filter(c=>c.url.endsWith('/dispatches')).length,0);
+  }
 });
 
 test('redirect responses fail closed on every upstream read and on dispatch', async () => {
