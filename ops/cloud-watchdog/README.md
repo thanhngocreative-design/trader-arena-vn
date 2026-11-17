@@ -1,32 +1,30 @@
 # Independent cloud replay watchdog
 
-Deployment status (2026-11-18 Vietnam): **deployed with production DRY_RUN=false,
-the owner's encrypted GITHUB_TOKEN, and both weekday cron expressions saved.
-Actual scheduled GitHub dispatch is not yet verified**. The Quick Edit Schedule
-button produced HTTP requests without a scheduled-handler decision log, so it
-does not count as a passed cloud execution test. Automatic approval review
-initially rejected a temporary every-minute production cron. The owner then
-explicitly approved a maximum 15-minute test. That cron was saved at about
-02:01 Vietnam time on 2026-11-18 and removed at 02:15:43, before the deadline.
-The commissioning flag was subsequently set back to `disabled`. Reloading the
-settings confirmed only the two normal weekday expressions remained, along
-with DRY_RUN=false and the encrypted GITHUB_TOKEN.
+Deployment status (2026-11-18 Vietnam): **active and verified end to end**.
+Cloudflare's native scheduled handler began at 02:43:34, observed real session
+2026-11-17, and received GitHub's successful dispatch receipt at 02:43:39 for
+[run 44161675845](https://github.com/thanhngocreative-design/trader-arena-vn/actions/runs/44161675845).
+The matching GitHub run is a workflow_dispatch on main at commit 39d64b3.
+Paper replay, its required Backtest job, and both Pages deployments succeeded.
+The cloud decision log records action=dispatch_paper, dispatched=true,
+verification=true and the same run_id; this was not a local CLI dispatch.
 
-Logs arrived after the test and confirmed scheduled invocations at 02:15:25 and
-02:16:25 Vietnam time. Both failed before network I/O because Workers does not
-support `redirect: "error"`. The fix uses `manual` and rejects non-success statuses
-without following redirects or forwarding credentials. Fixed production version:
-`28d06680` (including read-only health diagnostics). A native workerd regression test now exercises all request construction,
-current-book checks, dispatch receipts and redirect rejection with isolated HTTP
-contract fixtures and a retained real benchmark candle. These test fixtures never
-become published trading results.
+The bounded commissioning cron was removed immediately after dispatch, within
+its 15-minute window. The commissioning flag is back to `disabled`. Reloading
+settings confirmed DRY_RUN=false, the encrypted GITHUB_TOKEN, and only the two
+normal weekday expressions. No always-on personal computer is needed.
 
-GitHub's workflow_dispatch listing showed no new cloud-dispatched run. The existing successful
-GitHub scheduled run began at 01:45:54 Vietnam time; the 30-minute dispatch cooldown
-would also have prevented a commissioning dispatch until 02:15:54. These are
-observed limits of this test, not evidence that unattended execution works.
-Do not extend or re-enable the temporary cron without further owner approval.
-Do not describe GitHub's daily schedule as fixed merely because manual replay works.
+The first commissioning attempt exposed Workers' unsupported redirect:error
+mode. Requests now use manual redirect handling and reject non-success statuses
+without following Location headers or forwarding credentials. A native workerd
+regression test exercises current-book checks, dispatch receipts, read-only health
+and redirect rejection with isolated HTTP contract fixtures and a retained real
+benchmark candle. Test fixtures never become published trading results.
+
+Comparison of baseline 39d64b3 with published commit eaa1b1b verified all 144 Paper
+accounts and all 144 Backtest trade ledgers unchanged when replaying the same
+session. Paper source hashes, session calendars, and the simulation model hash
+also remain unchanged. The latest completed market session is 2026-11-17.
 
 Worker: https://trader-arena-cloud-watchdog.thanhngo-creative.workers.dev/
 The public endpoint responds correctly; this alone does not verify scheduled execution.
@@ -37,8 +35,7 @@ from Cloudflare after the fix. It does not prove a scheduled dispatch succeeds.
 `/health` always overrides DRY_RUN=true and disables commissioning; it never
 dispatches even with production credentials. Successful replies are cached for
 five minutes under a normalized key, and errors are uncached HTTP 503 responses.
-The published Paper and Backtest health both report session 2026-11-17 and the
-Paper-to-Backtest run 44133793842 completed successfully, including Pages deployment.
+The published Paper and Backtest health both report session 2026-11-17.
 
 Cloudflare Cron checks at 16:55, 17:25, 18:55 and 20:25 on weekdays, Vietnam time.
 It observes actual positive-close/positive-volume VN-Index daily candles from
@@ -98,7 +95,9 @@ is currently `disabled`; it is deliberately absent from the normal config.
 Validation after activation: all 128 repository tests passed with
 `python -m pytest -q tests`; the cloud watchdog's 15 Node tests and its native
 workerd runtime test passed; GitHub CI
-run 44158026048 passed for commit 0cdffce, including native runtime tests. Bare local pytest also discovers tests
+run 44158620879 passed for commit 39d64b3, including native runtime tests. The
+cloud-triggered Paper and Backtest jobs also passed their own 128-test checks.
+Bare local pytest also discovers tests
 in the ignored upstream skill installation clone; those unrelated Bash-based
 tests fail on this Windows machine where Bash is unavailable. The clean GitHub
 checkout does not include that ignored installation clone.
