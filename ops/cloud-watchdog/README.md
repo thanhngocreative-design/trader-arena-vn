@@ -27,14 +27,16 @@ API errors fail visibly in Cloudflare logs; they never generate trading results.
    arrange rotation before expiry. Never put the token in chat, Git, screenshots
    or configuration files.
 3. Authenticate the official Wrangler CLI with the owner's Cloudflare account.
-   From the repository root, deploy in the default read-only mode:
+   From the repository root, install the pinned project version and deploy in
+   the default read-only mode:
 
    ```powershell
-   npx wrangler deploy --config ops/cloud-watchdog/wrangler.toml
-   npx wrangler secret put GITHUB_TOKEN --config ops/cloud-watchdog/wrangler.toml
+   npm ci --prefix ops/cloud-watchdog
+   npm --prefix ops/cloud-watchdog run deploy
    ```
 
-   The owner enters the token directly into the hidden secret prompt. The secret
+   The owner enters the GitHub token directly into Cloudflare's secret UI, or a
+   documented hidden secret prompt. Its binding name is `GITHUB_TOKEN`. The secret
    is sent only to Cloudflare and then used only with api.github.com for this repo.
 4. Verify a scheduled invocation in Cloudflare logs. Confirm the real latest
    observed session and that an already-running GitHub pipeline is skipped.

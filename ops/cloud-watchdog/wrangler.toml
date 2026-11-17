@@ -1,6 +1,6 @@
 name = "trader-arena-cloud-watchdog"
 main = "worker.mjs"
-compatibility_date = "2026-11-17"
+compatibility_date = "2026-11-18"
 workers_dev = true
 
 [vars]
@@ -12,4 +12,7 @@ DRY_RUN = "true"
 crons = ["55 9,11 * * MON-FRI", "25 10,13 * * MON-FRI"]
 
 [observability]
+enabled = true
+
+[observability.traces]
 enabled = true

@@ -1,0 +1,15 @@
+{
+  "name": "trader-arena-cloud-watchdog",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test worker.test.mjs",
+    "build": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy",
+    "login": "wrangler login"
+  },
+  "devDependencies": {
+    "wrangler": "4.164.0"
+  }
+}
