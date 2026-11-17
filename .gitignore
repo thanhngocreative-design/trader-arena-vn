@@ -6,6 +6,9 @@ data/minute/
 data/update_status.json
 *.pyc
 .env
+.dev.vars
+.dev.vars.*
+.wrangler/
 
 data/minute_history/
 vn_market_data.db

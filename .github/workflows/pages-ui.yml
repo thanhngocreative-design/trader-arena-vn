@@ -15,6 +15,7 @@ on:
       - site/value-intraday.json
       - site/research-300.json
       - site/backtest-status.json
+      - site/replay-status.json
       - site/paper-replay.json
       - site/paper-fixed146.json
       - site/research-vn30.json
