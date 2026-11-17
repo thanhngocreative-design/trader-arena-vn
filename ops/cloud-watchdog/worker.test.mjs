@@ -12,7 +12,7 @@ const now = new Date('2026-11-16T14:00:00Z');
 const paper = () => ({revision: 'replay_health_v1', status: 'complete', end: '2026-11-16', bot_ids: ['test-account'], accounts: 9,
   baskets: Object.fromEntries(['300', '146', 'vn30'].map(k => [k, {end: '2026-11-16', accounts: 3, sessions: 11}]))});
 const stale = () => {const p = paper();p.end = '2026-11-13';for (const b of Object.values(p.baskets)) b.end = p.end;return p;};
-const backtest = end => ({status: 'complete', end});
+const backtest = end => ({status: 'complete', end, bots: ['test-account']});
 const run = overrides => ({id: 1, head_branch: 'main', path: '.github/workflows/paper-replay.yml', status: 'completed', conclusion: 'success', run_started_at: '2026-11-16T09:00:00Z', ...overrides});
 const decision = (extra = {}) => plan({paper: stale(), backtest: backtest('2026-11-13'), runs: [], target: '2026-11-16', now, ...extra});
 
@@ -35,6 +35,7 @@ test('dispatches only the missing stage', () => {
   assert.equal(decision().action, 'dispatch_paper');
   assert.equal(decision({paper: paper()}).action, 'dispatch_backtest');
   assert.equal(decision({paper: paper(), backtest: backtest('2026-11-16')}).action, 'current');
+  assert.equal(decision({paper: paper(), backtest: {...backtest('2026-11-16'), bots: []}}).action, 'dispatch_backtest');
 });
 test('recognizes an older run that was re-run today and an independently running Backtest', () => {
   for (const path of ['.github/workflows/paper-replay.yml', '.github/workflows/continuous-backtest.yml'])

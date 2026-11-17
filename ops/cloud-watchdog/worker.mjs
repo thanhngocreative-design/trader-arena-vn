@@ -40,9 +40,10 @@ function paperEnd(p) {
 
 export function plan({paper, backtest, runs, target, now}) {
   const p = paperEnd(paper);
-  if (backtest?.status !== 'complete' || !/^\d{4}-\d{2}-\d{2}$/.test(backtest.end)) throw Error('Invalid Backtest health');
+  if (backtest?.status !== 'complete' || !/^\d{4}-\d{2}-\d{2}$/.test(backtest.end) || !Array.isArray(backtest.bots)) throw Error('Invalid Backtest health');
   if (p > target || backtest.end > target) throw Error('Provider observation is older than published results');
-  if (p === target && backtest.end === target) return {action: 'current', target};
+  const sameBots = [...backtest.bots].sort().join('\0') === [...paper.bot_ids].sort().join('\0');
+  if (p === target && backtest.end === target && sameBots) return {action: 'current', target};
   if (!Array.isArray(runs)) throw Error('Invalid Actions response');
   const relevant = runs.filter(r => r.head_branch === 'main' && PATHS.has(r.path));
   const active = relevant.find(r => ACTIVE.has(r.status));
