@@ -1,11 +1,11 @@
 name = "trader-arena-cloud-watchdog"
 main = "worker.mjs"
-compatibility_date = "2026-11-18"
+compatibility_date = "2026-11-17"
 workers_dev = true
 
 [vars]
-# Activate only after the limited GitHub Actions secret has been configured.
-DRY_RUN = "true"
+# The owner configured the repository-limited encrypted GitHub Actions secret.
+DRY_RUN = "false"
 
 [triggers]
 # 16:55, 17:25, 18:55, 20:25 Asia/Ho_Chi_Minh; Cloudflare cron uses UTC.

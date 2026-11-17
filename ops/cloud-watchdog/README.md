@@ -1,8 +1,18 @@
 # Independent cloud replay watchdog
 
-Deployment status: **prepared; not activated until Cloudflare authentication,
-the repository-limited secret, and a real cloud invocation have been verified**.
+Deployment status (2026-11-18 Vietnam): **deployed with production DRY_RUN=false,
+the owner's encrypted GITHUB_TOKEN, and both weekday cron expressions saved.
+Actual scheduled GitHub dispatch is not yet verified**. The Quick Edit Schedule
+button produced HTTP requests without a scheduled-handler decision log, so it
+does not count as a passed cloud execution test. Automatic approval review
+rejected a temporary every-minute production cron; no such cron was saved.
+The commissioning flag is disabled pending the owner's specific approval.
 Do not describe GitHub's daily schedule as fixed merely because manual replay works.
+
+Worker: https://trader-arena-cloud-watchdog.thanhngo-creative.workers.dev/
+The public endpoint responds correctly; this alone does not verify scheduled execution.
+The published Paper and Backtest health both report session 2026-11-17 and the
+Paper-to-Backtest run 44133793842 completed successfully, including Pages deployment.
 
 Cloudflare Cron checks at 16:55, 17:25, 18:55 and 20:25 on weekdays, Vietnam time.
 It observes actual positive-close/positive-volume VN-Index daily candles from
@@ -50,6 +60,13 @@ scheduled event is the only execution entry point. The token is never returned
 or logged. Dry-run is the default; absent credentials cannot silently activate
 writes. Configuring this Worker does not weaken the simulation's candle, causal
 execution, accounting or checkpoint verification.
+
+For an explicitly approved commissioning test when all books are current, set
+`VERIFY_DISPATCH_TARGET` to the exact real observed session date. This requests
+an idempotent Paper replay on main, with the usual active-run, 30-minute cooldown,
+three-failure and DRY_RUN guards. It does not replace any source or health data.
+Immediately disable this flag after the verified dispatch. The deployed value
+is currently `disabled`; it is deliberately absent from the normal config.
 
 ## Validation
 

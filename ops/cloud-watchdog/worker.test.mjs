@@ -101,3 +101,25 @@ test('public HTTP endpoint cannot dispatch', async () => {
   assert.equal((await worker.fetch(new Request('https://watchdog.example/', {method: 'POST'}))).status, 405);
   assert.equal((await worker.fetch(new Request('https://watchdog.example/'))).status, 200);
 });
+
+test('commissioning requires the exact observed target and retains all dispatch guards', async () => {
+  const opts = {p: paper(), b: backtest('2026-11-16')};
+  for (const target of [undefined, 'true', '2026-11-13', '2026-11-17']) {
+    const m = mock(opts);
+    assert.equal((await check({DRY_RUN: 'false', GITHUB_TOKEN: 'test-only-placeholder', VERIFY_DISPATCH_TARGET: target}, {fetcher: m.fetcher, now})).action, 'current');
+    assert.equal(m.calls.filter(c => c.url.endsWith('/dispatches')).length, 0);
+  }
+  let m = mock({...opts, dispatchStatus: 200});
+  let result = await check({DRY_RUN: 'false', GITHUB_TOKEN: 'test-only-placeholder', VERIFY_DISPATCH_TARGET: '2026-11-16'}, {fetcher: m.fetcher, now});
+  assert.equal(result.verification, true);assert.equal(result.run_id, 12345);
+  assert.equal(m.calls.at(-1).url, API + '/actions/workflows/paper-replay.yml/dispatches');
+  m = mock(opts);
+  result = await check({VERIFY_DISPATCH_TARGET: '2026-11-16'}, {fetcher: m.fetcher, now});
+  assert.equal(result.action, 'would_dispatch_paper');
+  assert.equal(m.calls.filter(c => c.url.endsWith('/dispatches')).length, 0);
+  for (const [runs, expected] of [[[run({status: 'in_progress'})], 'in_flight'], [[run({run_started_at: '2026-11-16T13:50:00Z'})], 'cooldown']]) {
+    m = mock({...opts, runs});
+    assert.equal((await check({DRY_RUN: 'false', GITHUB_TOKEN: 'test-only-placeholder', VERIFY_DISPATCH_TARGET: '2026-11-16'}, {fetcher: m.fetcher, now})).action, expected);
+    assert.equal(m.calls.filter(c => c.url.endsWith('/dispatches')).length, 0);
+  }
+});

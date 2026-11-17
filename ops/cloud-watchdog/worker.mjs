@@ -38,12 +38,16 @@ function paperEnd(p) {
   return p.end;
 }
 
-export function plan({paper, backtest, runs, target, now}) {
+export function plan({paper, backtest, runs, target, now, verifyTarget}) {
   const p = paperEnd(paper);
   if (backtest?.status !== 'complete' || !/^\d{4}-\d{2}-\d{2}$/.test(backtest.end) || !Array.isArray(backtest.bots)) throw Error('Invalid Backtest health');
   if (p > target || backtest.end > target) throw Error('Provider observation is older than published results');
   const sameBots = [...backtest.bots].sort().join('\0') === [...paper.bot_ids].sort().join('\0');
-  if (p === target && backtest.end === target && sameBots) return {action: 'current', target};
+  const current = p === target && backtest.end === target && sameBots;
+  // Owner-operated commissioning only: rerun real, already-current books for this
+  // exact observed session. Never invent a stale session to test dispatch access.
+  const verify = current && verifyTarget === target;
+  if (current && !verify) return {action: 'current', target};
   if (!Array.isArray(runs)) throw Error('Invalid Actions response');
   const relevant = runs.filter(r => r.head_branch === 'main' && PATHS.has(r.path));
   const active = relevant.find(r => ACTIVE.has(r.status));
@@ -55,7 +59,8 @@ export function plan({paper, backtest, runs, target, now}) {
   if (recent.length) return {action: 'cooldown', target};
   const today = relevant.filter(r => String(r.run_started_at || r.created_at).slice(0, 10) === now.toISOString().slice(0, 10));
   if (today.filter(r => r.conclusion === 'failure').length >= 3) throw Error('Three failed pipeline runs; inspection required');
-  return {action: p === target ? 'dispatch_backtest' : 'dispatch_paper', target};
+  return {action: !verify && p === target ? 'dispatch_backtest' : 'dispatch_paper', target,
+    ...(verify ? {verification: true} : {})};
 }
 
 async function json(fetcher, url, options = {}) {
@@ -73,7 +78,7 @@ export async function check(env, {fetcher = fetch, now = new Date()} = {}) {
   if (env.GITHUB_TOKEN) headers.Authorization = 'Bearer ' + env.GITHUB_TOKEN;
   // Consult main-branch Actions before dispatching, including old runs re-run today.
   const actions = await json(fetcher, API + '/actions/runs?branch=main&per_page=100', {headers});
-  const result = plan({paper, backtest, runs: actions.workflow_runs, target, now});
+  const result = plan({paper, backtest, runs: actions.workflow_runs, target, now, verifyTarget: env.VERIFY_DISPATCH_TARGET});
   result.observed_cutoff = end;
   if (!result.action.startsWith('dispatch_')) return result;
   if (env.DRY_RUN !== 'false') return {...result, action: 'would_' + result.action};
