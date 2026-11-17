@@ -23,6 +23,9 @@ test('VN cutoff handles midnight, before close, and weekends', () => {
 });
 test('target comes from a retained real benchmark candle, not an invented session', () => {
   assert.equal(latestSession(wire, '2026-11-16'), '2026-11-16');
+  const strings = structuredClone(wire);for (const key of ['t', 'c', 'v']) strings[0][key] = strings[0][key].map(String);
+  assert.equal(latestSession(strings, '2026-11-16'), '2026-11-16');
+  strings[0].v[0] = '';assert.throws(() => latestSession(strings, '2026-11-16'), /Invalid/);
   assert.throws(() => latestSession(wire, '2026-11-13'), /No real/);
   const duplicate = structuredClone(wire);for (const key of ['t', 'c', 'v']) duplicate[0][key].push(duplicate[0][key][0]);
   assert.throws(() => latestSession(duplicate, '2026-11-16'), /Invalid/);

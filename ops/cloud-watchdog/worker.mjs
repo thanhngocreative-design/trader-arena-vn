@@ -18,11 +18,14 @@ export function latestSession(wire, end) {
   const {t, c, v} = wire[0];
   if (![t, c, v].every(Array.isArray) || !t.length || t.length !== c.length || t.length !== v.length) throw Error('Invalid benchmark arrays');
   const observed = [], seen = new Set();
+  // Vietcap also encodes numeric arrays as strings; match the canonical loader's numeric conversion.
+  const number = value => typeof value === 'number' || (typeof value === 'string' && value.trim() !== '') ? Number(value) : NaN;
   for (let i = 0; i < t.length; i++) {
-    if (![t[i], c[i], v[i]].every(Number.isFinite) || !Number.isInteger(t[i]) || seen.has(t[i]) || c[i] <= 0 || v[i] < 0) throw Error('Invalid benchmark candle');
-    seen.add(t[i]);
-    const local = new Date(t[i] * 1000 + 7 * 3600000), day = local.toISOString().slice(0, 10);
-    if (day <= end && ![0, 6].includes(local.getUTCDay()) && v[i] > 0) observed.push(day);
+    const stamp = number(t[i]), close = number(c[i]), volume = number(v[i]);
+    if (![stamp, close, volume].every(Number.isFinite) || !Number.isInteger(stamp) || stamp <= 0 || seen.has(stamp) || close <= 0 || volume < 0) throw Error('Invalid benchmark candle');
+    seen.add(stamp);
+    const local = new Date(stamp * 1000 + 7 * 3600000), day = local.toISOString().slice(0, 10);
+    if (day <= end && ![0, 6].includes(local.getUTCDay()) && volume > 0) observed.push(day);
   }
   if (!observed.length) throw Error('No real completed benchmark session observed');
   return observed.sort().at(-1);

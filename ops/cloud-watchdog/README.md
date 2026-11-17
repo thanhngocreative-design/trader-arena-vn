@@ -58,6 +58,9 @@ node ops/cloud-watchdog/probe.mjs
 ```
 
 The last command reads live public endpoints without any credential or write.
+GitHub can rate-limit this unauthenticated probe; the deployed Worker uses the
+repository-limited token for GitHub requests. A rate-limit error is not a passed
+end-to-end check and must not be hidden by an invented API response.
 The health publisher refuses missing bots, old NAV points and incomplete baskets.
 HTTP contract fixtures are test-only and never become market or performance data.
 

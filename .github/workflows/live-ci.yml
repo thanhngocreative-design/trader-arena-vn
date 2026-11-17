@@ -24,6 +24,8 @@ on:
       - 'paper_intraday.py'
       - 'run_minute_research.py'
       - 'tests/**'
+      - 'replay_health.py'
+      - 'ops/cloud-watchdog/**'
       - 'engine.py'
       - 'education_bots.py'
       - 'backtest_state.py'
