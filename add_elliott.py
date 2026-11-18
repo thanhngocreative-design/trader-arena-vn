@@ -59,7 +59,9 @@ def compute():
     extension={'end':end,'model_sha256':model_digest(),'backtest':{},'paper':{},'ledgers':{},'combo_states':{},'audit':{}}
     for label,start in [('backtest',START),('paper',PAPER_START)]:
         folder=OUT/label;folder.mkdir(parents=True,exist_ok=True)
-        tape=frames if label=='backtest' else {s:f.loc[f.index.normalize()>=pd.Timestamp(start)] for s,f in frames.items()}
+        # Paper uses its own immutable session receipts, even when a historical
+        # download contains an apparently identical candle for the same minute.
+        tape=frames if label=='backtest' else {s:f.loc[f.index.normalize()>=pd.Timestamp(start)] for s,f in recent.items()}
         run_minute(ctxs,tape,coverage,{**cfg,'start':start,'end':end},folder,bot_ids=['Elliott'])
         for name,ctx in ctxs.items():
             universe=set(ctx.symbols);first=ctx.dates.searchsorted(start);last=ctx.dates.searchsorted(end,side='right')-1
