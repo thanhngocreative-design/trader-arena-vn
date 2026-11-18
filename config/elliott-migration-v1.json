@@ -1,0 +1,6 @@
+{
+  "previous_model_sha256": "b5cceb552428a520d8f67fd0a06699b96164d6b02b15d654bd39812f20c73acd",
+  "new_model_sha256": "d9da97f95cb26fe9587fa73e9e295fd87f088246288cdc51881364f979a0ebf8",
+  "baseline_commit": "4f8bbf592d4f91f82f0a1fd357a33830bfc7c1bb",
+  "purpose": "Add only Elliott accounts from verified retained raw history; preserve every pre-existing account and ledger."
+}

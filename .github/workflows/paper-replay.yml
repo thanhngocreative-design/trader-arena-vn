@@ -1,4 +1,4 @@
-name: EOD paper replay — monthly300 + fixed146 + VN30, 144 books
+name: EOD paper replay — monthly300 + fixed146 + VN30, 153 books
 on:
   workflow_dispatch:
   schedule:
@@ -7,7 +7,7 @@ on:
     - cron: '47 11 * * 1-5'
   push:
     branches: [main]
-    paths: ['paper_replay.py', 'paper_fixed146.py', 'paper_vn30.py', 'education_bots.py', 'vn30_current.py', 'vn30.py', 'config/research-vn30.json', 'replay_rules.py', '.github/workflows/paper-replay.yml']
+    paths: ['paper_replay.py', 'paper_fixed146.py', 'paper_vn30.py', 'education_bots.py', 'elliott_wave.py', 'vn30_current.py', 'vn30.py', 'config/research-vn30.json', 'replay_rules.py', '.github/workflows/paper-replay.yml']
 permissions:
   contents: write
   pages: write
@@ -39,9 +39,9 @@ jobs:
         run: python -m pytest -q
       - name: Bank completed real sessions and replay monthly300 accounts
         run: python -u paper_replay.py
-      - name: Replay 48 independent fixed146 paper accounts
+      - name: Replay 51 independent fixed146 paper accounts
         run: python -u paper_fixed146.py
-      - name: Replay 48 independent effective-date VN30 paper accounts
+      - name: Replay 51 independent effective-date VN30 paper accounts
         run: python -u paper_vn30.py
       - name: Verify all Paper universes and publish compact session health
         run: python -u replay_health.py

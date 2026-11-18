@@ -33,7 +33,7 @@ const unchanged=JSON.stringify([PIT_DATA,REPLAY_DATA,FIXED_REPLAY_DATA,VN30_REPL
 let changes=0;
 for(const universe of ['300','146','vn30'])for(const book of Object.keys(MODE_LABEL)){
   setStudy(universe);setMode(book);period='ALL';enableAllBots();raceDate=null;
-  const data=raceHistory();assert.equal(data.bots.length,16);assert.deepEqual(data.omitted,[]);
+  const data=raceHistory();assert.equal(data.bots.length,IDS.length);assert.deepEqual(data.omitted,[]);
   const expectedEnd=isPaper()?paperSource().last_session:PIT_DATA.end;
   assert.equal(data.dates.length,isPaper()?paperSource().sessions.length:90);assert.equal(data.dates.at(-1),expectedEnd);
   for(let i=0;i<data.dates.length;i++){
@@ -48,7 +48,7 @@ for(const universe of ['300','146','vn30'])for(const book of Object.keys(MODE_LA
   renderRace();seekRace(0);assert.equal(elements.raceDate.textContent,raceShortDate(data.dates[0]));
   assert.ok(!elements.raceGraph.innerHTML.includes('NaN'));
   seekRace(9999);assert.equal(raceDate,expectedEnd);assert.equal(elements.raceNext.disabled,true);
-  assert.equal((elements.raceRows.innerHTML.match(/data-race-bot=/g)||[]).length,16);
+  assert.equal((elements.raceRows.innerHTML.match(/data-race-bot=/g)||[]).length,IDS.length);
   applyBestMix(6);renderRace();assert.equal(raceData.bots.length,6);
   assert.deepEqual(new Set(raceData.bots),new Set(activeKeys()));
   seekRace(1);const chosen=raceDate;renderRace();assert.equal(raceDate,chosen);

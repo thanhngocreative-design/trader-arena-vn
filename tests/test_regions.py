@@ -8,7 +8,7 @@ from test_engine import data
 
 
 def test_all_eleven_bots_are_independent_and_valid():
-    assert set(TRADERS) == {"Minervini","ONeil","Darvas","BNF","CIS","Qullamaggie","Unger","ThaiPham","DuongChung","PThai","Hybrid","Beginner","Intermediate","Pro"}
+    assert set(TRADERS) == {"Minervini","ONeil","Darvas","BNF","CIS","Qullamaggie","Unger","ThaiPham","DuongChung","PThai","Hybrid","Beginner","Intermediate","Pro","Elliott"}
     assert {TRADERS[k]["region"] for k in TRADERS} == {"US","JP","EU","VN","MIX"}
     prices, index = data(420)
     features = make_features(prices,index)

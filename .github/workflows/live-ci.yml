@@ -28,6 +28,8 @@ on:
       - 'ops/cloud-watchdog/**'
       - 'engine.py'
       - 'education_bots.py'
+      - 'elliott_wave.py'
+      - 'add_elliott.py'
       - 'backtest_state.py'
       - 'continuous_backtest.py'
       - 'vn30_current.py'

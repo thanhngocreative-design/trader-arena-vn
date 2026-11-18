@@ -143,7 +143,7 @@ jobs:
           assert p['fundamentals_source_sha256']==hashlib.sha256(Path('config/value-fundamentals-300.json').read_bytes()).hexdigest()
           print('Verified 300 each month; real source stocks; both controls; paper kept separate')
           PY
-      - name: Verify the shared replay protocol and all 144 paper accounts
+      - name: Verify the shared replay protocol and all 153 paper accounts
         run: |
           python - <<'PY'
           import json

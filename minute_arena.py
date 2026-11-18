@@ -62,6 +62,7 @@ def darvas_features(f):
 
 def exit_signal(bot,row,entry):
     c=row['close']; ma10=row['ma10']; ma20=row['ma20']
+    if bot=='Elliott':return c<ma20 or c<entry*.92
     if bot=='Beginner':return ma10<ma20 or c<entry*.92
     if bot=='Intermediate':return c<ma20 or c<entry*.93
     if bot=='Pro':return c<ma20 or c<entry*.94

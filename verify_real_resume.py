@@ -43,7 +43,7 @@ def run(audit_output='data/pit_results/verified-real-resume.json'):
     whole=read(output/'full/minute-checkpoint.json')
     minute_accounts=len(whole['accounts']['vn30']['minute']);value_combo_accounts=len(whole['accounts']['vn30']['value_combo'])
     for key in ['accounts','curves','marks','seen','seq']:assert resumed[key]==whole[key],key
-    print('REAL VN30: all 16 minute and 2 value-combo accounts match uninterrupted 10-session Paper, including every fill, NAV, cash and position',flush=True)
+    print(f'REAL VN30: all {minute_accounts} minute and {value_combo_accounts} value-combo accounts match uninterrupted {len(sessions)}-session Paper, including every fill, NAV, cash and position',flush=True)
     first=ctx.dates.searchsorted(sessions[0]);last=ctx.dates.searchsorted(sessions[-1]);split=last-1
     combo_counts={}
     for bot in ['Beginner','DuongChung']:

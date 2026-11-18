@@ -4,7 +4,10 @@ Sources explain the concepts, not these Arena-specific numerical parameters.
 The minute versions are separate experimental adaptations, not day indicators
 calculated from the future session close. No parameter search is performed.
 """
+from elliott_wave import PROFILE as ELLIOTT_PROFILE,entries as elliott_entries
+
 PROFILES={
+    'Elliott':ELLIOTT_PROFILE,
     'Beginner':dict(name='Beginner Trader',emoji='🌱',region='MIX',flag='🌍',
         tag='Cơ bản · giao cắt đường trung bình',
         explain='Mua khi SMA20 cắt lên SMA50, giá trên SMA20; thoát khi xu hướng đảo hoặc lỗ 8%.',
@@ -28,6 +31,7 @@ for profile in PROFILES.values():profile['supported_modes']=MODES.copy()
 def daily_signals(p):
     c=p['close'];v=p['volume']
     return {
+        'Elliott':elliott_entries(c),
         'Beginner':(p.sma20>p.sma50)&(p.sma20.shift()<=p.sma50.shift())&(c>p.sma20),
         'Intermediate':(c>p.high20_prev)&(c>p.sma50)&(v>p.vol20_prev*1.2)&p.market_ok,
         'Pro':(p.sma50>p.sma100)&(p.sma100>p.sma200)&(c>p.high55_prev)&(p.rs60>.05)&(p.atr14/c).between(.01,.05)&(v>p.vol20_prev*1.3)&p.market_ok,
@@ -38,6 +42,7 @@ def minute_signals(c,h,l,v,ma5,ma10,ma20,hi20,hi30,vf,m30,vol):
     # Accept Series or column-wise DataFrames: canonical and vectorized engines
     # share exactly the same definitions and independent per-symbol warm-up.
     return {
+        'Elliott':elliott_entries(c,minute=True),
         'Beginner':(ma5>ma20)&(ma5.shift()<=ma20.shift())&(c>ma5),
         'Intermediate':(c>hi20)&(ma10>ma20)&(vf>1.2),
         'Pro':(ma5>ma10)&(ma10>ma20)&(c>hi30)&(m30>.015)&(vf>1.4)&(vol>=.003)&(vol<=.03),
@@ -46,6 +51,7 @@ def minute_signals(c,h,l,v,ma5,ma10,ma20,hi20,hi30,vf,m30,vol):
 
 def daily_exit(bot,row,p):
     c=row['close'];price=p['price']
+    if bot=='Elliott':return c<price*.92 or c<p['high_water']-2.5*row.get('atr14',float('nan'))
     if bot=='Beginner':return c<price*.92 or row.get('sma20',float('nan'))<row.get('sma50',float('nan'))
     if bot=='Intermediate':return c<price*.93 or c<row.get('sma20',float('nan'))
     if bot=='Pro':return c<price*.92 or c<row.get('sma50',float('nan')) or c<p['high_water']-2.5*row.get('atr14',float('nan'))

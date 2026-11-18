@@ -11,7 +11,7 @@ from paper_replay import (ROOT,VN,START,MARKET,ENDPOINT,epoch,validate_wire,norm
 
 STATE=ROOT/'state/paper_seasons'/START/'paper_fixed146.json'
 PUBLIC=ROOT/'site/paper-fixed146.json'
-OUTPUT_BASE=ROOT/'data/pit_results/replay-fixed146'/START/'calendar-v2'
+OUTPUT_BASE=ROOT/'data/pit_results/replay-fixed146'/START/'calendar-v2-elliott-v1'
 
 def supplemental(day,symbols,collect=True,folder='fixed146-sessions'):
     """Never rewrite the already banked monthly-session source to add names."""
@@ -81,7 +81,7 @@ def run(collect=True,now=None):
         mode='real_market_data',season_start=START,paper_contest_start=START,updated_at=now.isoformat(),
         source=ENDPOINT,members=fixed,sector_universe=universe_distribution(fixed,classification),last_session=None,status='waiting_completed_session')
     from bot_timeframes import timeframe_manifest
-    payload.update(bot_timeframes=timeframe_manifest(),bot_ids=BOTS,traders={k:TRADERS[k] for k in ('Beginner','Intermediate','Pro')})
+    payload.update(bot_timeframes=timeframe_manifest(),bot_ids=BOTS,traders={k:TRADERS[k] for k in ('Beginner','Intermediate','Pro','Elliott')})
     if end<START:
         payload.update({m:{b:blank() for b in BOTS} for m in ('paper','paper_minute','paper_combo')})
         write(PUBLIC,payload);return payload

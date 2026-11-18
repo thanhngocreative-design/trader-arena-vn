@@ -30,7 +30,7 @@ START = '2026-11-02'
 MARKET = ROOT/'state/replay_market'
 STATE = ROOT/'state/paper_seasons'/START/'paper_replay.json'
 PUBLIC = ROOT/'site/paper-replay.json'
-OUTPUT_BASE = ROOT/'data/pit_results/replay'/START/'calendar-v2'
+OUTPUT_BASE = ROOT/'data/pit_results/replay'/START/'calendar-v2-elliott-v1'
 BOTS = list(TRADERS)+list(POLICY)
 
 
@@ -206,7 +206,7 @@ def run(collect=True,now=None):
     now=now or datetime.now(VN);end=completed_date(now)
     payload=dict(revision='eod_replay_v1',execution_revision=REVISION,mode='real_market_data',started_at=START+'T00:00:00+07:00',season_start=START,updated_at=now.isoformat(),target=300,source=ENDPOINT,last_session=None,status='waiting_completed_session',paper_contest_start=START)
     from bot_timeframes import timeframe_manifest
-    payload.update(bot_timeframes=timeframe_manifest(),bot_ids=BOTS,traders={k:TRADERS[k] for k in ('Beginner','Intermediate','Pro')})
+    payload.update(bot_timeframes=timeframe_manifest(),bot_ids=BOTS,traders={k:TRADERS[k] for k in ('Beginner','Intermediate','Pro','Elliott')})
     if end<START:
         cfg=read(ROOT/'config/research-300.json');classification=read(ROOT/'config/market-classification.json')
         payload['members']=[r for r in cfg['months'] if r['effective']<=START][-1]['members']
