@@ -56,6 +56,25 @@ PIT_DATA=read('research-300.json');PIT_DATA.vn30=read('research-vn30.json');PIT_
 REPLAY_DATA=read('paper-replay.json');FIXED_REPLAY_DATA=read('paper-fixed146.json');VN30_REPLAY_DATA=read('paper-vn30.json');applyReplayData();
 IDS=Object.keys(DATA.traders);render=()=>{};
 const before=JSON.stringify([PIT_DATA,REPLAY_DATA,FIXED_REPLAY_DATA,VN30_REPLAY_DATA]);
+function verifyMixChart(){
+  const data=mixHistory(),bots=activeKeys();assert.equal(data.capital,bots.length*100000000);
+  assert.ok(data.points.length>0);
+  for(const point of data.points){
+    const total=bots.reduce((sum,bot)=>{
+      const rows=isPaper()?part(bot).history:part(bot).curve;
+      const row=rows.find(row=>raceISO(row.date)===point.date);assert.ok(row);
+      return sum+row.nav;
+    },0);
+    assert.equal(point.nav,total);
+  }
+  assert.equal(data.points.at(-1).nav,bots.reduce((sum,bot)=>sum+part(bot).nav,0));
+  renderMixChart();seekMixChart(0);
+  assert.equal(elements.mixChartNav.textContent,money(data.points[0].nav));
+  assert.equal(elements.mixChartDelta.innerHTML,mixTotalMarkup(data.points[0].nav,data.capital));
+  seekMixChart(999999);assert.equal(elements.mixChartNav.textContent,money(data.points.at(-1).nav));
+  assert.ok(!/NaN|Infinity/.test(elements.mixChartGraph.innerHTML));
+  assert.ok(elements.mixChart.innerHTML.includes('Tổng tài sản'));
+}
 const expectedScopes={};
 for(const universe of ['300','146','vn30'])for(const book of ['paper','paper_minute','paper_combo','backtest','backtest_minute','hybrid']){
   setStudy(universe);setMode(book);period='ALL';regionFilter='VN';
@@ -75,7 +94,10 @@ for(const universe of ['300','146','vn30'])for(const book of ['paper','paper_min
     const total=activeKeys().reduce((sum,bot)=>sum+source[bot].nav,0);
     assert.equal(elements.totalDelta.innerHTML,mixTotalMarkup(total,count*100000000));
     assert.equal((mixControls().match(/aria-pressed="true"/g)||[]).length,1);
+    verifyMixChart();
   }
+  enableAllBots();verifyMixChart();assert.ok(elements.mixChart.innerHTML.includes('Tất cả bot'));
+  applyBestMix(6);
   const scope=botSelectionScope();expectedScopes[scope]=[...activeKeys()];
   assert.deepEqual(JSON.parse(storage.get('arena-mix-choice-v3')),{kind:'best',count:6});
 }
@@ -104,13 +126,27 @@ const saved=storage.get('arena-mix-choice-v3');mixChoice=JSON.parse(saved);hidde
 setStudy('vn30');setMode('backtest');period='3M';
 const quarter=Object.entries(PIT_DATA.cohorts.vn30.backtest_periods['3M']).sort((a,b)=>b[1].nav-a[1].nav).slice(0,2).map(x=>x[0]);
 applyBestMix(2);assert.deepEqual(new Set(activeKeys()),new Set(quarter));assert.ok(mixControls().includes('3 tháng'));
+verifyMixChart();
 setMode('paper');assert.ok(mixControls().includes('Paper ngày · mùa từ'));assert.ok(!mixControls().includes('Backtest ngày · 3 năm'));
 toggleBot('Munger');const manual={...hiddenBots};setMode('paper_minute');setMode('paper');assert.deepEqual(hiddenBots,manual);
+verifyMixChart();
 enableAllBots();assert.equal(activeKeys().length,Object.keys(paperSource().paper).length);
 assert.ok(mixControls().includes('class="chip active" aria-pressed="true" onclick="enableAllBots()"'));
 setStudy('300');setMode('backtest_minute');assert.equal(activeKeys().length,Object.keys(PIT_DATA.cohorts['300'].minute_backtests).length);assert.equal(mixChoice.kind,'all');
 assert.ok(mixControls().includes('class="chip active" aria-pressed="true" onclick="enableAllBots()"'));
 assert.equal(JSON.stringify([PIT_DATA,REPLAY_DATA,FIXED_REPLAY_DATA,VN30_REPLAY_DATA]),before);
+// Real NAV rows with deliberate omissions exercise missing/conflicting records.
+const bot=activeKeys()[0],book=part(bot),savedCurve=book.curve;
+book.curve=[];assert.deepEqual(mixHistory().points,[]);renderMixChart();
+assert.ok(elements.mixChart.innerHTML.includes('Chưa đủ NAV'));
+book.curve=savedCurve.slice(1);
+assert.ok(!mixHistory().points.some(p=>p.date===raceISO(savedCurve[0].date)));
+book.curve=[...savedCurve,{...savedCurve[0],nav:savedCurve[0].nav+1}];
+assert.ok(!mixHistory().points.some(p=>p.date===raceISO(savedCurve[0].date)));
+book.curve=[savedCurve.at(-1)];verifyMixChart();
+book.curve=savedCurve;hiddenBots=Object.fromEntries(IDS.map(bot=>[bot,true]));
+assert.deepEqual(mixHistory(),{points:[],capital:0});renderMixChart();
+assert.ok(!elements.mixChart.innerHTML.includes('mixChartSlider'));
 '''
     file=tmp_path/'mix.cjs';file.write_text(script,encoding='utf8')
     result=subprocess.run([node,str(file),str(SITE)],capture_output=True,text=True,encoding='utf8')

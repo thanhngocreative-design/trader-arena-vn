@@ -136,6 +136,7 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
     <div id="totalDelta" class="ssmall">—</div>
     <div class="metric-grid"><div class="metric"><div class="label">Vốn ban đầu</div><div class="value tnum" id="totalInitial">—</div></div><div class="metric"><div class="label">Phiên dữ liệu</div><div class="value" id="marketDay" style="font-size:16px">—</div></div></div>
   </div>
+  <section id="mixChart" class="card" aria-label="Biến thiên tổng tài sản nhóm bot"></section>
   <div class="section-title"><h2>🏁 Bảng xếp hạng</h2><span class="hint">Chạm để mở ngay tại đây</span></div>
   <div class="scroll-chip" id="regionChips" aria-label="Chọn khu vực trader"></div>
   <div id="leaderboard" style="margin-top:10px"></div>
@@ -590,6 +591,7 @@ function renderHome(){
   const total=included.reduce((sum,k)=>sum+nav(k),0),capital=n(DATA.capital_each)*included.length;
   $('totalNav').textContent=vnd(total);$('totalDelta').innerHTML=mixTotalMarkup(total,capital);
   $('totalInitial').textContent=money(capital);$('marketDay').textContent=mode==='hybrid'?String(DATA.hybrid_backtest_audit?.last||'—').split('-').reverse().join('/'):(mode==='backtest'&&opt?opt.end.split('-').reverse().join('/'):DATA.last_session.split('-').reverse().join('/'));
+  renderMixChart();
   const available=included.filter(k=>regionFilter==='ALL'||DATA.traders?.[k]?.region===regionFilter);
   const rankOrder=new Map(mixRanking().map((row,i)=>[row.bot,i]));
   const sorted=available.sort((a,b)=>(rankOrder.get(a)??Infinity)-(rankOrder.get(b)??Infinity));
@@ -797,6 +799,41 @@ function renderSectors(){
   <div class="card"><strong>Ngành đứng đầu của từng bot</strong><p class="note">Trong ${safe(MODE_LABEL[sectorMode])}, theo ${sectorMetric==='count'?'số lần mua':'giá trị mua'}. Chạm để lọc bot.</p>${botRows}</div>
   ${e?`<div class="card"><h2 style="font-size:18px">Mở rộng 500–600 mã</h2><p class="note">Nguồn Vietcap ngày ${shortDate(e.asof)} có ${e.listed_stock_candidates} mã loại cổ phiếu trên HOSE/HNX/UPCoM; đây là danh sách ứng viên, chưa phải số mã đủ dữ liệu ba năm.</p><p class="note">Đã thử ${e.probed_symbols} mã ngoài mẫu thuộc ngành đang thiếu: ${e.daily_pass_count} mã đủ cả 747 phiên ngày; ${e.minute_endpoint_pass_count} mã có mẫu nến phút ở đầu và cuối kỳ. <strong>Chưa kiểm tra toàn bộ nến phút cho các mã mới; chưa xác nhận có đủ 500–600 mã đạt chuẩn.</strong></p><details><summary>Xem kết quả kiểm tra thử</summary>${e.probes.map(p=>`<p class="note"><strong>${safe(p.symbol)}</strong> · ${safe(p.sector)} · ngày: ${n(p.daily_valid_sessions)}/${n(p.reference_sessions)} · mẫu phút: ${p.minute_endpoints_present?'có đầu/cuối':'chưa đủ'}${p.error?' · '+safe(p.error):''}</p>`).join('')}</details><p class="note">Giữ 146 mã làm baseline. Bước tiếp theo: kiểm tra nến ngày của danh sách rộng → tải và xác minh đầy đủ nến phút cho mã đạt chuẩn → tạo nghiên cứu 500–600 mã riêng, không đổi sổ paper.</p><p class="note">Nhiều mã giúp phủ ngành tốt hơn, chưa tự làm backtest chính xác hơn. Vẫn phải xử lý thanh khoản theo từng thời điểm, cổ phiếu mới/hủy niêm yết, quyền/cổ tức, chi phí và kiểm tra ngoài mẫu. Nếu giữ điều kiện đủ mọi phiên suốt ba năm, không được bù dữ liệu chỉ để đạt con số 600.</p></div>`:''}
   <p class="note">Nguồn phân ngành/danh sách: <a href="https://iq.vietcap.com.vn/api/iq-insight-service/v2/company/search-bar?language=1" target="_blank" rel="noopener">Vietcap IQ</a>. Phân ngành là metadata; kết quả giao dịch vẫn là mô phỏng trên giá thị trường thật.</p>`;
+}
+let mixChartData={points:[],capital:0};
+function mixHistory(){
+  const history=raceHistory(),capital=n(DATA.capital_each)*activeKeys().length;
+  // A missing bot must never turn a whole-group chart into a partial sum.
+  const points=history.omitted.length?[]:history.dates.map((date,i)=>({date,nav:history.frames[i].reduce((sum,row)=>sum+row.nav,0)}));
+  return {points,capital};
+}
+function mixChartSVG(data,index){
+  const {points,capital}=data,values=[capital,...points.map(row=>row.nav)],low=Math.min(...values),high=Math.max(...values),pad=Math.max((high-low)*.12,capital*.002,1);
+  const min=low-pad,max=high+pad,start=Date.parse(points[0].date),span=Date.parse(points[points.length-1].date)-start;
+  const x=row=>48+(span?(Date.parse(row.date)-start)/span:0)*298,y=value=>18+(max-value)/(max-min)*158;
+  const grid=[max,(max+min)/2,min].map(value=>`<line x1="48" x2="346" y1="${y(value)}" y2="${y(value)}" stroke="#29405d" stroke-dasharray="3 5"/><text x="42" y="${y(value)+3}" text-anchor="end" fill="#9eb6d0" font-size="9">${(value/1000000).toLocaleString('vi-VN',{maximumFractionDigits:1})}</text>`).join('');
+  const row=points[index];
+  return `<svg class="race-chart" viewBox="0 0 360 207" role="img" aria-label="Tổng tài sản nhóm bot, đơn vị triệu đồng" onclick="mixChartTap(event)"><text x="4" y="10" fill="#9eb6d0" font-size="9">Triệu đ</text>${grid}<line x1="48" x2="346" y1="${y(capital)}" y2="${y(capital)}" stroke="#f6c76b" stroke-dasharray="5 4"/><polyline points="${points.map(p=>x(p)+','+y(p.nav)).join(' ')}" fill="none" stroke="#67e8bf" stroke-width="2.5" stroke-linejoin="round"/><line x1="${x(row)}" x2="${x(row)}" y1="18" y2="176" stroke="#9eb6d0" stroke-dasharray="3 4"/><circle cx="${x(row)}" cy="${y(row.nav)}" r="4" fill="#67e8bf"/><text x="48" y="198" fill="#9eb6d0" font-size="9">${raceShortDate(points[0].date)}</text><text x="346" y="198" text-anchor="end" fill="#9eb6d0" font-size="9">${raceShortDate(points[points.length-1].date)}</text></svg>`;
+}
+function seekMixChart(value){
+  const {points,capital}=mixChartData;if(!points.length)return;
+  const index=Math.max(0,Math.min(points.length-1,Math.round(Number(value)||0))),row=points[index];
+  $('mixChartDate').textContent=raceShortDate(row.date);$('mixChartNav').textContent=money(row.nav);
+  $('mixChartDelta').innerHTML=mixTotalMarkup(row.nav,capital);$('mixChartGraph').innerHTML=mixChartSVG(mixChartData,index);
+  $('mixChartSlider').value=index;
+}
+function mixChartTap(event){
+  const {points}=mixChartData;if(!points.length)return;
+  const box=event.currentTarget.getBoundingClientRect(),ratio=Math.max(0,Math.min(1,((event.clientX-box.left)/box.width*360-48)/298));
+  const target=Date.parse(points[0].date)+ratio*(Date.parse(points[points.length-1].date)-Date.parse(points[0].date));
+  seekMixChart(points.reduce((best,row,i)=>Math.abs(Date.parse(row.date)-target)<Math.abs(Date.parse(points[best].date)-target)?i:best,0));
+}
+function renderMixChart(){
+  mixChartData=mixHistory();const {points}=mixChartData,bots=activeKeys();
+  const label=mixChoice?.kind==='best'?`Mix ${mixChoice.count} best bot`:mixChoice?.kind==='all'?'Tất cả bot':`${bots.length} bot đang bật`;
+  const scope=MODE_LABEL[mode]+' · '+studyLabel()+(mode==='backtest'?' · '+(DATA.backtest_options?.find(option=>option.key===period)?.label||period):'');
+  $('mixChart').innerHTML=`<h2 style="font-size:17px;margin:0 0 8px">📈 Tổng tài sản · ${safe(label)}</h2><p class="note">${safe(scope)}</p>${!points.length?'<p class="note empty">Chưa đủ NAV cùng ngày của tất cả bot đang bật để vẽ tổng tài sản.</p>':`<div class="row" style="margin-top:12px"><strong id="mixChartNav" class="tnum" style="font-size:23px"></strong><span id="mixChartDate" class="note"></span></div><p id="mixChartDelta" class="note" aria-live="polite"></p><div id="mixChartGraph" class="plot-wrap"></div><label class="note" for="mixChartSlider">Kéo hoặc chạm biểu đồ để xem từng mốc</label><input id="mixChartSlider" class="race-slider" type="range" min="0" max="${points.length-1}" step="1" oninput="seekMixChart(this.value)" aria-label="Thời điểm tổng tài sản nhóm bot"><div class="legend"><span><i class="dot"></i>Tổng tài sản</span><span><i class="dot" style="background:#f6c76b"></i>Vốn ban đầu</span></div>`}<p class="note" style="margin-top:10px">Cộng tiền mặt và giá trị cổ phiếu từ NAV đã lưu của đúng nhóm đang bật; chỉ vẽ mốc có đủ mọi bot.${isPaper()?' Dữ liệu cuối phiên replay.':' Backtest dùng các mốc NAV đã lưu, có thể không đủ mọi phiên.'}${mixChoice?.kind==='best'?' Nhóm được chọn theo kết quả cuối kỳ đang xem, giữ nguyên nhóm khi nhìn lại quá khứ; đây không phải chiến lược tự chọn top từ trước.':''}</p>`;
+  if(points.length)seekMixChart(points.length-1);
 }
 let raceDate=null,raceData={dates:[],bots:[],frames:[],omitted:[]},raceTimer=null;
 const RACE_COLORS=['#67e8bf','#f6c76b','#82b6ff','#f69bc7','#c4a0ff','#f59675','#94d877','#62d5e8','#e6dd86','#aab8ff','#e9b9a0','#6ce0a2','#ffa6ac','#b8d9eb','#d6bd78','#b7a7df'];
