@@ -21,9 +21,9 @@ def verify_previous(previous,ledgers,events):
     if not previous:return
     used=[r for r in events if r['effective']<=previous['last_session']]
     if previous['membership_events']!=used:raise ValueError('Previously used VN30 membership changed')
+    from paper_ledger import preserve_trade_prefix
     for key,old in previous['ledgers'].items():
-        if [r for r in ledgers[key] if str(r['date'])[:10]<=previous['last_session']]!=old:
-            raise ValueError('Prior VN30 paper trade changed: '+key)
+        preserve_trade_prefix(old,ledgers[key],previous['last_session'],label='vn30:'+key)
 
 def run(collect=True,now=None):
     now=now or datetime.now(VN);end=completed_date(now);cfg=configuration();classification=read(ROOT/'config/market-classification.json')

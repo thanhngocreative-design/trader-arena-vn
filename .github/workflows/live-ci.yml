@@ -17,6 +17,8 @@ on:
       - 'site/paper-vn30.json'
       - 'replay_rules.py'
       - 'paper_metrics.py'
+      - 'paper_ledger.py'
+      - 'ops/upgrade_ledger_schema.py'
       - 'sector_analytics.py'
       - 'build_sector_stats.py'
       - 'audit_market_expansion.py'

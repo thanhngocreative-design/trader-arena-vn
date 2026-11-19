@@ -241,8 +241,9 @@ def run(bootstrap=False,bootstrap_end=None,resume_bootstrap_minute=None):
         for bot in POLICY:ledgers[name]['combo:'+bot]=read(output/f'value_combo-{name}-{bot}-trades.json')
         if previous:
             old=unpack(STATE/previous['ledgers'])[name]
+            from paper_ledger import preserve_trade_prefix
             for key,trades in old.items():
-                if [t for t in ledgers[name][key] if t['date']<=after]!=trades:raise ValueError('Previously audited ledger changed')
+                preserve_trade_prefix(trades,ledgers[name][key],after,label=name+':'+key)
         counts.update(audit_ledgers(name,ctx,prices,frames,ledgers[name],memberships[name],after))
         members=[r for r in memberships[name] if r['effective']<=end][-1]['members']
         cohorts[name]=dict(backtests=results['ALL'],backtest_periods=results,minute_backtests=minute['minute'],hybrid_backtests={**combo,**minute['value_combo']},universe=members,universe_union=sorted({s for r in used_memberships(memberships[name],end=end) for s in r['members']}))

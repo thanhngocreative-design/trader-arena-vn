@@ -261,9 +261,9 @@ def run(collect=True,now=None):
     previous=read(STATE) if STATE.exists() else None
     if previous:
         prior_end=previous['last_session']
+        from paper_ledger import preserve_trade_prefix
         for key,old in previous['ledgers'].items():
-            prefix=[t for t in ledgers[key] if str(t['date'])[:10]<=prior_end]
-            if prefix!=old:raise ValueError('Prior committed paper trades changed; refuse rewrite: '+key)
+            preserve_trade_prefix(old,ledgers[key],prior_end,label=key)
     payload.update(status='completed_session_replay',last_session=sessions[-1],sessions=sessions,members=[r for r in cfg['months'] if r['effective']<=sessions[-1]][-1]['members'],data_audit=audits,
         note='Replay sau phiên; chỉ thấy nến đã đóng; đúng nến kế tiếp, thiếu thì bỏ lệnh. Tài khoản liên tục từ ngày bắt đầu mùa; không cộng lại giao dịch cũ.')
     payload['sector_universe']=universe_distribution(payload['members'],read(ROOT/'config/market-classification.json'))

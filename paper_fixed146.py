@@ -61,9 +61,9 @@ def add_minutes(prices,frames,sessions,fixed,collect=True):
 
 def verify_previous(previous,ledgers):
     if not previous:return
+    from paper_ledger import preserve_trade_prefix
     for key,old in previous['ledgers'].items():
-        prefix=[t for t in ledgers[key] if str(t['date'])[:10]<=previous['last_session']]
-        if prefix!=old:raise ValueError('Prior fixed146 paper trades changed: '+key)
+        preserve_trade_prefix(old,ledgers[key],previous['last_session'],label='fixed146:'+key)
 
 def verify_inputs(inputs,market=MARKET):
     for path,digest in inputs.items():

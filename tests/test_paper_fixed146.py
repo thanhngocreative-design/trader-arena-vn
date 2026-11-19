@@ -19,7 +19,7 @@ def test_fixed146_ledger_prefix_is_immutable_and_separate():
     verify_previous(previous,new)
     assert len(old['paper:A'])==1
     changed={'paper:A':[{'date':'2026-11-13','symbol':'FPT','qty':200}]}
-    with pytest.raises(ValueError,match='Prior fixed146'):verify_previous(previous,changed)
+    with pytest.raises(ValueError,match='Prior committed trades changed'):verify_previous(previous,changed)
 
 def test_fixed146_does_not_enable_experimental_waiting_policy():
     import inspect,paper_fixed146

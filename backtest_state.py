@@ -11,7 +11,7 @@ MODEL_FILES=('engine.py','fast_engine.py','hybrid_backtest.py','pit_intraday.py'
     'education_bots.py','elliott_wave.py','paper_replay.py','paper_fixed146.py','vn30.py','config/value-fundamentals.json','config/value-fundamentals-300.json',
     'config/market-classification.json','intraday_data.py','historical_minute.py',
     'collect_pit_daily.py','pit_universe.py','vn30_current.py',
-    'continuous_backtest.py','backtest_state.py','requirements.txt')
+    'continuous_backtest.py','backtest_state.py','paper_ledger.py','requirements.txt')
 
 
 def model_digest():

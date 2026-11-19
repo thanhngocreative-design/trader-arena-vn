@@ -1,0 +1,7 @@
+# Immutable trade rows and nullable columns
+
+On 19 November 2026, both scheduled cloud dispatches ran but stopped at monthly300 Paper combined Elliott. Its first sale made pandas add a `buy_date: null` column to five historical purchase rows. The committed five rows had no `buy_date` key. Reproducing the replay from immutable real session observations confirmed that every non-null fact was identical; the only five differences were the absent/null field. Two new real fills were present on 19 November.
+
+`paper_ledger.preserve_trade_prefix` accepts only this absent/null equivalence. It still rejects missing, extra or reordered historical trades and any change in a non-null field, including price, quantity, symbol, signal date, profit or reason. It then restores the exact original row dictionaries in place, preserving the committed shapes and values. Monthly300, fixed146, VN30 and continuous Backtest use the same check. Trading signals, execution, fees, cash and position accounting are unchanged.
+
+Since the runtime fingerprint also covers verification code, `ops/upgrade_ledger_schema.py` performs an explicit pinned compatibility upgrade. It checks the exact old/new runtime fingerprints, unchanged strategy-source hashes, original market-input hashes and every saved account checkpoint. Only the manifest's runtime fingerprint and the operational status fingerprint change; no account checkpoint is edited or recreated. The ordinary daily model guard remains strict. The receipt is in `state/backtest_continuous/migrations/ledger-schema-v1.json`.

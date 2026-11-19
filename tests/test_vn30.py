@@ -44,7 +44,7 @@ def test_vn30_paper_freezes_used_membership_and_prior_trade_prefix():
     old=[dict(date='2026-11-13',symbol='FPT',qty=100)]
     previous=dict(last_session='2026-11-13',membership_events=used,ledgers={'paper_minute:A':old})
     verify_previous(previous,{'paper_minute:A':old+[dict(date='2026-11-16',symbol='FPT',qty=100)]},events)
-    with pytest.raises(ValueError,match='Prior VN30 paper trade'):
+    with pytest.raises(ValueError,match='Prior committed trades changed'):
         verify_previous(previous,{'paper_minute:A':[dict(date='2026-11-13',symbol='FPT',qty=200)]},events)
     import copy
     changed=copy.deepcopy(events);changed[-1]['members'][0]='INVALID'
