@@ -15,6 +15,8 @@ def test_timeline_matches_real_books_and_handles_ties_and_missing_observations(t
         pytest.skip('Node.js unavailable')
     html = (SITE / 'index.html').read_text(encoding='utf8')
     assert 'id="racePanel"' in html and 'ontoggle="renderRace()"' in html
+    assert 'id="leaderboard"' not in html
+    assert 'open ontoggle="renderRace()"' in html
     assert 'id="racePage"' not in html and 'id="nav-race"' not in html
     js = re.search(r'<script>(.*?)</script>', html, re.S)[1].rsplit('boot();', 1)[0]
     script = r'''
@@ -52,6 +54,14 @@ for(const universe of ['300','146','vn30'])for(const book of Object.keys(MODE_LA
   applyBestMix(6);renderRace();assert.equal(raceData.bots.length,6);
   assert.deepEqual(new Set(raceData.bots),new Set(activeKeys()));
   seekRace(1);const chosen=raceDate;renderRace();assert.equal(raceDate,chosen);
+  const bot=raceData.frames[1][0].bot;selectRankBot(bot);
+  assert.equal(page,'home');assert.equal(raceDate,chosen);
+  assert.ok(elements.raceRows.innerHTML.includes('rankdetail-'+bot));
+  assert.ok(elements.raceRows.innerHTML.includes('Chi tiết sổ mới nhất'));
+  selectRankBot(bot);assert.equal(expandedBot,null);
+  regionFilter='VN';renderRace();assert.ok(raceData.bots.every(bot=>DATA.traders[bot].region==='VN'));
+  regionFilter='ALL';renderRace();
+  selectRankBot(raceData.bots[0]);seekRace(0);assert.equal(expandedBot,null);
   hiddenBots=Object.fromEntries(IDS.map(bot=>[bot,true]));mixChoice={kind:'manual'};
   renderRace();assert.equal(raceData.dates.length,0);assert.ok(elements.raceContent.innerHTML.includes('Chưa có mốc NAV chung'));
 }

@@ -46,7 +46,7 @@ def test_mix_dimensions_stay_independent_and_match_all_18_leaderboards(tmp_path)
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const storage=new Map([['arena-hidden-bots-v1',JSON.stringify({Darvas:true})]]);
 global.localStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)};
-const elements={};global.document={getElementById:id=>elements[id]||=({innerHTML:'',style:{},classList:{toggle(){}}}),querySelectorAll:()=>[]};
+const elements={};global.document={getElementById:id=>elements[id]||=({innerHTML:'',open:id==='racePanel',setAttribute(k,v){this[k]=v},style:{},classList:{toggle(){}}}),querySelectorAll:()=>[]};
 global.location={search:''};global.window={scrollTo(){}};
 '''+js+r'''
 const root=process.argv[2],read=f=>JSON.parse(fs.readFileSync(path.join(root,f),'utf8'));
@@ -81,16 +81,17 @@ for(const universe of ['300','146','vn30'])for(const book of ['paper','paper_min
   const c=PIT_DATA.cohorts[universe],key={backtest:'backtests',backtest_minute:'minute_backtests',hybrid:'hybrid_backtests'}[book];
   const source=book.startsWith('paper')?paperSource()[book]:c[key];
   const expected=Object.entries(source).sort((a,b)=>b[1].nav-a[1].nav||(b[1].max_drawdown_pct??-Infinity)-(a[1].max_drawdown_pct??-Infinity)||a[0].localeCompare(b[0])).map(x=>x[0]);
-  hiddenBots={};regionFilter='ALL';renderHome();
-  const leaderboard=()=>[...elements.leaderboard.innerHTML.matchAll(/onclick="selectRankBot\('([^']+)'\)"/g)].map(x=>x[1]);
-  assert.deepEqual(leaderboard(),expected);
+  hiddenBots={};regionFilter='ALL';raceDate=null;renderHome();renderRace();
+  const leaderboard=()=>[...elements.raceRows.innerHTML.matchAll(/data-race-bot="([^"]+)"/g)].map(x=>x[1]);
+  const displayOrder=bots=>[...bots].sort((a,b)=>source[b].nav-source[a].nav||a.localeCompare(b));
+  assert.deepEqual(leaderboard(),displayOrder(expected));
   // Ranking must include hidden bots and ignore country filters.
   hiddenBots=Object.fromEntries(IDS.map(b=>[b,true]));
   assert.deepEqual(mixRanking().map(r=>r.bot),expected);
   for(const count of [2,3,4,5,6]){
     applyBestMix(count);assert.equal(regionFilter,'ALL');
     assert.deepEqual(new Set(activeKeys()),new Set(expected.slice(0,count)));
-    renderHome();assert.deepEqual(leaderboard(),expected.slice(0,count));
+    renderHome();renderRace();assert.deepEqual(leaderboard(),displayOrder(expected.slice(0,count)));
     const total=activeKeys().reduce((sum,bot)=>sum+source[bot].nav,0);
     assert.equal(elements.totalDelta.innerHTML,mixTotalMarkup(total,count*100000000));
     assert.equal((mixControls().match(/aria-pressed="true"/g)||[]).length,1);

@@ -99,6 +99,7 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
 
 .sector-controls{display:grid;gap:10px;margin:14px 0}.sector-controls label{font-size:12px;color:#b1c8df;display:grid;gap:5px}.sector-controls select{min-width:0;width:100%;background:#0b1c30;border:1px solid #35536b;color:#e9f3ff;border-radius:9px;padding:10px}.sector-line{padding:12px 0;border-bottom:1px solid #2a405b}.sector-line summary{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;cursor:pointer;font-size:12px;line-height:1.5}.sector-line summary span{white-space:nowrap;color:#82e7c9}.sector-line p{margin-top:7px}.sector-track{height:7px;background:#203750;border-radius:6px;margin:9px 0;overflow:hidden}.sector-line summary .sector-track{flex-basis:100%;width:100%;margin:6px 0 0}.sector-track span{display:block;height:100%;background:#64dec0;min-width:0}.sector-line .tickerbtn{margin:3px 0}.sector-bot{display:flex;justify-content:space-between;gap:10px;align-items:center;width:100%;background:transparent;color:#e9f3ff;border:0;border-bottom:1px solid #2a405b;text-align:left;padding:12px 0;font-size:12px;cursor:pointer}.sector-bot span{max-width:60%;color:#adc9dd;text-align:right}.sector-bot.active{color:#64dec0}
 .race-controls{display:grid;gap:10px;margin:12px 0}.race-controls label{display:grid;gap:5px;font-size:12px;color:#b1c8df}.race-controls select{width:100%;min-width:0;background:#0b1c30;color:#e9f3ff;padding:10px;border:1px solid #35536b;border-radius:10px;font:inherit}.race-slider{width:100%;accent-color:#67e8bf;min-height:44px;cursor:ew-resize}.race-date{font-size:23px;font-weight:850;font-variant-numeric:tabular-nums}.race-transport{display:flex;gap:8px;align-items:center;justify-content:center;margin:8px 0}.race-transport button{min-height:44px}.race-chart{display:block;width:100%;height:auto;touch-action:pan-y}.race-row{position:relative;display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:8px;padding:11px 8px;margin-top:7px;border-radius:11px;overflow:hidden;background:#0b1c30}.race-bar{position:absolute;inset:0 auto 0 0;opacity:.12;pointer-events:none}.race-row>*:not(.race-bar){position:relative}.race-name{font-size:12px;font-weight:780;overflow-wrap:anywhere}.race-change{display:block;font-size:10px;margin-top:3px;color:#a8bdd2;font-weight:400}.race-value{text-align:right;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}.race-value small{display:block;margin-top:3px}.race-caption{margin:9px 0;line-height:1.6}.race-key{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+.race-group>.rankdetail-panel{border-top:1px solid #63e5cd;border-radius:15px;margin-bottom:12px}button.race-row{width:100%;border:1px solid transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}button.race-row[aria-expanded="true"]{border-color:#67e8bf}button.race-row:focus-visible{outline:2px solid #67e8bf;outline-offset:2px}
 </style>
 </head>
 <body>
@@ -137,12 +138,10 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
     <div class="metric-grid"><div class="metric"><div class="label">Vốn ban đầu</div><div class="value tnum" id="totalInitial">—</div></div><div class="metric"><div class="label">Phiên dữ liệu</div><div class="value" id="marketDay" style="font-size:16px">—</div></div></div>
   </div>
   <section id="mixChart" class="card" aria-label="Biến thiên tổng tài sản nhóm bot"></section>
-  <div class="section-title"><h2>🏁 Bảng xếp hạng</h2><span class="hint">Chạm để mở ngay tại đây</span></div>
-  <div class="scroll-chip" id="regionChips" aria-label="Chọn khu vực trader"></div>
-  <div id="leaderboard" style="margin-top:10px"></div>
-  <details id="racePanel" class="card soft" style="margin-top:14px" ontoggle="renderRace()">
+  <details id="racePanel" class="card soft" style="margin-top:14px" open ontoggle="renderRace()">
     <summary style="font-size:16px;font-weight:800;cursor:pointer">📈 Diễn biến thứ hạng</summary>
     <p id="raceScope" class="note" style="margin-top:8px"></p>
+    <div class="scroll-chip" id="regionChips" aria-label="Lọc biểu đồ và thứ hạng theo khu vực" style="margin-top:10px"></div>
     <div id="raceContent"></div>
   </details>
   <section id="crossBasketSummary" class="basket-summary" aria-label="Tổng kết bot qua các rổ"></section>
@@ -374,7 +373,7 @@ function mixControls(){
   const ranking=mixRanking(),enabled=activeKeys();
   const allOn=enabled.length>0&&enabled.length===IDS.filter(bot=>supportsMode(bot)&&part(bot)).length;
   const label=isPaper()?MODE_LABEL[mode]+' · mùa từ '+(paperSource()?.season_start||DATA.paper_contest_start):{backtest:'Backtest ngày · '+(DATA.backtest_options?.find(x=>x.key===period)?.label||period),backtest_minute:'Backtest phút · toàn kỳ',hybrid:'Backtest ngày + phút · toàn kỳ'}[mode];
-  return `<div class="card soft" data-mix-controls><strong>Chọn nhanh nhóm bot</strong><div class="chips" style="margin:10px 0">${[2,3,4,5,6].map(count=>{const active=mixChoice?.kind==='best'&&mixChoice.count===count;return `<button type="button" class="chip ${active?'active':''}" aria-pressed="${active}" onclick="applyBestMix(${count})" ${ranking.length<count?'disabled':''}>Mix ${count} best bot</button>`;}).join('')}<button type="button" class="chip ${allOn?'active':''}" aria-pressed="${allOn}" onclick="enableAllBots()">Bật tất cả</button></div><p class="note">Top đúng theo leaderboard ${safe(label)} của rổ này. Xếp bằng lợi nhuận chưa làm tròn; hòa thì xét drawdown, rồi tên bot. Không phải dự báo lợi nhuận.</p><p class="note">Đang theo dõi ${enabled.length}/${IDS.length} bot: ${enabled.map(bot=>safe(SHORT[bot]||bot)).join(', ')||'chưa bật bot nào'}.</p><p class="note">Mỗi bot vẫn có 100 triệu vốn đầu kỳ. Chỉ lọc hiển thị, không dừng chạy paper. Đổi sổ hoặc rổ vẫn giữ mức Mix, tự chọn lại top của sổ/rổ mới. Lưu trên trình duyệt này.</p></div>`;
+  return `<div class="card soft" data-mix-controls><strong>Chọn nhanh nhóm bot</strong><div class="chips" style="margin:10px 0">${[2,3,4,5,6].map(count=>{const active=mixChoice?.kind==='best'&&mixChoice.count===count;return `<button type="button" class="chip ${active?'active':''}" aria-pressed="${active}" onclick="applyBestMix(${count})" ${ranking.length<count?'disabled':''}>Mix ${count} best bot</button>`;}).join('')}<button type="button" class="chip ${allOn?'active':''}" aria-pressed="${allOn}" onclick="enableAllBots()">Bật tất cả</button></div><p class="note">Chọn top theo kết quả mới nhất của ${safe(label)} trong rổ này; thanh thời gian không chọn lại nhóm Mix. Xếp bằng lợi nhuận chưa làm tròn; hòa thì xét drawdown, rồi tên bot. Không phải dự báo lợi nhuận.</p><p class="note">Đang theo dõi ${enabled.length}/${IDS.length} bot: ${enabled.map(bot=>safe(SHORT[bot]||bot)).join(', ')||'chưa bật bot nào'}.</p><p class="note">Mỗi bot vẫn có 100 triệu vốn đầu kỳ. Chỉ lọc hiển thị, không dừng chạy paper. Đổi sổ hoặc rổ vẫn giữ mức Mix, tự chọn lại top của sổ/rổ mới. Lưu trên trình duyệt này.</p></div>`;
 }
 const chartRanges={ '1M':22,'3M':66,'6M':132,'1Y':252,'3Y':780 };
 async function openStock(symbol,studySource=false){
@@ -449,7 +448,7 @@ function selectRankBot(id){
   expandedBot=expandedBot===id?null:id;
   selected=id;
   // Repaint only the home view. Do not change page, tab or scroll to the top.
-  renderHome();
+  renderHome();renderRace();
 }
 function selectProfile(id){if(!IDS.includes(id))return;selected=id;if(!supportsMode(id))setMode(isPaper()?'paper':'backtest');else render();}
 function openBotProfile(id){if(!IDS.includes(id))return;selectProfile(id);setPage('bots')}
@@ -597,20 +596,7 @@ function renderHome(){
   const rankOrder=new Map(mixRanking().map((row,i)=>[row.bot,i]));
   const sorted=available.sort((a,b)=>(rankOrder.get(a)??Infinity)-(rankOrder.get(b)??Infinity));
   $('regionChips').innerHTML=Object.entries(REGION).map(([k,label])=>`<button class="chip ${regionFilter===k?'active':''}" onclick="setRegionFilter('${k}')">${label} · ${k==='ALL'?IDS.filter(t=>supportsMode(t)&&part(t)).length:IDS.filter(t=>supportsMode(t)&&part(t)&&DATA.traders?.[t]?.region===k).length}</button>`).join('');
-  $('leaderboard').innerHTML=(sorted.length?sorted.map((k,i)=>`<div class="rankgroup">
-    <button type="button" class="ranker ${k===selected?'selected':''}" aria-expanded="${expandedBot===k}" aria-controls="rankdetail-${k}" onclick="selectRankBot('${k}')">
-      <span class="rankicon">${['🥇','🥈','🥉'][i]||('#'+(i+1))}</span>
-      <span class="push"><span class="rankname">${safe(DATA.traders?.[k]?.flag||'')} ${safe(SHORT[k])} Bot</span><span class="rankdetail" style="display:block">${safe(DATA.traders?.[k]?.tag||TEXT[k])} · ${money(nav(k))}</span><span class="label" style="display:block;margin-top:3px">⏱ ${frameBadge(k)}</span></span>
-      <span class="return ${color(ret(k))}">${pct(ret(k))}<small>lãi / lỗ</small></span>
-      <span class="rank-chevron" aria-hidden="true">⌄</span>
-    </button>
-    ${expandedBot===k?rankExtra(k):''}
-  </div>`).join(''):'<div class="card empty">Chưa có bot nào đang bật trong khu vực này. Bật lại ở mục Các bot.</div>');
   $('crossBasketSummary').innerHTML=crossBasketSummary();
-  if(expandedBot&&sorted.includes(expandedBot)){
-    const data=botChartData(expandedBot);
-    graph($('rankChart-'+expandedBot),data.series,data.showIndex);
-  }
   const chartBot=sorted.includes(selected)?selected:(sorted[0]||IDS[0]);
   const winner=sorted[0]||IDS[0];$('simpleMessage').textContent=!sorted.length?'Mày đã tắt theo dõi các bot trong khu vực này. Bật bot lên để xếp hạng.':isPaper()?(part(winner).history?.length<2?'Cuộc thi mới khởi động! Chưa đủ phiên để xếp hạng có ý nghĩa. Sau mỗi ngày thị trường mở cửa, bot sẽ ghi thêm kết quả.':`${SHORT[winner]} đang dẫn đầu với ${pct(ret(winner))}. Nhưng đây chỉ là tiền ảo, không có nghĩa bot chắc chắn kiếm được tiền thật.`):`${SHORT[winner]} có kết quả cao nhất trong lần thử trên dữ liệu lịch sử này (${pct(ret(winner))}). Kiểm tra cả mức lỗ sâu nhất và số giao dịch trước khi kết luận.`;
   $('modePill').textContent=MODE_LABEL[mode];
@@ -850,9 +836,9 @@ function raceRank(rows){
   const sorted=rows.slice().sort((a,b)=>b.nav-a.nav||a.bot.localeCompare(b.bot));let rank=0,last=null;
   return sorted.map((row,i)=>{if(row.nav!==last)rank=i+1;last=row.nav;return {...row,rank};});
 }
-function raceHistory(){
+function raceHistory(chosen=activeKeys()){
   const bots=[],omitted=[],maps={};
-  for(const bot of activeKeys()){
+  for(const bot of chosen){
     const book=part(bot),source=isPaper()?book?.history:book?.curve,points=new Map();
     for(const row of source||[]){const date=raceISO(row.date);if(!date||typeof row.nav!=='number'||!Number.isFinite(row.nav)||row.nav<0)continue;
       if(points.has(date)&&points.get(date)!==row.nav)points.set(date,null);else if(!points.has(date))points.set(date,row.nav);
@@ -888,12 +874,14 @@ function paintRace(){
   $('raceSlider').value=index;$('raceSlider').setAttribute('aria-valuetext',raceShortDate(raceDate));
   $('raceLeader').textContent=raceLeaderText(index);$('raceGraph').innerHTML=raceChart(index);
   const capital=DATA.capital_each,maxNav=Math.max(1,...rows.map(row=>row.nav));
-  $('raceRows').innerHTML=rows.map(row=>{const delta=previous.has(row.bot)?previous.get(row.bot)-row.rank:null,change=delta===null?'Mốc đầu':delta>0?'↑ '+delta+' hạng':delta<0?'↓ '+Math.abs(delta)+' hạng':'Giữ hạng';return `<div class="race-row" data-race-bot="${safe(row.bot)}" data-race-rank="${row.rank}"><span class="race-bar" style="width:${row.nav/maxNav*100}%;background:${RACE_COLORS[IDS.indexOf(row.bot)%RACE_COLORS.length]}"></span><strong class="tnum">${row.rank}</strong><span class="race-name"><i class="race-key" style="background:${RACE_COLORS[IDS.indexOf(row.bot)%RACE_COLORS.length]}"></i>${safe(SHORT[row.bot]||row.bot)}<span class="race-change">${change}</span></span><span class="race-value">${money(row.nav)}${typeof capital==='number'&&capital>0?`<small class="${color(row.nav-capital)}">${pct((row.nav/capital-1)*100)}</small>`:''}</span></div>`;}).join('');
+  $('raceRows').innerHTML=rows.map(row=>{const delta=previous.has(row.bot)?previous.get(row.bot)-row.rank:null,change=delta===null?'Mốc đầu':delta>0?'↑ '+delta+' hạng':delta<0?'↓ '+Math.abs(delta)+' hạng':'Giữ hạng';return `<div class="race-group"><button type="button" class="race-row" onclick="selectRankBot('${row.bot}')" aria-expanded="${expandedBot===row.bot}" aria-controls="rankdetail-${row.bot}" data-race-bot="${safe(row.bot)}" data-race-rank="${row.rank}"><span class="race-bar" style="width:${row.nav/maxNav*100}%;background:${RACE_COLORS[IDS.indexOf(row.bot)%RACE_COLORS.length]}"></span><strong class="tnum">${row.rank}</strong><span class="race-name"><i class="race-key" style="background:${RACE_COLORS[IDS.indexOf(row.bot)%RACE_COLORS.length]}"></i>${safe(SHORT[row.bot]||row.bot)}<span class="race-change">${change}</span></span><span class="race-value">${money(row.nav)}${typeof capital==='number'&&capital>0?`<small class="${color(row.nav-capital)}">${pct((row.nav/capital-1)*100)}</small>`:''}</span></button>${expandedBot===row.bot?`<p class="note" style="margin:8px 0"><strong>Chi tiết sổ mới nhất</strong> · ${safe(raceShortDate(isPaper()?paperSource()?.last_session:PIT_DATA?.end))}. Kéo thời gian chỉ đổi thứ hạng và tài sản trong bảng trên.</p>${rankExtra(row.bot)}`:''}</div>`;}).join('');
+  if(expandedBot&&rows.some(row=>row.bot===expandedBot)){const data=botChartData(expandedBot);graph($('rankChart-'+expandedBot),data.series,data.showIndex);}
   $('racePlay').textContent=raceTimer===null?'▶ Phát':'Ⅱ Tạm dừng';$('racePlay').setAttribute('aria-pressed',String(raceTimer!==null));
   $('racePrev').disabled=index===0;$('raceNext').disabled=index===raceData.dates.length-1;
 }
 function seekRace(value,manual=true){
   if(!raceData.dates.length)return;if(manual)stopRace();
+  expandedBot=null;
   const index=Math.max(0,Math.min(raceData.dates.length-1,Math.round(Number(value)||0)));raceDate=raceData.dates[index];paintRace();
 }
 function raceChartTap(event){const box=event.currentTarget.getBoundingClientRect();seekRace(((event.clientX-box.left)/box.width*360-29)/317*(raceData.dates.length-1));}
@@ -906,10 +894,10 @@ function renderRace(){
   stopRace();if(!$('racePanel'))return;
   $('raceScope').textContent=MODE_LABEL[mode]+' · '+studyLabel()+' · nhóm bot đang bật';
   if(page!=='home'||!$('racePanel').open)return;
-  raceData=raceHistory();const {dates,bots,omitted}=raceData;
+  raceData=raceHistory(activeKeys().filter(bot=>regionFilter==='ALL'||DATA.traders?.[bot]?.region===regionFilter));const {dates,bots,omitted}=raceData;
   if(!dates.includes(raceDate))raceDate=dates.filter(date=>raceDate&&date<=raceDate).pop()||dates[dates.length-1]||null;
   const periodLabel=mode==='backtest'?' · '+(DATA.backtest_options?.find(option=>option.key===period)?.label||period):'';
-  $('raceContent').innerHTML=`<p class="note race-caption">${safe(MODE_LABEL[mode]+periodLabel)} · ${safe(studyLabel())}<br>Xếp hạng trong ${bots.length} bot đang bật. Bộ lọc Mix giữ nhóm đã chọn, không chọn lại người thắng ở từng mốc quá khứ.</p>${!dates.length?'<div class="card empty">Chưa có mốc NAV chung đã ghi nhận cho các bot đang bật. Hãy đổi sổ hoặc bật bot; không tự tạo kết quả từ dữ liệu thiếu.</div>':`<div class="card"><div class="row"><strong id="raceDate" class="race-date"></strong><small id="racePosition"></small></div><label class="note" for="raceSlider">Kéo để xem thời điểm</label><input id="raceSlider" class="race-slider" type="range" min="0" max="${dates.length-1}" step="1" value="${raceIndex()}" oninput="seekRace(this.value)" aria-label="Thời điểm thứ hạng"><div class="race-transport"><button id="racePrev" class="chip" onclick="seekRace(raceIndex()-1)" aria-label="Mốc trước">← Trước</button><button id="racePlay" class="chip active" onclick="toggleRace()" aria-pressed="false">▶ Phát</button><button id="raceNext" class="chip" onclick="seekRace(raceIndex()+1)" aria-label="Mốc sau">Sau →</button></div><p id="raceLeader" class="note race-caption" aria-live="polite"></p><div id="raceGraph"></div><p class="note race-caption">#1 ở trên cùng. Mỗi màu là một bot; đường chỉ vẽ đến mốc đang xem.</p></div><div class="card"><strong>Thứ hạng tại thời điểm đã chọn</strong><div id="raceRows"></div></div>`}<p class="note">Dùng NAV cuối phiên đã lưu, gồm tiền và cổ phiếu sau chi phí. Bằng NAV thì đồng hạng; không dùng drawdown cuối kỳ để phá hòa trong quá khứ. ${isPaper()?'Paper dùng các phiên đã replay.':'Backtest dùng các mốc biểu đồ đã lưu, không có đủ mọi phiên.'} Không nội suy, không phải diễn biến từng phút; thay ngôi được ghi nhận giữa hai mốc, chưa xác định chính xác lúc vượt nhau trong khoảng đó. Chỉ so ngày mà mọi bot hiển thị cùng có NAV.${omitted.length?' Chưa có lịch sử: '+safe(omitted.map(bot=>SHORT[bot]||bot).join(', '))+'.':''}</p>`;
+  $('raceContent').innerHTML=`<p class="note race-caption">${safe(MODE_LABEL[mode]+periodLabel)} · ${safe(studyLabel())}<br>Xếp hạng trong ${bots.length} bot đang bật. Bộ lọc Mix giữ nhóm đã chọn, không chọn lại người thắng ở từng mốc quá khứ.</p>${!dates.length?'<div class="card empty">Chưa có mốc NAV chung đã ghi nhận cho các bot đang bật. Hãy đổi sổ hoặc bật bot; không tự tạo kết quả từ dữ liệu thiếu.</div>':`<div class="card"><div class="row"><strong id="raceDate" class="race-date"></strong><small id="racePosition"></small></div><label class="note" for="raceSlider">Kéo để xem thời điểm</label><input id="raceSlider" class="race-slider" type="range" min="0" max="${dates.length-1}" step="1" value="${raceIndex()}" oninput="seekRace(this.value)" aria-label="Thời điểm thứ hạng"><div class="race-transport"><button id="racePrev" class="chip" onclick="seekRace(raceIndex()-1)" aria-label="Mốc trước">← Trước</button><button id="racePlay" class="chip active" onclick="toggleRace()" aria-pressed="false">▶ Phát</button><button id="raceNext" class="chip" onclick="seekRace(raceIndex()+1)" aria-label="Mốc sau">Sau →</button></div><p id="raceLeader" class="note race-caption" aria-live="polite"></p><div id="raceGraph"></div><p class="note race-caption">#1 ở trên cùng. Mỗi màu là một bot; đường chỉ vẽ đến mốc đang xem.</p></div><div class="card"><strong>Thứ hạng tại thời điểm đã chọn</strong><p class="note" style="margin-top:7px">Chạm vào bot để mở chi tiết sổ mới nhất.</p><div id="raceRows"></div></div>`}<p class="note">Dùng NAV cuối phiên đã lưu, gồm tiền và cổ phiếu sau chi phí. Bằng NAV thì đồng hạng; không dùng drawdown cuối kỳ để phá hòa trong quá khứ. ${isPaper()?'Paper dùng các phiên đã replay.':'Backtest dùng các mốc biểu đồ đã lưu, không có đủ mọi phiên.'} Không nội suy, không phải diễn biến từng phút; thay ngôi được ghi nhận giữa hai mốc, chưa xác định chính xác lúc vượt nhau trong khoảng đó. Chỉ so ngày mà mọi bot hiển thị cùng có NAV.${omitted.length?' Chưa có lịch sử: '+safe(omitted.map(bot=>SHORT[bot]||bot).join(', '))+'.':''}</p>`;
   if(dates.length)paintRace();
 }
 function render(){

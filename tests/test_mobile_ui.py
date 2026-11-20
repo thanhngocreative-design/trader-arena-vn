@@ -239,7 +239,7 @@ def test_mobile_ui_controls_exist():
 def test_leaderboard_card_expands_inline_without_tab_navigation():
     html = SITE.read_text(encoding="utf-8")
     assert 'onclick="selectRankBot(' in html
-    assert 'aria-expanded="${expandedBot===k}"' in html
+    assert 'aria-expanded="${expandedBot===row.bot}"' in html
     assert 'rankdetail-panel' in html
     assert 'function selectRankBot(id)' in html
     handler = html.split("function selectRankBot(id){", 1)[1].split("function openBotProfile(", 1)[0]
