@@ -41,6 +41,9 @@ def test_mix_dimensions_stay_independent_and_match_all_18_leaderboards(tmp_path)
     node=shutil.which('node')
     if not node:pytest.skip('Node.js unavailable')
     html=(SITE/'index.html').read_text(encoding='utf8')
+    assert 'id="assetSummary"' in html
+    assert 'id="mixChartNav"' not in html and 'id="mixChartDelta"' not in html
+    assert '<div id="mixChart"></div>' in html
     js=re.search(r'<script>(.*?)</script>',html,re.S)[1].rsplit('boot();',1)[0]
     script=r'''
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
@@ -69,11 +72,12 @@ function verifyMixChart(){
   }
   assert.equal(data.points.at(-1).nav,bots.reduce((sum,bot)=>sum+part(bot).nav,0));
   renderMixChart();seekMixChart(0);
-  assert.equal(elements.mixChartNav.textContent,money(data.points[0].nav));
-  assert.equal(elements.mixChartDelta.innerHTML,mixTotalMarkup(data.points[0].nav,data.capital));
-  seekMixChart(999999);assert.equal(elements.mixChartNav.textContent,money(data.points.at(-1).nav));
+  assert.equal(elements.totalNav.textContent,vnd(data.points[0].nav));
+  assert.equal(elements.totalDelta.innerHTML,mixTotalMarkup(data.points[0].nav,data.capital));
+  assert.equal(elements.mixChartDate.textContent,'Đang xem '+raceShortDate(data.points[0].date));
+  seekMixChart(999999);assert.equal(elements.totalNav.textContent,vnd(data.points.at(-1).nav));
   assert.ok(!/NaN|Infinity/.test(elements.mixChartGraph.innerHTML));
-  assert.ok(elements.mixChart.innerHTML.includes('Tổng tài sản'));
+  assert.ok(elements.totalLabel.textContent.includes('Tổng tài sản'));
 }
 const expectedScopes={};
 for(const universe of ['300','146','vn30'])for(const book of ['paper','paper_minute','paper_combo','backtest','backtest_minute','hybrid']){
@@ -97,7 +101,7 @@ for(const universe of ['300','146','vn30'])for(const book of ['paper','paper_min
     assert.equal((mixControls().match(/aria-pressed="true"/g)||[]).length,1);
     verifyMixChart();
   }
-  enableAllBots();verifyMixChart();assert.ok(elements.mixChart.innerHTML.includes('Tất cả bot'));
+  enableAllBots();verifyMixChart();assert.ok(elements.totalLabel.textContent.includes('Tất cả bot'));
   applyBestMix(6);
   const scope=botSelectionScope();expectedScopes[scope]=[...activeKeys()];
   assert.deepEqual(JSON.parse(storage.get('arena-mix-choice-v3')),{kind:'best',count:6});
