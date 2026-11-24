@@ -7,8 +7,9 @@ on:
     - cron: '47 11 * * 1-5'
   push:
     branches: [main]
-    paths: ['paper_replay.py', 'paper_ledger.py', 'paper_fixed146.py', 'paper_vn30.py', 'education_bots.py', 'elliott_wave.py', 'vn30_current.py', 'vn30.py', 'config/research-vn30.json', 'replay_rules.py', '.github/workflows/paper-replay.yml']
+    paths: ['.github/actions/deploy-site/**', 'paper_replay.py', 'paper_ledger.py', 'paper_fixed146.py', 'paper_vn30.py', 'education_bots.py', 'elliott_wave.py', 'vn30_current.py', 'vn30.py', 'config/research-vn30.json', 'replay_rules.py', '.github/workflows/paper-replay.yml']
 permissions:
+  actions: read
   contents: write
   pages: write
   id-token: write
@@ -95,14 +96,11 @@ jobs:
             git push origin HEAD:main
           fi
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          name: github-pages-paper
-          path: ./site
-      - uses: actions/deploy-pages@v4
+      - uses: ./.github/actions/deploy-site
         id: deploy
         with:
           artifact_name: github-pages-paper
+
   backtests:
     name: Extend Backtests after verified Paper publication
     needs: replay

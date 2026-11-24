@@ -1,0 +1,45 @@
+name: Publish verified static site
+description: Upload once, wait for artifact visibility, and retry Pages once.
+inputs:
+  artifact_name:
+    default: github-pages
+    description: Distinct base name for this job's artifact.
+outputs:
+  page_url:
+    value: ${{ steps.publish.outputs.page_url || steps.retry.outputs.page_url }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/upload-pages-artifact@v5.0.0
+      id: upload
+      with:
+        name: ${{ inputs.artifact_name }}-${{ github.run_attempt }}
+        path: ./site
+    - name: Wait for the exact uploaded artifact
+      shell: bash
+      run: node "$GITHUB_ACTION_PATH/wait-artifact.cjs"
+      env:
+        GH_TOKEN: ${{ github.token }}
+        EXPECTED_ARTIFACT_ID: ${{ steps.upload.outputs.artifact_id }}
+        EXPECTED_ARTIFACT_NAME: ${{ inputs.artifact_name }}-${{ github.run_attempt }}
+    - uses: actions/deploy-pages@v5.0.1
+      id: publish
+      continue-on-error: true
+      with:
+        artifact_name: ${{ inputs.artifact_name }}-${{ github.run_attempt }}
+    - name: Wait before retrying Pages publication
+      if: steps.publish.outcome == 'failure'
+      shell: bash
+      run: sleep 10
+    - uses: actions/deploy-pages@v5.0.1
+      id: retry
+      if: steps.publish.outcome == 'failure'
+      continue-on-error: true
+      with:
+        artifact_name: ${{ inputs.artifact_name }}-${{ github.run_attempt }}
+    - name: Require a successful publication
+      if: steps.publish.outcome != 'success' && steps.retry.outcome != 'success'
+      shell: bash
+      run: |
+        echo '::error::Pages publication failed after the bounded retry; data remains committed for recovery.'
+        exit 1

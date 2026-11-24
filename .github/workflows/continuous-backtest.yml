@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths: ['.github/workflows/continuous-backtest.yml']
 permissions:
+  actions: read
   contents: write
   pages: write
   id-token: write
@@ -62,8 +63,7 @@ jobs:
             state/vn30_membership_checks
           retention-days: 7
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./site
-      - uses: actions/deploy-pages@v4
+      - uses: ./.github/actions/deploy-site
         id: deploy
+        with:
+          artifact_name: github-pages-backtest
