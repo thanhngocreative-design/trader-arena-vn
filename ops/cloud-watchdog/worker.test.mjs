@@ -53,13 +53,13 @@ test('partial metadata and source regression never count as success', () => {
   assert.throws(() => decision({runs: undefined}), /Actions/);
 });
 
-function mock({p = stale(), b = backtest('2026-11-13'), runs = [], marketStatus = 200, dispatchStatus = 204} = {}) {
+function mock({p = stale(), b = backtest('2026-11-13'), runs = [], marketStatus = 200, marketWire = wire, dispatchStatus = 204} = {}) {
   const calls = [];
   return {calls, fetcher: async (url, options = {}) => {
     calls.push({url, options});
     assert.equal(options.redirect, 'manual', 'Workers supports manual, not error; never forward credentials to a redirect');
     if (!url.startsWith(API)) assert.equal(options.headers?.Authorization, undefined, 'Do not send GitHub credentials to another host');
-    if (url === MARKET) return Response.json(wire, {status: marketStatus});
+    if (url === MARKET) return Response.json(marketWire, {status: marketStatus});
     if (url.startsWith(SITE + 'replay-status.json')) return Response.json(p);
     if (url.startsWith(SITE + 'backtest-status.json')) return Response.json(b);
     if (url.startsWith(API + '/actions/runs?')) return Response.json({workflow_runs: runs});
@@ -71,6 +71,19 @@ test('dry run verifies actual HTTP contract without a write', async () => {
   const m = mock();const result = await check({}, {fetcher: m.fetcher, now});
   assert.equal(result.action, 'would_dispatch_paper');
   assert.equal(m.calls.filter(c => c.url.endsWith('/dispatches')).length, 0);
+});
+test('stale benchmark probe triggers collection rather than declaring yesterday current', async () => {
+  // Use the retained real 16 November candle, observed one weekday later.
+  const later = new Date('2026-11-17T14:00:00Z');
+  const m = mock({p: paper(), b: backtest('2026-11-16')});
+  const result = await check({DRY_RUN: 'false', GITHUB_TOKEN: 'test-only-placeholder'}, {fetcher: m.fetcher, now: later});
+  assert.equal(result.market_observed, '2026-11-16');
+  assert.equal(result.target, '2026-11-17');
+  assert.equal(result.action, 'dispatch_paper');
+  assert.equal(m.calls.filter(c => c.url.endsWith('/dispatches')).length, 1);
+  const current = paper();current.end = '2026-11-17';for (const basket of Object.values(current.baskets)) basket.end = current.end;
+  const published = mock({p: current, b: backtest('2026-11-17')});
+  assert.equal((await check({}, {fetcher: published.fetcher, now: later})).action, 'current');
 });
 test('live dispatch uses main and only the fixed repository with no market output mutation', async () => {
   for (const [p, workflow] of [[stale(), 'paper-replay.yml'], [paper(), 'continuous-backtest.yml']]) {

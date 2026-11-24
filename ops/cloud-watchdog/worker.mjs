@@ -74,13 +74,17 @@ async function json(fetcher, url, options = {}) {
 export async function check(env, {fetcher = fetch, now = new Date()} = {}) {
   const end = cutoff(now), until = Date.parse(end + 'T00:00:00+07:00') / 1000 + 86400;
   const wire = await json(fetcher, MARKET, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({symbols: ['VNINDEX'], timeFrame: 'ONE_DAY', to: until, countBack: 5})});
-  const target = latestSession(wire, end), suffix = '?watchdog=' + now.getTime();
+  // A stale edge/provider response must not suppress collection of a completed
+  // weekday. This is a requested refresh boundary, not proof of a trading day:
+  // the replay pipeline still requires real benchmark and stock candles.
+  const marketObserved = latestSession(wire, end), target = end;
+  const suffix = '?watchdog=' + now.getTime();
   const [paper, backtest] = await Promise.all(['replay-status.json', 'backtest-status.json'].map(name => json(fetcher, SITE + name + suffix, {headers: {'Cache-Control': 'no-cache'}})));
   const headers = {'Accept': 'application/vnd.github+json', 'User-Agent': 'trader-arena-cloud-watchdog', 'X-GitHub-Api-Version': '2026-03-10'};
   if (env.GITHUB_TOKEN) headers.Authorization = 'Bearer ' + env.GITHUB_TOKEN;
   // Consult main-branch Actions before dispatching, including old runs re-run today.
   const actions = await json(fetcher, API + '/actions/runs?branch=main&per_page=100', {headers});
-  const result = {...plan({paper, backtest, runs: actions.workflow_runs, target, now, verifyTarget: env.VERIFY_DISPATCH_TARGET}), observed_cutoff: end};
+  const result = {...plan({paper, backtest, runs: actions.workflow_runs, target, now, verifyTarget: env.VERIFY_DISPATCH_TARGET}), observed_cutoff: end, market_observed: marketObserved};
   if (!result.action.startsWith('dispatch_')) return result;
   if (env.DRY_RUN !== 'false') return {...result, action: 'would_' + result.action};
   if (!env.GITHUB_TOKEN) throw Error('GitHub Actions token is not configured');

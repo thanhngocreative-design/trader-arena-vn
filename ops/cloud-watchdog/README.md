@@ -40,8 +40,13 @@ The published Paper and Backtest health both report session 2026-11-17.
 Cloudflare Cron checks at 16:55, 17:25, 18:55 and 20:25 on weekdays, Vietnam time.
 It observes actual positive-close/positive-volume VN-Index daily candles from
 the same Vietcap endpoint as the simulation. Holidays do not become invented
-sessions. If the provider is stale, the log's `target` can precede `observed_cutoff`;
-this is not proof that the exchange was closed.
+sessions. Since 24 November, `target` is the completed-weekday refresh boundary;
+`market_observed` separately records the latest real candle returned to the Worker.
+A stale probe no longer declares yesterday's outputs current. It requests the
+normal collector, which still refuses to invent a session without actual candles.
+Dependent Paper baskets use the monthly collector's confirmed, banked session,
+so an unavailable current session does not cause an unbanked-input error.
+Cooldown, in-flight detection and the three-failure circuit breaker remain active.
 
 The Worker reads the published compact Paper and Backtest metadata. It skips
 current results, queued/running pipelines, and recent attempts. If Paper is
