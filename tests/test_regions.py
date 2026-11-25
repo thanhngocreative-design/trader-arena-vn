@@ -1,4 +1,4 @@
-"""Regression coverage for eleven international, Vietnamese, and hybrid strategy proxy bots."""
+"""Regression coverage for international, Vietnamese, and educational strategy proxy bots."""
 import json
 import numpy as np
 import pandas as pd
@@ -7,8 +7,8 @@ from paper_forward import update_paper
 from test_engine import data
 
 
-def test_all_eleven_bots_are_independent_and_valid():
-    assert set(TRADERS) == {"Minervini","ONeil","Darvas","BNF","CIS","Qullamaggie","Unger","ThaiPham","DuongChung","PThai","Hybrid","Beginner","Intermediate","Pro","Elliott"}
+def test_all_technical_bots_are_independent_and_valid():
+    assert set(TRADERS) == {"Minervini","ONeil","Darvas","BNF","CIS","Qullamaggie","Unger","ThaiPham","DuongChung","PThai","Hybrid","Beginner","Intermediate","Pro","Elliott","Wyckoff","Ichimoku"}
     assert {TRADERS[k]["region"] for k in TRADERS} == {"US","JP","EU","VN","MIX"}
     prices, index = data(420)
     features = make_features(prices,index)

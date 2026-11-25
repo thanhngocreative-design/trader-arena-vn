@@ -1,20 +1,22 @@
 # Trader Arena VN
 
-Bảng xếp hạng **13 bot giao dịch chứng khoán Việt Nam bằng tiền ảo**: 10 mô hình trader, Arena Hybrid và hai mô phỏng Buffett/Munger. **Không đặt lệnh thật, không đọc thông tin tài khoản chứng khoán.**
+Bảng xếp hạng **19 bot giao dịch chứng khoán Việt Nam bằng tiền ảo**: 10 mô hình trader, Arena Hybrid, ba cấp trader học tập, Elliott Wave, Wyckoff, Ichimoku và hai mô phỏng Buffett/Munger. **Không đặt lệnh thật, không đọc thông tin tài khoản chứng khoán.**
 
 - 📱 **Dashboard iPhone**: https://thanhngocreative-design.github.io/trader-arena-vn/
-Dashboard có **6 tab và 13 bot trong mỗi tab**. Quy tắc hiện hành: [rổ tháng và replay nến kế tiếp](docs/replay-protocol.md).
+Dashboard có **6 tab và 19 bot trong mỗi tab**. Quy tắc hiện hành: [rổ tháng và replay nến kế tiếp](docs/replay-protocol.md).
 
 | Tab | Dữ liệu và sổ giao dịch |
 | --- | --- |
 | Paper phút | Replay sau phiên, nến đã đóng → mở cửa đúng phút kế tiếp; thiếu thì bỏ lệnh. |
 | Paper ngày | Replay sau phiên; tín hiệu ngày → mở cửa phiên thị trường kế tiếp. |
-| Paper kết hợp ngày + phút | Bộ lọc ngày trước, quyết định phút; cùng quy tắc khớp phút với backtest. |
-| Backtest phút | 300 mã mỗi tháng, 498 mã từng xuất hiện; 747 phiên; nến phút thật, không nội suy. |
-| Backtest ngày | Rổ tháng chọn theo quá khứ; 13 bot, 5 khoảng thời gian; 146 đối chiếu riêng. |
-| Backtest kết hợp ngày + phút | Cùng rổ tháng, dữ liệu ngày trước + phút đã đóng; đúng phút kế tiếp. |
+| Paper ngày + phút | Bộ lọc ngày trước, quyết định phút; cùng quy tắc khớp phút với backtest. |
+| Backtest phút | 300 mã mỗi tháng, 498 mã từng xuất hiện; nến phút thật, không nội suy; cập nhật nối tiếp sau Paper. |
+| Backtest ngày | Rổ tháng chọn theo quá khứ; 19 bot, 5 khoảng thời gian; rổ cố định 146 mã sống sót và VN30 theo từng thời kỳ. |
+| Backtest ngày + phút | Cùng rổ tháng, dữ liệu ngày trước + phút đã đóng; đúng phút kế tiếp. |
 
-**Paper replay từ 13/11/2026**: 78 tài khoản (13 bot × 3 sổ × 2 rổ: Rổ tháng và Rổ cố định 146 mã sống sót), mỗi tài khoản 100 triệu đồng. Workflow `paper-replay.yml` chạy 16:47 và thử lại 18:47 giờ Việt Nam. Trước 16:00 không xử lý phiên hiện tại. Cùng phiên chạy lại không cộng thêm giao dịch; phiên mới không được sửa giao dịch đã chốt. Các sổ forward cuối cùng được lưu nguyên byte trong `state/paper_archive/before-eod-replay-2026-11-13/`; không cộng vào sổ replay. `state/paper_replay.json` giữ sổ đầy đủ; `site/paper-replay.json` là nguồn hiển thị ba paper. Các mục bên dưới về forward/146 mô tả triển khai cũ được giữ làm đối chiếu, không phải lịch chạy hiện hành.
+**Paper replay từ 02/11/2026**: 171 tài khoản (19 bot × 3 sổ × 3 rổ: Rổ tháng, Rổ cố định 146 mã sống sót và VN30 theo từng thời kỳ), mỗi tài khoản 100 triệu đồng. Workflow `paper-replay.yml` chạy 16:47 và thử lại 18:47 giờ Việt Nam. Trước 16:00 không xử lý phiên hiện tại. Cùng phiên chạy lại không cộng thêm giao dịch; phiên mới không được sửa giao dịch đã chốt. Các sổ forward cuối cùng được lưu nguyên byte trong `state/paper_archive/before-eod-replay-2026-11-13/`; không cộng vào sổ replay. `state/paper_seasons/2026-11-02/` giữ ba bộ sổ đầy đủ; `site/paper-replay.json`, `site/paper-fixed146.json` và `site/paper-vn30.json` là nguồn hiển thị Paper. Các mục bên dưới về forward/146 mô tả triển khai cũ được giữ làm đối chiếu, không phải lịch chạy hiện hành.
+
+Wyckoff và Ichimoku được bổ sung bằng tài khoản riêng, giữ nguyên 306 tài khoản của 17 bot trước đó. Xem [quy tắc và kiểm chứng](docs/market-patterns.md). [Kế hoạch Monte Carlo](docs/monte-carlo-plan.md) mới là phương án triển khai, chưa có kết quả Monte Carlo được công bố.
 
 Ở trang **Các bot**, mỗi hồ sơ có bảng so sánh đủ 6 sổ: tài sản, lãi/lỗ tiền và %, drawdown đã ghi nhận, số lần mua/bán. Bảng luôn dùng toàn bộ 3 năm cho ba backtest; paper theo mùa hiện tại. Số liệu paper tính từ toàn bộ sổ, không từ danh sách giao dịch rút gọn. Chạm tên sổ để xem chi tiết. Khi chưa có NAV paper, DD hiển thị “—”.
 

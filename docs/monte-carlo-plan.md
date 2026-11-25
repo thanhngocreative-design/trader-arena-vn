@@ -3,6 +3,10 @@
 Status: planned. No Monte Carlo probabilities or synthetic paths have been
 published. Keep all observed Backtest and Paper results unchanged.
 
+Method reference: the R project's [time-series bootstrap documentation](https://stat.ethz.ch/R-manual/R-devel/library/boot/help/ts.return.html)
+describes fixed-length block resampling for univariate or multivariate series.
+The numerical settings below are Arena research assumptions, not tuned outcomes.
+
 ## 1. Build an audited daily return panel
 
 For each of the six books and three baskets, export the exact saved daily NAV
@@ -63,6 +67,11 @@ book, basket and selected group. Show a percentile fan chart, terminal-outcome
 distribution, risk metrics, sample dates and observation count. Explain that p5
 is a scenario percentile, not a guaranteed floor or a confidence interval for
 the true future return. Existing leaderboards continue to display observed results.
+
+Compute scenarios in the cloud after verified source books complete; publish
+compact percentiles, histograms and audit metadata. Do not send all simulated
+paths to the iPhone or make the browser perform the full calculation. This is a
+proposed implementation stage, not an already-enabled daily workflow.
 
 Optional later work: execution-cost sensitivity using recorded turnover and
 incremental costs only, or full causal market-path replay. These require separate
