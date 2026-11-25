@@ -1,79 +1,41 @@
-# Monte Carlo implementation plan — not simulation results
+# Kế hoạch mô phỏng Monte Carlo
 
-Status: planned. No Monte Carlo probabilities or synthetic paths have been
-published. Keep all observed Backtest and Paper results unchanged.
+**Trạng thái: mới lập kế hoạch, chưa chạy và chưa công bố kết quả Monte Carlo.** Các sổ Paper và Backtest hiện tại tiếp tục hiển thị kết quả từ nến thật, không bị thay bằng kịch bản giả định.
 
-Method reference: the R project's [time-series bootstrap documentation](https://stat.ethz.ch/R-manual/R-devel/library/boot/help/ts.return.html)
-describes fixed-length block resampling for univariate or multivariate series.
-The numerical settings below are Arena research assumptions, not tuned outcomes.
+Tham khảo phương pháp: [tài liệu bootstrap chuỗi thời gian của R](https://stat.ethz.ch/R-manual/R-devel/library/boot/help/ts.return.html). Lấy mẫu theo khối giữ nguyên các đoạn thời gian liên tiếp; với nhiều bot, lấy cùng đoạn ngày cho tất cả bot. Các tham số bên dưới là giả thuyết nghiên cứu của Arena, không được chọn theo kết quả đẹp nhất.
 
-## 1. Build an audited daily return panel
+## 1. Chuẩn hóa và kiểm chứng đầu vào
 
-For each of the six books and three baskets, export the exact saved daily NAV
-of all 19 bots, including cash, open positions, recorded costs and unrealized
-losses. Reconcile starting capital, ending NAV and every calendar date against
-the source books. Never replace missing NAV with a price, guessed return or
-forward-filled row. Use the shared verified session calendar, excluding exchange
-holidays. Save source hashes, model version, cutoff and bot identifiers.
+- Phạm vi: 19 bot, 6 sổ, 3 rổ; mỗi tổ hợp sổ/rổ có một bảng NAV theo phiên chung cho các bot.
+- Dùng NAV đã lưu, gồm tiền mặt, cổ phiếu, lãi/lỗ chưa thực hiện, chi phí và dự phòng định giá đang áp dụng. Không thay bằng giá cổ phiếu hoặc danh sách 40 giao dịch rút gọn trên UI.
+- Đối chiếu vốn đầu kỳ, NAV cuối kỳ và từng phiên với sổ gốc. Vốn đầu kỳ là mốc tài sản để tính cả lợi nhuận phiên đầu, không phải một nến thị trường được tạo thêm.
+- Không tự điền NAV bị thiếu. Chỉ dùng lịch phiên đã kiểm chứng, loại ngày nghỉ giao dịch. Lưu mã phiên bản mô hình, ngày chốt, danh sách bot và mã băm nguồn để tái lập.
+- Với sổ phút và ngày + phút, bước đầu vẫn lấy lợi nhuận NAV theo ngày. Không coi mỗi phút là một quan sát lợi nhuận độc lập.
+- Ghi cả số giao dịch và mức tham gia thị trường; bot chỉ giữ tiền mặt không được mô tả là một chiến thuật đã chứng minh không có rủi ro.
 
-Minute and combined books also use daily NAV returns for this portfolio-risk
-analysis; do not treat individual minute bars as independent profit samples.
-Use independent observed bot accounts, not a hypothetical executable pooled
-account. Mixing N bots starts with N times VND 100 million.
+## 2. Tạo kịch bản từ dữ liệu đã quan sát
 
-## 2. Generate joint block-bootstrap scenarios
+- Chạy 10.000 kịch bản cho kỳ hạn giả định 252 phiên.
+- Lấy mẫu có hoàn lại từng khối 10 phiên liên tiếp. Ghép các khối, cắt khối cuối theo đúng kỳ hạn. Dùng cùng chỉ số lấy mẫu cho tất cả bot và các nhóm Mix trong cùng tổ hợp sổ/rổ.
+- Kiểm tra độ nhạy thêm với khối 5 và 20 phiên; không chọn độ dài khối theo lợi nhuận đẹp nhất.
+- Cố định và lưu hạt giống ngẫu nhiên, số phiên nguồn, cách lấy mẫu và phiên bản chương trình. Tính theo lô để giới hạn bộ nhớ.
+- Báo cáo chính cần ít nhất 252 phiên lợi nhuận chung đã quan sát. Paper hiện mới có vài tuần sẽ hiện **chưa đủ lịch sử**, không suy ra xác suất cả năm từ 17 phiên.
+- Đây là tái tổ hợp lợi nhuận NAV ròng, không phải tạo nến thật hay replay lại toàn bộ lệnh. Các đường giả định không tái tạo chi tiết lô 100 cổ phiếu, thanh khoản và T+ dưới một thị trường mới. Phương pháp cũng không bảo đảm mô phỏng được khủng hoảng chưa từng có trong mẫu.
 
-Primary method: resample contiguous 10-session blocks of observed daily return
-vectors, with replacement, into 10,000 paths for a declared 252-session horizon.
-Select the SAME block indices for every bot in a scope. This preserves observed
-cross-bot co-movement within each sampled day and serial behavior within blocks.
-Use sensitivity runs with 5- and 20-session blocks; do not optimize block length
-for an attractive outcome. Save random seed, sample length and implementation
-version for exact reproduction. Generate in batches with a bounded memory budget.
+## 3. Đánh giá từng bot và nhóm Mix cố định
 
-Require at least 252 common observed return sessions for the primary report.
-Short Paper seasons show “insufficient history” and their observed track record;
-do not extrapolate a few Paper weeks into confident annual probabilities.
-Bootstrap paths are hypothetical recombinations of recorded NET returns, not
-real market candles or a fresh replay of orders, prices, cash and T+ settlement.
-They cannot model an unseen crash or newly emerging market regime reliably.
+- Xuất tài sản/lợi nhuận cuối kỳ ở các mức p5, p50, p95; drawdown trung vị và p95; tỷ lệ kịch bản kết thúc dưới vốn đầu kỳ; tỷ lệ chạm drawdown 20%/30%; mức lỗ cuối kỳ trung bình trong 5% kịch bản xấu nhất.
+- Các tỷ lệ này chỉ đúng trong mẫu và giả định lấy mẫu đã công bố, không phải xác suất tương lai được bảo đảm.
+- Có từng bot, Bật tất cả, Mix 2–6 và nhóm đang chọn thủ công. Khóa thành viên trước khi mô phỏng; không chọn lại người thắng trong từng kịch bản.
+- Mỗi bot vẫn có tài khoản riêng 100 triệu. Mix N bot có vốn đầu kỳ N × 100 triệu; tổng NAV bằng tổng các tài khoản tại từng bước, không tự tái cân bằng về tỷ trọng bằng nhau mỗi ngày.
+- Best Mix được chọn bằng kết quả quá khứ có sai lệch chọn người thắng. Báo cáo bootstrap của nhóm này mang tính mô tả. Để đánh giá khả năng chọn Mix trong tương lai, cần thêm kiểm tra cuốn chiếu: chọn nhóm trên giai đoạn huấn luyện, khóa nhóm và đánh giá ở giai đoạn tiếp theo chưa dùng để chọn.
 
-## 3. Evaluate bots and fixed Mix groups
+## 4. Kiểm thử và đưa lên dashboard
 
-Report terminal NAV/return p5, p50 and p95, median and p95 maximum drawdown,
-fraction of paths finishing below initial capital, fraction crossing 20%/30%
-drawdown, and average terminal loss in the worst 5% of scenarios. Label every
-probability as conditional on the observed sample and bootstrap assumptions.
+- Kiểm thử đối chiếu NAV thật, tái lập cùng hạt giống, cùng khối ngày giữa các bot, tính drawdown/tổn thất đuôi, khóa nhóm Mix và từ chối mẫu thiếu/ngắn. Lịch sử thật phải giữ nguyên.
+- Chạy thử bằng một bộ NAV thật nhỏ đã lưu, sau đó mới chạy đủ 18 tổ hợp sổ/rổ.
+- Dự kiến tính trên cloud sau khi các sổ đã được xác minh. Chỉ xuất các phân vị, biểu đồ phân phối và thông tin kiểm chứng; iPhone không phải tải hoặc tính toàn bộ đường mô phỏng. Chưa thêm lịch chạy Monte Carlo vào workflow hiện tại.
+- Thêm mục riêng **Monte Carlo — kịch bản giả định**, đi theo Sổ/Rổ/Mix đang chọn. Hiển thị vùng kịch bản, phân phối kết quả cuối kỳ, chỉ số rủi ro, ngày dữ liệu và số phiên nguồn. Trục thời gian ghi phiên mô phỏng, không giả làm ngày thị trường đã xảy ra.
+- p5 là phân vị của các kịch bản, không phải mức sàn được bảo đảm hay khoảng tin cậy cho lợi nhuận tương lai. Leaderboard hiện tại vẫn dùng kết quả đã quan sát.
 
-Include each bot, All, and Mix 2–6 using the exact currently selected members.
-Freeze membership before resampling; never pick the winner separately in each
-simulated path. Sum constituent account NAVs at each step; do not accidentally
-turn a fixed-account Mix into a daily-rebalanced equal-weight portfolio.
-
-Historical Best Mix was selected using historical performance. Its bootstrap
-report is descriptive and selection-biased. A separate evaluation must select
-Mix members on training data only, freeze them for the next holdout window,
-and repeat walk-forward. Do not present the in-sample Best Mix as a forecast.
-
-## 4. Validate, then add the dashboard view
-
-Tests must verify reconciliation against observed NAV, exact random-seed
-reproduction, joint block alignment, drawdown and tail-loss calculations,
-unchanged actual ledgers, frozen Mix membership and rejection of missing/short
-samples. Test a small saved real sample before the full 18-scope run.
-
-Add a separate “Monte Carlo — hypothetical scenarios” section tied to the current
-book, basket and selected group. Show a percentile fan chart, terminal-outcome
-distribution, risk metrics, sample dates and observation count. Explain that p5
-is a scenario percentile, not a guaranteed floor or a confidence interval for
-the true future return. Existing leaderboards continue to display observed results.
-
-Compute scenarios in the cloud after verified source books complete; publish
-compact percentiles, histograms and audit metadata. Do not send all simulated
-paths to the iPhone or make the browser perform the full calculation. This is a
-proposed implementation stage, not an already-enabled daily workflow.
-
-Optional later work: execution-cost sensitivity using recorded turnover and
-incremental costs only, or full causal market-path replay. These require separate
-methodology and validation; do not invent slippage, candles or fills to make the
-initial NAV-bootstrap report look like an execution simulator.
+Các bước có thể làm sau: kiểm tra chi phí tăng thêm theo khối lượng giao dịch thật, hoặc replay toàn bộ đường thị trường giả định bằng bộ khớp lệnh nhân quả. Phải có phương pháp và kiểm chứng riêng; không cộng chi phí hai lần, không bịa nến, giá trượt hoặc lệnh để biến bootstrap NAV thành một backtest mới.
