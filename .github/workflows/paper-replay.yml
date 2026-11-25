@@ -7,7 +7,7 @@ on:
     - cron: '47 11 * * 1-5'
   push:
     branches: [main]
-    paths: ['.github/actions/deploy-site/**', 'paper_pipeline_stage.py', 'paper_replay.py', 'paper_ledger.py', 'paper_fixed146.py', 'paper_vn30.py', 'education_bots.py', 'elliott_wave.py', 'vn30_current.py', 'vn30.py', 'config/research-vn30.json', 'replay_rules.py', '.github/workflows/paper-replay.yml']
+    paths: ['.github/actions/deploy-site/**', 'market_calendar.py', 'config/market-closures.json', 'paper_pipeline_stage.py', 'paper_replay.py', 'paper_ledger.py', 'paper_fixed146.py', 'paper_vn30.py', 'education_bots.py', 'elliott_wave.py', 'vn30_current.py', 'vn30.py', 'config/research-vn30.json', 'replay_rules.py', '.github/workflows/paper-replay.yml']
 permissions:
   actions: read
   contents: write

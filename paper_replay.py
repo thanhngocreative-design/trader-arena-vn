@@ -25,6 +25,7 @@ from pit_daily import attach_summary, merged_fundamentals, value_backtest
 from pit_intraday import run_minute, run_combo
 from replay_rules import REVISION, can_fill
 from sector_analytics import universe_distribution
+from market_calendar import session_candidates
 
 START = '2026-11-02'
 MARKET = ROOT/'state/replay_market'
@@ -123,7 +124,7 @@ def source_inputs(end, collect=True):
     cutoff=pd.Timestamp(START)
     prices={s:frame(rows).loc[lambda f:f.index<cutoff] for s,rows in base['prices'].items()}
     benchmark=benchmark_frame(base['benchmark']).loc[lambda f:f.index<cutoff]
-    calendar=pd.bdate_range(START,end)
+    calendar=session_candidates(START,end)
     audits={};frames={};sessions=[]
     for date in calendar:
         day=str(date.date());prior=benchmark.index[-1]
