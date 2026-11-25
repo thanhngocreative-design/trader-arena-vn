@@ -46,7 +46,7 @@ def run_minute(ctxs,frames,coverage,config,output=None,*,initial_state=None,bot_
     if bot_ids is not None:
         accounts={c:{m:{k:b for k,b in bots.items() if k in bot_ids} for m,bots in books.items()} for c,books in accounts.items()}
     curves={c:{m:{k:[] for k in b} for m,b in books.items()} for c,books in accounts.items()};marks={};seen={};done=-1
-    signature=hashlib.sha256(b''.join((ROOT/p).read_bytes() for p in ('pit_intraday.py','pit_minute_data.py','minute_arena.py','value_intraday.py','pit_context.py','replay_rules.py','engine.py','education_bots.py','elliott_wave.py','portfolio.py','execution.py'))+ctx.benchmark.close.to_csv(lineterminator='\n').encode()+json.dumps(config,sort_keys=True).encode()+json.dumps({s:r.get('minute_sha256') for s,r in coverage.items()},sort_keys=True).encode()).hexdigest()
+    signature=hashlib.sha256(b''.join((ROOT/p).read_bytes() for p in ('pit_intraday.py','pit_minute_data.py','minute_arena.py','value_intraday.py','pit_context.py','replay_rules.py','engine.py','education_bots.py','elliott_wave.py','market_patterns.py','portfolio.py','execution.py'))+ctx.benchmark.close.to_csv(lineterminator='\n').encode()+json.dumps(config,sort_keys=True).encode()+json.dumps({s:r.get('minute_sha256') for s,r in coverage.items()},sort_keys=True).encode()).hexdigest()
     checkpoint=output/'minute-checkpoint.json'
     if initial_state is not None:
         saved=copy.deepcopy(initial_state)
@@ -150,7 +150,7 @@ def run_combo(ctxs,prices,frames,config,output=None):
     classification=read(ROOT/'config/market-classification.json')['sectors']
     coverage=config.get('minute_input_sha256')
     if coverage is None:coverage=read(ROOT/'data/pit_results/minute-coverage.json')
-    signature=hashlib.sha256(b''.join((ROOT/p).read_bytes() for p in ('fast_engine.py','hybrid_backtest.py','pit_context.py','replay_rules.py','engine.py','education_bots.py','elliott_wave.py','portfolio.py','execution.py'))+next(iter(ctxs.values())).benchmark.close.to_csv(lineterminator='\n').encode()+json.dumps({k:config[k] for k in ('months','start','end','daily_input_sha256')},sort_keys=True).encode()+json.dumps(coverage,sort_keys=True).encode()).hexdigest()
+    signature=hashlib.sha256(b''.join((ROOT/p).read_bytes() for p in ('fast_engine.py','hybrid_backtest.py','pit_context.py','replay_rules.py','engine.py','education_bots.py','elliott_wave.py','market_patterns.py','portfolio.py','execution.py'))+next(iter(ctxs.values())).benchmark.close.to_csv(lineterminator='\n').encode()+json.dumps({k:config[k] for k in ('months','start','end','daily_input_sha256')},sort_keys=True).encode()+json.dumps(coverage,sort_keys=True).encode()).hexdigest()
     for name,ctx in ctxs.items():
         manifest=output/f'combo-{name}-inputs.json'
         if manifest.exists() and read(manifest)['signature']!=signature:raise ValueError('Combo cache inputs changed; recompute in a fresh output directory')

@@ -16,7 +16,7 @@ KEYS = (
     "open", "high", "low", "close", "volume", "momentum60",
     "vol20_prev", "value20_prev", "atr14", "rsi14", "sma10", "sma20",
     "sma25", "sma50", "sma100", "low15_prev",
-    "close_prev1", "sma20_prev1", "rs60", "market_ok",
+    "close_prev1", "sma20_prev1", "rs60", "market_ok", "ichimoku_base",
 )
 
 class FastContext:

@@ -1,0 +1,6 @@
+{
+  "previous_model_sha256": "db8536086349aad8d1a00a6fd2b6b4bd0887a20e1580241c5162979c08b5e004",
+  "new_model_sha256": "afcf305a78f9eea7fffd6f3210241763e391235916e4b7b68074ee8cfcc04442",
+  "baseline_commit": "40d7ef5",
+  "purpose": "Add Wyckoff and Ichimoku only from verified real history; preserve all 306 pre-existing accounts and all checkpoints"
+}

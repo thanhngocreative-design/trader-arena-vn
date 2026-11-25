@@ -25,6 +25,7 @@ def test_levels_have_distinct_predeclared_filters_and_exits():
     p=pd.DataFrame(dict(close=[110.,110.],volume=[150.,150.],sma20=[90.,105.],sma50=[100.,100.],
         sma100=[90.,90.],sma200=[80.,80.],high20_prev=[100.,100.],high55_prev=[100.,100.],
         vol20_prev=[100.,100.],rs60=[.06,.06],atr14=[2.,2.],market_ok=[True,True]))
+    p['high']=p.close*1.01;p['low']=p.close*.99
     signals=daily_signals(p)
     assert signals['Beginner'].tolist()==[False,True]
     assert signals['Intermediate'].tolist()==[True,True] and signals['Pro'].tolist()==[True,True]

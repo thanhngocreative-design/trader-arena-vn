@@ -12,7 +12,7 @@ MODEL_FILES=('engine.py','fast_engine.py','hybrid_backtest.py','pit_intraday.py'
     'config/market-classification.json','intraday_data.py','historical_minute.py',
     'collect_pit_daily.py','pit_universe.py','vn30_current.py',
     'continuous_backtest.py','backtest_state.py','paper_ledger.py','requirements.txt',
-    'market_calendar.py','config/market-closures.json')
+    'market_calendar.py','config/market-closures.json','market_patterns.py')
 
 
 def model_digest():
