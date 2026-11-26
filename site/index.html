@@ -38,7 +38,7 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
 .table{display:grid;gap:7px}.tableitem{background:#101f33;border-radius:12px;padding:12px}.tableitem .row + .row{margin-top:7px}.note{font-size:12px;color:#b1c8df;line-height:1.6}
 .empty{text-align:center;padding:22px 8px;color:#8fa8c1;font-size:13px;line-height:1.6}.mini-stat{font-size:12px;line-height:1.4}.scroll-chip{display:flex;gap:8px;overflow-x:auto;padding-bottom:5px}.chip{border:1px solid #314b67;color:#bbcee3;background:#152943;border-radius:99px;white-space:nowrap;padding:8px 12px;font-size:12px;font-weight:740;cursor:pointer}.chip.active{background:#e3faf5;color:#092735;border-color:transparent}
 .bottom{position:fixed;z-index:2;bottom:0;left:0;width:100%;background:#0b192cf5;backdrop-filter:blur(14px);border-top:1px solid #2d415a;padding-bottom:env(safe-area-inset-bottom)}
-.bottom .nav{max-width:560px;margin:auto;display:grid;grid-template-columns:repeat(5,1fr)}.bottom button{background:transparent;border:0;color:#8199b5;padding:11px 3px 9px;display:grid;gap:3px;justify-items:center;font-size:10px;font-weight:700;cursor:pointer}.bottom button.selected{color:#78edd1}.nav-ico{font-size:21px;line-height:1.3}
+.bottom .nav{max-width:560px;margin:auto;display:grid;grid-template-columns:repeat(6,minmax(0,1fr))}.bottom button{background:transparent;border:0;color:#8199b5;padding:11px 3px 9px;display:grid;gap:3px;justify-items:center;font-size:10px;font-weight:700;cursor:pointer}.bottom button.selected{color:#78edd1}.nav-ico{font-size:21px;line-height:1.3}
 .page{display:none}.page.on{display:block}.explain{counter-reset:num}.explain .step{display:flex;gap:10px;padding:13px 0;border-bottom:1px solid #263a55}.bubble{background:#243853;border-radius:50%;width:26px;height:26px;flex-shrink:0;display:grid;place-items:center;font-weight:900;color:#75ecd0;font-size:12px}.step div:last-child{font-size:13px;line-height:1.6;color:#aec6de}.step b{display:block;color:#ecf6ff;margin-bottom:3px}.footer{margin-top:18px;font-size:11px;color:#647e9e;line-height:1.6;text-align:center}
 @media(min-width:610px){.shell{padding-top:28px}.bottom{position:sticky;bottom:0}}
 .periodbar{display:flex;gap:7px;overflow-x:auto;margin:0 0 12px;padding-bottom:5px}
@@ -137,6 +137,7 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
     <div id="totalDelta" class="ssmall" aria-live="polite">—</div>
     <div class="metric-grid"><div class="metric"><div class="label">Vốn ban đầu</div><div class="value tnum" id="totalInitial">—</div></div><div class="metric"><div class="label">Dữ liệu đến</div><div class="value" id="marketDay" style="font-size:16px">—</div></div></div>
     <div id="mixChart"></div>
+    <button class="chip" style="margin-top:12px;white-space:normal" onclick="setPage('monte')">🎲 Xem Monte Carlo của nhóm này →</button>
   </section>
   <details id="racePanel" class="card soft" style="margin-top:14px" open ontoggle="renderRace()">
     <summary style="font-size:16px;font-weight:800;cursor:pointer">📈 Diễn biến thứ hạng</summary>
@@ -152,6 +153,7 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
 <section id="botsPage" class="page"><div class="eyebrow">Hồ sơ chiến thuật</div><h1>Các bot của mình 🤖</h1><p class="sub">Chọn bot để xem nó đang cầm gì và vì sao.</p><div class="scroll-chip" id="botChips"></div><div id="botDetail"></div></section>
 <section id="tradesPage" class="page"><div class="eyebrow">Nhật ký giao dịch</div><h1>Mua hay bán gì? 🧾</h1><p class="sub" id="activityDesc">Tất cả giao dịch giả lập được ghi rõ ngày và lý do.</p><div class="scroll-chip" id="tradeChips"></div><div id="allTrades"></div></section>
 <section id="sectorsPage" class="page"><div class="eyebrow">Phân bố và dòng tiền</div><h1>Ngành nghề 🧩</h1><p class="sub">Mẫu nghiên cứu đại diện những ngành nào, và bot thực sự mua ngành nào?</p><div id="sectorContent"></div></section>
+<section id="montePage" class="page"><div class="eyebrow">Kịch bản giả định từ lịch sử</div><h1>Monte Carlo 🎲</h1><p class="sub">Thử nhiều diễn biến tài sản từ NAV đã lưu. Đây là kịch bản giả định, không phải kết quả giao dịch hay cam kết lợi nhuận.</p><div id="monteControls"></div><div id="monteContent" aria-live="polite"></div></section>
 <section id="learnPage" class="page"><div class="eyebrow">Giải thích dễ hiểu</div><h1>Bot chơi thế nào? 🎒</h1><details class="card explain"><summary><strong>Xem cách chơi trong 8 bước</strong></summary>
   <div class="step"><div class="bubble">1</div><div><b>Mỗi bot có 100 triệu tiền ảo.</b> Không có tiền thật nào được dùng để mua cổ phiếu.</div></div>
   <div class="step"><div class="bubble">2</div><div><b>Bot xem giá trên sàn sau giờ giao dịch.</b> Dữ liệu đến từ nguồn giá chứng khoán Việt Nam, không phải giá do bot tự bịa.</div></div>
@@ -215,6 +217,7 @@ h1{font-size:29px;letter-spacing:-1.1px;margin:6px 0 5px;line-height:1.1}p{margi
   <button id="nav-bots" onclick="setPage('bots')"><span class="nav-ico">🤖</span>Các bot</button>
   <button id="nav-trades" onclick="setPage('trades')"><span class="nav-ico">🧾</span>Nhật ký</button>
   <button id="nav-sectors" onclick="setPage('sectors')"><span class="nav-ico">🧩</span>Ngành</button>
+  <button id="nav-monte" onclick="setPage('monte')"><span class="nav-ico">🎲</span>Monte Carlo</button>
   <button id="nav-learn" onclick="setPage('learn')"><span class="nav-ico">🎒</span>Giải thích</button>
 </div></nav>
 <div class="stockoverlay" id="stockOverlay" role="dialog" aria-modal="true" aria-label="Biểu đồ chứng khoán">
@@ -791,6 +794,75 @@ function renderSectors(){
   ${e?`<div class="card"><h2 style="font-size:18px">Mở rộng 500–600 mã</h2><p class="note">Nguồn Vietcap ngày ${shortDate(e.asof)} có ${e.listed_stock_candidates} mã loại cổ phiếu trên HOSE/HNX/UPCoM; đây là danh sách ứng viên, chưa phải số mã đủ dữ liệu ba năm.</p><p class="note">Đã thử ${e.probed_symbols} mã ngoài mẫu thuộc ngành đang thiếu: ${e.daily_pass_count} mã đủ cả 747 phiên ngày; ${e.minute_endpoint_pass_count} mã có mẫu nến phút ở đầu và cuối kỳ. <strong>Chưa kiểm tra toàn bộ nến phút cho các mã mới; chưa xác nhận có đủ 500–600 mã đạt chuẩn.</strong></p><details><summary>Xem kết quả kiểm tra thử</summary>${e.probes.map(p=>`<p class="note"><strong>${safe(p.symbol)}</strong> · ${safe(p.sector)} · ngày: ${n(p.daily_valid_sessions)}/${n(p.reference_sessions)} · mẫu phút: ${p.minute_endpoints_present?'có đầu/cuối':'chưa đủ'}${p.error?' · '+safe(p.error):''}</p>`).join('')}</details><p class="note">Giữ 146 mã làm baseline. Bước tiếp theo: kiểm tra nến ngày của danh sách rộng → tải và xác minh đầy đủ nến phút cho mã đạt chuẩn → tạo nghiên cứu 500–600 mã riêng, không đổi sổ paper.</p><p class="note">Nhiều mã giúp phủ ngành tốt hơn, chưa tự làm backtest chính xác hơn. Vẫn phải xử lý thanh khoản theo từng thời điểm, cổ phiếu mới/hủy niêm yết, quyền/cổ tức, chi phí và kiểm tra ngoài mẫu. Nếu giữ điều kiện đủ mọi phiên suốt ba năm, không được bù dữ liệu chỉ để đạt con số 600.</p></div>`:''}
   <p class="note">Nguồn phân ngành/danh sách: <a href="https://iq.vietcap.com.vn/api/iq-insight-service/v2/company/search-bar?language=1" target="_blank" rel="noopener">Vietcap IQ</a>. Phân ngành là metadata; kết quả giao dịch vẫn là mô phỏng trên giá thị trường thật.</p>`;
 }
+let monteIndex=null,monteCache={},monteStatus=null,monteLoading=false,monteChecked='',monteCheckedAt=0,monteError='';
+const monteScope=()=>`${activeStudy()}:${mode}:${mode==='backtest'?period:'ALL'}`;
+const monteGroupKey=bots=>bots.slice().sort().join('|');
+function selectMonteBot(bot){if(!IDS.includes(bot))return;mixChoice={kind:'manual'};hiddenBots=Object.fromEntries(IDS.map(k=>[k,k!==bot]));selected=bot;persistMixChoice();saveBotSelection();render();}
+function monteCurrent(entry,data){
+  if(!entry||!data||data.revision!=='joint_nav_bootstrap_v1'||data.hypothetical!==true||data.fingerprint!==entry.fingerprint||data.scope!==monteScope())return false;
+  const end=isPaper()?paperSource()?.last_session:PIT_DATA?.end,health=isPaper()?monteStatus?.paper:monteStatus?.backtest;
+  if(entry.end!==end||health?.end!==end||health?.status!=='complete'||data.model_sha256!==monteStatus?.backtest?.model_sha256||data.dates?.end!==entry.end||data.dates?.sessions!==entry.sessions)return false;
+  const ids=IDS.filter(k=>supportsMode(k)&&part(k));
+  return ids.length===data.bots?.length&&ids.every(k=>data.bots.includes(k)&&typeof part(k)?.nav==='number'&&Math.abs(part(k).nav-data.observed_nav?.[k])<=1.01);
+}
+async function loadMonteCarlo(force=false){
+  const key=monteScope();if(monteLoading||(!force&&monteChecked===key&&Date.now()-monteCheckedAt<60000))return;
+  monteLoading=true;monteError='';monteChecked=key;monteCheckedAt=Date.now();
+  try{
+    const get=async file=>{const response=await fetch(file+'?v='+Date.now(),{cache:'no-store'});if(!response.ok)throw Error('Chưa tải được kết quả Monte Carlo đã xác minh.');return response.json();};
+    const [index,paper,backtest]=await Promise.all([get('./monte-carlo/index.json'),get('./replay-status.json'),get('./backtest-status.json')]);
+    if(index.revision!=='joint_nav_bootstrap_v1'||index.hypothetical!==true||!index.scopes)throw Error('Chưa có bộ mô phỏng đúng phiên bản.');
+    monteIndex=index;monteStatus={paper,backtest};
+    const entry=index.scopes[key];
+    if(entry){
+      if(!/^[a-zA-Z0-9-]+-[a-f0-9]{16}\.json$/.test(entry.file))throw Error('Đường dẫn kết quả không hợp lệ.');
+      if(monteCache[key]?.fingerprint!==entry.fingerprint)monteCache[key]=await get('./monte-carlo/'+entry.file);
+    }
+  }catch(error){monteError=error.message;}
+  finally{monteLoading=false;if(page==='monte')renderMonteCarlo();}
+}
+function monteFan(group){
+  const rows=group.fan,capital=group.capital,values=[capital,...rows.flatMap(r=>r.slice(1))],low=Math.min(...values),high=Math.max(...values),pad=Math.max((high-low)*.08,capital*.02,1),min=low-pad,max=high+pad;
+  const x=t=>49+t/Math.max(1,rows.length-1)*296,y=v=>20+(max-v)/(max-min)*154;
+  const grid=[max,(max+min)/2,min].map(v=>`<line x1="49" x2="345" y1="${y(v)}" y2="${y(v)}" stroke="#29405d" stroke-dasharray="3 5"/><text x="44" y="${y(v)+3}" text-anchor="end" fill="#9eb6d0" font-size="9">${(v/1e6).toLocaleString('vi-VN',{maximumFractionDigits:0})}</text>`).join('');
+  const area=[...rows.map(r=>x(r[0])+','+y(r[3])),...rows.slice().reverse().map(r=>x(r[0])+','+y(r[1]))].join(' ');
+  return `<svg class="race-chart" viewBox="0 0 360 211" role="img" aria-label="Phân vị tài sản giả định p5, trung vị và p95"><text x="5" y="10" fill="#9eb6d0" font-size="9">Triệu đ</text>${grid}<polygon points="${area}" fill="#67e8bf" opacity=".18"/><line x1="49" x2="345" y1="${y(capital)}" y2="${y(capital)}" stroke="#f6c76b" stroke-dasharray="5 4"/><polyline points="${rows.map(r=>x(r[0])+','+y(r[2])).join(' ')}" fill="none" stroke="#67e8bf" stroke-width="2.5"/><text x="49" y="198" fill="#9eb6d0" font-size="9">Vốn đầu kỳ</text><text x="345" y="198" text-anchor="end" fill="#9eb6d0" font-size="9">${rows.length-1} phiên giả định</text></svg>`;
+}
+function monteGroupValid(data,group,bots){
+  if(!group||monteGroupKey(group.bots||[])!==monteGroupKey(bots)||group.capital!==DATA.capital_each*bots.length||data.settings?.paths!==10000||data.settings?.horizon!==252)return false;
+  const m=group.metrics,numeric=x=>typeof x==='number'&&Number.isFinite(x),prob=['loss_probability_pct','dd20_probability_pct','dd30_probability_pct','dd_p50_pct','dd_p95_pct'];
+  if(!m||!prob.every(k=>numeric(m[k])&&m[k]>=0&&m[k]<=100)||!['return_p5_pct','return_p50_pct','return_p95_pct','worst5_return_pct'].every(k=>numeric(m[k])))return false;
+  if(m.return_p5_pct>m.return_p50_pct||m.return_p50_pct>m.return_p95_pct||m.dd20_probability_pct<m.dd30_probability_pct)return false;
+  return group.fan?.length===253&&group.fan.every((r,i)=>r.length===4&&r[0]===i&&r.slice(1).every(v=>numeric(v)&&v>=0)&&r[1]<=r[2]&&r[2]<=r[3])&&group.fan[0].slice(1).every(v=>v===group.capital)&&group.histogram?.length===24&&group.histogram.every(b=>numeric(b.low)&&numeric(b.high)&&b.low<=b.high&&Number.isInteger(b.count)&&b.count>=0)&&group.histogram.reduce((n,b)=>n+b.count,0)===10000;
+}
+function monteHistogram(group){
+  const bins=group.histogram,top=Math.max(1,...bins.map(b=>b.count));
+  return `<svg class="race-chart" viewBox="0 0 360 174" role="img" aria-label="Phân phối lãi lỗ cuối kỳ của các kịch bản giả định">${bins.map((b,i)=>`<rect x="${18+i*13.5}" y="${137-b.count/top*118}" width="11" height="${b.count/top*118}" rx="2" fill="${b.high<=0?'#ff8d9e':b.low>=0?'#67e8bf':'#f6c76b'}"><title>${safe(b.low.toFixed(1))}% đến ${safe(b.high.toFixed(1))}%: ${b.count} kịch bản</title></rect>`).join('')}<text x="18" y="158" fill="#9eb6d0" font-size="10">${bins[0].low.toFixed(1)}%</text><text x="345" y="158" text-anchor="end" fill="#9eb6d0" font-size="10">${bins[bins.length-1].high.toFixed(1)}%</text></svg>`;
+}
+function renderMonteCarlo(){
+  if(page!=='monte'||!$('monteContent'))return;
+  const bots=activeKeys(),key=monteScope(),entry=monteIndex?.scopes?.[key],data=monteCache[key];
+  $('monteControls').innerHTML=`<div class="switch">${Object.keys(MODE_LABEL).map(m=>`<button class="${mode===m?'active':''}" onclick="setMode('${m}')">${safe(MODE_LABEL[m])}</button>`).join('')}</div>${studyPicker()}${mode==='backtest'?`<div class="periodbar">${(DATA.backtest_options||[]).map(p=>`<button class="${period===p.key?'selected':''}" onclick="selectPeriod('${p.key}')">${safe(p.label)}</button>`).join('')}</div>`:''}${mixControls()}<label class="note" style="display:grid;gap:7px;margin:12px 0">Hoặc xem một bot<select aria-label="Monte Carlo một bot" onchange="selectMonteBot(this.value)" style="width:100%;min-height:44px;background:#12243c;color:#e9f3ff;border:1px solid #314b67;border-radius:10px;padding:10px"><option value="">Chọn bot…</option>${IDS.filter(k=>supportsMode(k)&&part(k)).map(k=>`<option value="${safe(k)}" ${bots.length===1&&bots[0]===k?'selected':''}>${safe(SHORT[k]||k)}</option>`).join('')}</select></label>`;
+  const scope=`<p class="note">${safe(MODE_LABEL[mode])} · ${safe(studyLabel())}${mode==='backtest'?' · '+safe(DATA.backtest_options?.find(p=>p.key===period)?.label||period):''}</p>`;
+  const state=message=>{$('monteContent').innerHTML=`<div class="card">${scope}<p class="note" style="margin-top:12px">${message}</p><button class="chip" style="margin-top:12px" onclick="loadMonteCarlo(true)">Kiểm tra cập nhật</button></div>`;};
+  if(!bots.length){state('Chưa bật bot nào. Chọn nhóm bot để xem.');return;}
+  if(!monteCurrent(entry,data)){
+    state(monteError?safe(monteError):monteLoading?'Đang tải kết quả mô phỏng từ cloud…':'Đang kiểm tra kết quả đúng nhóm và đúng phiên dữ liệu…');
+    if(!monteLoading&&Date.now()-monteCheckedAt>60000||(!monteLoading&&monteChecked!==key))loadMonteCarlo();
+    else if(!monteLoading&&!monteError&&monteChecked===key)state('Chờ kết quả Monte Carlo cập nhật theo đúng sổ hiện tại; không dùng số liệu cũ hoặc của sổ khác.');
+    return;
+  }
+  const source=`${scope}<p class="note" style="margin-top:8px">NAV gốc: ${safe(raceShortDate(data.dates.start))} – ${safe(raceShortDate(data.dates.end))} · ${data.dates.sessions} phiên đã lưu · ${bots.length} bot đang chọn.</p>`;
+  if(data.status==='insufficient_history'){
+    $('monteContent').innerHTML=`<div class="card">${source}<h2 style="font-size:19px;margin:15px 0 9px">Chưa đủ lịch sử</h2><p class="note">Có ${data.dates.sessions}/${data.settings.min_sessions} phiên cần thiết. Chưa tạo xác suất hay đường kịch bản từ mẫu ngắn.${mode==='backtest'?' Có thể chọn Toàn kỳ hoặc 2 năm để xem mẫu dài hơn.':''}</p></div>`;return;
+  }
+  const group=data.groups?.[monteGroupKey(bots)];
+  if(!group){$('monteContent').innerHTML=`<div class="card">${source}<h2 style="font-size:18px;margin:15px 0 9px">Nhóm này chưa có mô phỏng cloud</h2><p class="note">Bản hiện tại tính sẵn từng bot, Mix 2–6 best và Bật tất cả. Chọn một cấu hình đó để xem; lựa chọn thủ công hiện tại vẫn được giữ nguyên.</p></div>`;return;}
+  if(!monteGroupValid(data,group,bots)){state('Kết quả nhóm chưa đủ kiểm chứng; không hiển thị xác suất thay thế.');return;}
+  const m=group.metrics,number=v=>Number(v).toLocaleString('vi-VN',{maximumFractionDigits:2})+'%',cells=[['Kịch bản kết thúc lỗ',m.loss_probability_pct],['Drawdown p95',m.dd_p95_pct],['Chạm drawdown 20%',m.dd20_probability_pct],['Chạm drawdown 30%',m.dd30_probability_pct],['Lãi/lỗ trung vị',m.return_p50_pct],['TB 5% kịch bản thấp nhất',m.worst5_return_pct]];
+  const idle=bots.filter(b=>!data.trades[b]);
+  $('monteContent').innerHTML=`<div class="card">${source}<div class="row" style="margin-top:12px;flex-wrap:wrap"><strong>${data.settings.paths.toLocaleString('vi-VN')} kịch bản · ${data.settings.horizon} phiên</strong><span class="pill">Giả định</span></div><p class="note" style="margin-top:8px">Vốn đầu kỳ ${money(group.capital)}. Giữ cố định nhóm ${bots.map(b=>safe(SHORT[b]||b)).join(', ')} trong mọi kịch bản.</p><div class="plot-wrap">${monteFan(group)}</div><p class="note" style="margin-top:8px">Vùng mờ: p5–p95; đường xanh: trung vị; nét vàng: vốn đầu kỳ. Đây không phải mức sàn/trần được bảo đảm.</p><div class="metric-grid">${cells.map(([label,value])=>`<div class="metric"><div class="label">${label}</div><div class="value">${number(value)}</div></div>`).join('')}</div></div><div class="card"><h2 style="font-size:18px;margin:0">Phân phối lãi/lỗ cuối kỳ</h2>${monteHistogram(group)}<p class="note">Đỏ: khoảng dưới 0 · xanh: khoảng từ 0 trở lên · vàng: khoảng chứa cả lãi/lỗ. Tỷ lệ chỉ mô tả mẫu NAV và giả định lấy mẫu này, không phải xác suất tương lai đã được bảo đảm.</p></div><details class="card"><summary style="font-weight:800">Phương pháp & độ nhạy</summary><p class="note" style="margin-top:12px">Lấy mẫu có hoàn lại từng khối 10 phiên liên tiếp, cùng khối ngày cho mọi bot. Mỗi tài khoản có vốn riêng; không tự tái cân bằng Mix mỗi ngày. Đã tính chi phí trong NAV, không cộng phí lần hai. Không tạo nến hay lệnh mới.</p>${Object.entries(group.sensitivity).map(([block,v])=>`<p class="note" style="margin-top:9px">Khối ${block} phiên · kết thúc lỗ ${number(v.loss_probability_pct)} · drawdown p95 ${number(v.dd_p95_pct)} · lãi/lỗ trung vị ${number(v.return_p50_pct)}</p>`).join('')}<p class="note" style="margin-top:12px">Nhóm Best được chọn theo kết quả quá khứ, có sai lệch chọn người thắng; mô phỏng này chưa thay cho kiểm tra ngoài mẫu. Không mô phỏng được đầy đủ khủng hoảng chưa từng có trong mẫu, khớp lệnh, lô cổ phiếu và T+ trên một thị trường mới.${idle.length?' Bot chưa có lượt mua/bán trong mẫu: '+idle.map(b=>safe(SHORT[b]||b)).join(', ')+'. Không giao dịch trong mẫu không chứng minh chiến thuật không có rủi ro.':''}</p><p class="note" style="margin-top:9px">Hạt giống: ${data.settings.seed} · ${safe(data.revision)} · dấu nguồn ${safe(data.source_sha256.slice(0,12))}.</p></details>`;
+}
 let mixChartData={points:[],capital:0};
 function mixHistory(){
   const history=raceHistory(),capital=n(DATA.capital_each)*activeKeys().length;
@@ -908,7 +980,7 @@ function render(){
   if(mixChoice?.kind==='best')selectBestBots(mixChoice.count);
   $('positionLimitRows').innerHTML=Object.entries(BOT_POSITION_LIMITS).map(([k,limit])=>`<tr><th scope="row" style="text-align:left;padding:8px;font-weight:500;border-bottom:1px solid #233c51">${safe(SHORT[k]||k)}</th><td style="text-align:right;padding:8px;border-bottom:1px solid #233c51">${limit}</td></tr>`).join('');
   $('stockShortcuts').innerHTML=(DATA.stock_symbols||Object.keys(DATA.stocks||{})).map(symbol=>`<button class="chip" onclick="openStock('${symbol}')">📈 ${symbol}</button>`).join('')||'<span class="note">Giá cổ phiếu sẽ xuất hiện sau khi kết nối dữ liệu.</span>';
-  renderHome();renderBots();renderTrades();renderSectors();renderRace();$('warnings').innerHTML=(DATA.warnings||[]).slice(0,6).map(x=>`<p style="margin:9px 0">• ${safe(x)}</p>`).join('')}
+  renderHome();renderBots();renderTrades();renderSectors();renderRace();renderMonteCarlo();$('warnings').innerHTML=(DATA.warnings||[]).slice(0,6).map(x=>`<p style="margin:9px 0">• ${safe(x)}</p>`).join('')}
 
 function liveFormat(ts){
   if(!ts)return 'Chưa có';
@@ -1021,12 +1093,12 @@ async function boot(){
   applyReplayData();loadBotSelection();
   const requested=new URLSearchParams(location.search).get('mode');
   if(MODE_ID[requested])setMode(requested);else if(requested==='minute')setMode('hybrid');
-  setInterval(async()=>{try{await loadReplayData();}catch(_){}if(!isPaper()||page==='bots'||page==='sectors'){try{await refreshBacktests();}catch(_){}}render();},60000);
+  setInterval(async()=>{try{await loadReplayData();}catch(_){}if(!isPaper()||page==='bots'||page==='sectors'||page==='monte'){try{await refreshBacktests();}catch(_){}}render();},60000);
   render();
   const requestedBot=new URLSearchParams(location.search).get('bot');
   if(requestedBot&&IDS.includes(requestedBot))selectProfile(requestedBot);
   const initialPage=new URLSearchParams(location.search).get('page');
-  if(['home','bots','trades','learn','sectors'].includes(initialPage))setPage(initialPage);
+  if(['home','bots','trades','learn','sectors','monte'].includes(initialPage))setPage(initialPage);
   initializeLive();
 }
 boot();

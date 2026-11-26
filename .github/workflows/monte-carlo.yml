@@ -1,0 +1,55 @@
+name: Verify and publish Monte Carlo NAV scenarios
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['monte_carlo.py', 'monte_carlo_sources.py', 'run_monte_carlo.py', '.github/workflows/monte-carlo.yml']
+permissions:
+  actions: read
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: trader-arena-monte-carlo
+  cancel-in-progress: false
+jobs:
+  simulate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements.txt
+      - name: Verify NAV reconciliation and joint scenario math
+        run: python -m pytest tests/test_monte_carlo.py tests/test_monte_carlo_ui.py -q
+      - name: Generate hypothetical scenarios from verified full NAV only
+        run: python -u run_monte_carlo.py
+      - name: Persist analysis without changing trading books
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add state/monte_carlo site/monte-carlo
+          if ! git diff --cached --quiet; then
+            git commit -m 'Refresh verified NAV scenario summaries [skip ci]'
+            git fetch origin main
+            git rebase --autostash origin/main
+            git push origin HEAD:main
+          fi
+      - uses: actions/configure-pages@v5
+      - uses: ./.github/actions/deploy-site
+        id: deploy
+        with:
+          artifact_name: github-pages-monte-carlo

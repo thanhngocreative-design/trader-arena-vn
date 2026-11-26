@@ -67,3 +67,8 @@ jobs:
         id: deploy
         with:
           artifact_name: github-pages-backtest
+
+  monte-carlo:
+    name: Update hypothetical NAV scenarios after verified Backtests
+    needs: extend
+    uses: ./.github/workflows/monte-carlo.yml

@@ -6,6 +6,7 @@ on:
     paths:
       - .github/actions/deploy-site/**
       - site/index.html
+      - site/monte-carlo/**
       - site/dashboard.json
       - site/research-146.json
       - site/live-config.json
